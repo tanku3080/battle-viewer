@@ -87,14 +87,24 @@ export const BattlePlayer: React.FC<Props> = ({
 
   // 背景画像キャッシュ
   useEffect(() => {
+    let isMounted = true;
+
     if (!battle.map.image) {
-      setBgImage(null);
+      setTimeout(() => {
+        if (isMounted) setBgImage(null);
+      }, 0);
       return;
     }
 
     const img = new Image();
     img.src = battle.map.image;
-    img.onload = () => setBgImage(img);
+    img.onload = () => {
+      if (isMounted) setBgImage(img);
+    };
+
+    return () => {
+      isMounted = false;
+    };
   }, [battle.map.image]);
 
   // ユニット画像キャッシュ
