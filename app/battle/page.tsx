@@ -1,4 +1,3 @@
-// app/battle/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -19,10 +18,12 @@ export default function BattlePage() {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const [viewMode, setViewMode] = useState<"map" | "camera">("map");
+  const [showGrid, setShowGrid] = useState(false);
 
   const lastFrameTimeRef = useRef<number | null>(null);
   const rafIdRef = useRef<number | null>(null);
 
+  // JSON読み込み
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -42,6 +43,8 @@ export default function BattlePage() {
 
     const max = times.length ? Math.max(...times) : 0;
     setMaxTime(max);
+    setCurrentTime(0);
+    setIsPlaying(false);
   };
 
   // === 再生ループ ===
@@ -82,7 +85,7 @@ export default function BattlePage() {
 
   return (
     <main className="min-h-screen bg-[#050816] text-gray-200 p-6 flex flex-col gap-4">
-      {/* ヘッダーダイアログ */}
+      {/* ヘッダー */}
       <section className="rounded-xl p-4 bg-[#111827] flex flex-col gap-3">
         <div className="flex gap-4 items-center">
           <button
@@ -132,14 +135,9 @@ export default function BattlePage() {
             if (!battle) return;
 
             if (isPlaying || currentTime >= maxTime) {
-              // 再生中 OR 再生が終わっている場合 → 最初から再生
               setCurrentTime(0);
-
-              requestAnimationFrame(() => {
-                setIsPlaying(true);
-              });
+              requestAnimationFrame(() => setIsPlaying(true));
             } else {
-              // 停止中で、まだ最後まで到達していない → 普通に再生
               setIsPlaying(true);
             }
           }}
@@ -161,7 +159,7 @@ export default function BattlePage() {
           現在：{currentTime.toFixed(1)} s
         </span>
 
-        {/* モード切り替え */}
+        {/* モード切り替え + グリッド */}
         {battle && (
           <>
             <button
@@ -181,17 +179,27 @@ export default function BattlePage() {
             >
               カメラ
             </button>
+
+            <label className="flex items-center gap-2 ml-4">
+              <input
+                type="checkbox"
+                checked={showGrid}
+                onChange={(e) => setShowGrid(e.target.checked)}
+              />
+              <span>グリッド表示</span>
+            </label>
           </>
         )}
       </section>
 
       {/* キャンバス */}
-      <section className="flex-1 rounded-xl border border-gray-700 bg-[#020617] p-2 flex items-center justify-center">
+      <section className="flex-1 min-h-[500px] rounded-xl border border-gray-700 bg-[#020617] p-2">
         {battle ? (
           <BattlePlayer
             battle={battle}
             currentTime={currentTime}
             viewMode={viewMode}
+            showGrid={showGrid}
           />
         ) : (
           <div className="opacity-60 text-sm">まず JSON を読み込め。</div>
