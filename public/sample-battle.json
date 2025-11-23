@@ -1,0 +1,51 @@
+{
+  "title": "Sample Battle",
+  "map": {
+    "image": "",
+    "width": 800,
+    "height": 450
+  },
+  "camera": [
+    { "t": 0,   "x": 400, "y": 225, "zoom": 1.0 },
+    { "t": 3,   "x": 100, "y": 350, "zoom": 3.0 },
+    { "t": 6,   "x": 700, "y": 100, "zoom": 6.0 },
+    { "t": 10,  "x": 250, "y": 200, "zoom": 2.0 }
+  ],
+  "units": [
+    {
+      "id": "red1",
+      "force": "red",
+      "name": "赤軍1",
+      "color": "#f87171",
+      "icon": null,
+      "timeline": [
+        { "t": 0, "x": 100, "y": 350 },
+        { "t": 10, "x": 200, "y": 300 },
+        { "t": 20, "x": 300, "y": 260 }
+      ]
+    },
+    {
+      "id": "blue1",
+      "force": "blue",
+      "name": "青軍1",
+      "color": "#60a5fa",
+      "icon": null,
+      "timeline": [
+        { "t": 0, "x": 700, "y": 100 },
+        { "t": 10, "x": 600, "y": 150 },
+        { "t": 20, "x": 500, "y": 200 }
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "commander",
+      "name": "指揮官",
+      "icon": "/charas/templatebattle/commander.png",
+      "timeline": [
+        { "t": 5, "x": 400, "y": 220 },
+        { "t": 15, "x": 420, "y": 240 }
+      ]
+    }
+  ]
+}
