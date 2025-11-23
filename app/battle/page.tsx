@@ -20,8 +20,31 @@ export default function BattlePage() {
   const [viewMode, setViewMode] = useState<"map" | "camera">("map");
   const [showGrid, setShowGrid] = useState(false);
 
+  // 本番表示モード用
+  const [isProductionOpen, setIsProductionOpen] = useState(false);
+  const [productionTime, setProductionTime] = useState(0);
+  const [isProductionPlaying, setIsProductionPlaying] = useState(false);
+
   const lastFrameTimeRef = useRef<number | null>(null);
   const rafIdRef = useRef<number | null>(null);
+
+  const prodLastFrameTimeRef = useRef<number | null>(null);
+  const prodRafIdRef = useRef<number | null>(null);
+
+  // === 本番モード中、スペースキーで閉じる ===
+  useEffect(() => {
+    if (!isProductionOpen) return;
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        setIsProductionPlaying(false);
+        setIsProductionOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isProductionOpen]);
 
   // JSON読み込み
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -45,9 +68,14 @@ export default function BattlePage() {
     setMaxTime(max);
     setCurrentTime(0);
     setIsPlaying(false);
+
+    // 本番用タイムもリセット
+    setProductionTime(0);
+    setIsProductionPlaying(false);
+    setIsProductionOpen(false);
   };
 
-  // === 再生ループ ===
+  // === 開発ビュー用 再生ループ ===
   useEffect(() => {
     if (!isPlaying) {
       if (rafIdRef.current !== null) {
@@ -82,6 +110,46 @@ export default function BattlePage() {
       if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
     };
   }, [isPlaying, maxTime]);
+
+  // === 本番表示モーダル用 再生ループ ===
+  useEffect(() => {
+    // モーダル閉じてる or 再生してないならループ停止
+    if (!isProductionPlaying || !isProductionOpen) {
+      if (prodRafIdRef.current !== null) {
+        cancelAnimationFrame(prodRafIdRef.current);
+      }
+      prodLastFrameTimeRef.current = null;
+      return;
+    }
+
+    const loop = (timestamp: number) => {
+      if (!prodLastFrameTimeRef.current) {
+        prodLastFrameTimeRef.current = timestamp;
+      }
+      const delta = timestamp - prodLastFrameTimeRef.current;
+      prodLastFrameTimeRef.current = timestamp;
+
+      setProductionTime((prev) => {
+        const next = prev + delta / 1000;
+        if (next >= maxTime) {
+          // 再生終了 → モーダル自動クローズ
+          setIsProductionPlaying(false);
+          setIsProductionOpen(false);
+          return maxTime;
+        }
+        return next;
+      });
+
+      prodRafIdRef.current = requestAnimationFrame(loop);
+    };
+
+    prodRafIdRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      if (prodRafIdRef.current !== null)
+        cancelAnimationFrame(prodRafIdRef.current);
+    };
+  }, [isProductionPlaying, isProductionOpen, maxTime]);
 
   return (
     <main className="min-h-screen bg-[#050816] text-gray-200 p-6 flex flex-col gap-4">
@@ -130,6 +198,7 @@ export default function BattlePage() {
 
       {/* 再生＆モード切替 */}
       <section className="flex gap-4 items-center">
+        {/* 開発ビュー START */}
         <button
           onClick={() => {
             if (!battle) return;
@@ -159,7 +228,7 @@ export default function BattlePage() {
           現在：{currentTime.toFixed(1)} s
         </span>
 
-        {/* モード切り替え + グリッド */}
+        {/* モード切り替え ＋ グリッド ＋ 本番開始 */}
         {battle && (
           <>
             <button
@@ -188,11 +257,26 @@ export default function BattlePage() {
               />
               <span>グリッド表示</span>
             </label>
+
+            {/* 本番開始ボタン */}
+            <button
+              className="ml-4 px-4 py-2 rounded-md bg-purple-600 text-white disabled:bg-purple-900"
+              disabled={!battle || maxTime <= 0}
+              onClick={() => {
+                if (!battle) return;
+                // 本番モーダル用に0秒から再生開始
+                setProductionTime(0);
+                setIsProductionOpen(true);
+                setIsProductionPlaying(true);
+              }}
+            >
+              本番開始
+            </button>
           </>
         )}
       </section>
 
-      {/* キャンバス */}
+      {/* 開発ビュー用 キャンバス */}
       <section className="flex-1 min-h-[500px] rounded-xl border border-gray-700 bg-[#020617] p-2">
         {battle ? (
           <BattlePlayer
@@ -206,7 +290,7 @@ export default function BattlePage() {
         )}
       </section>
 
-      {/* タイムライン */}
+      {/* タイムライン（開発ビュー用） */}
       <section className="rounded-xl bg-[#111827] p-4">
         <TimelineBar
           currentTime={currentTime}
@@ -217,6 +301,20 @@ export default function BattlePage() {
           }}
         />
       </section>
+
+      {/* 本番表示モーダル */}
+      {battle && isProductionOpen && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
+          <div className="w-full h-full max-w-[100vw] max-h-[100vh]">
+            <BattlePlayer
+              battle={battle}
+              currentTime={productionTime}
+              viewMode="camera" // 本番はカメラビュー固定
+              showGrid={false} // 本番はグリッド無し
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }
