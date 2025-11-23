@@ -3,7 +3,12 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect, ChangeEvent } from "react";
-import type { BattleData, Unit, Character, TimelinePoint } from "../../types/battle";
+import type {
+  BattleData,
+  Unit,
+  Character,
+  TimelinePoint,
+} from "../../types/battle";
 import { TimelineBar } from "@/components/TimelineBar";
 import { BattlePlayer } from "@/components/BattlePlayer";
 
@@ -77,7 +82,6 @@ export default function BattlePage() {
 
   return (
     <main className="min-h-screen bg-[#050816] text-gray-200 p-6 flex flex-col gap-4">
-
       {/* ヘッダーダイアログ */}
       <section className="rounded-xl p-4 bg-[#111827] flex flex-col gap-3">
         <div className="flex gap-4 items-center">
@@ -96,7 +100,10 @@ export default function BattlePage() {
             onChange={handleFileChange}
           />
 
-          <Link href="/" className="px-4 py-2 border border-gray-600 rounded-md text-gray-200">
+          <Link
+            href="/"
+            className="px-4 py-2 border border-gray-600 rounded-md text-gray-200"
+          >
             タイトルに戻る
           </Link>
         </div>
@@ -107,8 +114,8 @@ export default function BattlePage() {
             <>
               <div>タイトル：{battle.title}</div>
               <div>
-                部隊数：{battle.units.length}　
-                キャラクター：{battle.characters ? battle.characters.length : 0}
+                部隊数：{battle.units.length}　 キャラクター：
+                {battle.characters ? battle.characters.length : 0}
               </div>
               <div>タイムライン：0〜{maxTime.toFixed(1)} 秒</div>
             </>
@@ -121,8 +128,22 @@ export default function BattlePage() {
       {/* 再生＆モード切替 */}
       <section className="flex gap-4 items-center">
         <button
-          onClick={() => setIsPlaying(true)}
-          disabled={!battle || isPlaying}
+          onClick={() => {
+            if (!battle) return;
+
+            if (isPlaying || currentTime >= maxTime) {
+              // 再生中 OR 再生が終わっている場合 → 最初から再生
+              setCurrentTime(0);
+
+              requestAnimationFrame(() => {
+                setIsPlaying(true);
+              });
+            } else {
+              // 停止中で、まだ最後まで到達していない → 普通に再生
+              setIsPlaying(true);
+            }
+          }}
+          disabled={!battle}
           className="px-4 py-2 rounded-md bg-green-600 disabled:bg-green-900 text-white"
         >
           START
