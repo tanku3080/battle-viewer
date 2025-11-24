@@ -12,12 +12,16 @@ type Props = {
   currentTime: number;
   viewMode: "map" | "camera";
   showGrid: boolean;
+  // 開発ビュー用：ユニット選択
+  selectedUnitId?: string | null;
+  onSelectUnit?: (id: string | null) => void;
+  enableSelection?: boolean;
 };
 
 // 線形補間
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-// なめらか位置補間
+// 位置補間
 function getSmoothPosition(timeline: TimelinePoint[], t: number) {
   if (timeline.length === 0) return null;
 
@@ -37,11 +41,10 @@ function getSmoothPosition(timeline: TimelinePoint[], t: number) {
       };
     }
   }
-
   return null;
 }
 
-// カメラ補間（マップ座標系）
+// カメラ補間（マップ座標）
 function getCameraAtTime(
   timeline: CameraKeyframe[] | undefined,
   t: number,
@@ -72,11 +75,54 @@ function getCameraAtTime(
   return { x: mapWidth / 2, y: mapHeight / 2, zoom: 1 };
 }
 
+// 出現/消滅アニメーション状態
+function getSpawnState(
+  t: number,
+  spawnTime: number,
+  despawnTime: number,
+  fadeDuration: number
+) {
+  // まだ出現前
+  if (t < spawnTime) {
+    return { visible: false, alpha: 0, scale: 0 };
+  }
+
+  // 出現フェードイン
+  if (t >= spawnTime && t < spawnTime + fadeDuration) {
+    const ratio = (t - spawnTime) / fadeDuration; // 0→1
+    const alpha = ratio;
+    const scale = 0.2 + 0.8 * ratio;
+    return { visible: true, alpha, scale };
+  }
+
+  // 通常表示
+  if (t >= spawnTime + fadeDuration && t <= despawnTime) {
+    return { visible: true, alpha: 1, scale: 1 };
+  }
+
+  // 消滅フェードアウト
+  if (t > despawnTime && t <= despawnTime + fadeDuration) {
+    const ratio = 1 - (t - despawnTime) / fadeDuration; // 1→0
+    if (ratio <= 0) {
+      return { visible: false, alpha: 0, scale: 0 };
+    }
+    const alpha = ratio;
+    const scale = 0.2 + 0.8 * ratio;
+    return { visible: true, alpha, scale };
+  }
+
+  // 完全消滅
+  return { visible: false, alpha: 0, scale: 0 };
+}
+
 export const BattlePlayer: React.FC<Props> = ({
   battle,
   currentTime,
   viewMode,
   showGrid,
+  selectedUnitId,
+  onSelectUnit,
+  enableSelection,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -116,7 +162,11 @@ export const BattlePlayer: React.FC<Props> = ({
       if (!u.icon) return;
       const img = new Image();
       img.src = u.icon;
-      img.onload = () => setUnitImages((prev) => ({ ...prev, [u.id]: img }));
+      img.onload = () =>
+        setUnitImages((prev) => ({
+          ...prev,
+          [u.id]: img,
+        }));
     });
   }, [battle.units]);
 
@@ -125,7 +175,11 @@ export const BattlePlayer: React.FC<Props> = ({
     battle.characters?.forEach((c) => {
       const img = new Image();
       img.src = c.icon;
-      img.onload = () => setCharImages((prev) => ({ ...prev, [c.id]: img }));
+      img.onload = () =>
+        setCharImages((prev) => ({
+          ...prev,
+          [c.id]: img,
+        }));
     });
   }, [battle.characters]);
 
@@ -151,96 +205,147 @@ export const BattlePlayer: React.FC<Props> = ({
     const mapWidth = map.width;
     const mapHeight = map.height;
 
-    // マップ座標→画面座標スケール
+    // アスペクト比維持でフィット
     const scaleX = canvasWidth / mapWidth;
     const scaleY = canvasHeight / mapHeight;
+    const baseScale = Math.min(scaleX, scaleY);
 
-    const drawGrid = () => {
-      if (!showGrid) return;
+    // 全体表示時のオフセット（センタリング）
+    const offsetX = (canvasWidth - mapWidth * baseScale) / 2;
+    const offsetY = (canvasHeight - mapHeight * baseScale) / 2;
 
-      ctx.save();
-      ctx.strokeStyle = "rgba(255,255,255,0.12)";
-      ctx.lineWidth = 1;
-
-      const gridSize = 50; // マップ座標で50ごと
-
-      // 縦線（x）
-      for (let x = 0; x <= mapWidth; x += gridSize) {
-        const sx = x * scaleX;
-        ctx.beginPath();
-        ctx.moveTo(sx, 0);
-        ctx.lineTo(sx, canvasHeight);
-        ctx.stroke();
-      }
-
-      // 横線（y）
-      for (let y = 0; y <= mapHeight; y += gridSize) {
-        const sy = y * scaleY;
-        ctx.beginPath();
-        ctx.moveTo(0, sy);
-        ctx.lineTo(canvasWidth, sy);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    };
-
-    const drawScene = () => {
-      // クリア
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-      // 背景
+    // ワールド（マップ座標）を描画する関数
+    const drawWorld = () => {
+      // マップ背景（ワールド座標系）
       if (bgImage) {
-        ctx.drawImage(bgImage, 0, 0, canvasWidth, canvasHeight);
+        ctx.drawImage(bgImage, 0, 0, mapWidth, mapHeight);
       } else {
         ctx.fillStyle = "#020617";
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillRect(0, 0, mapWidth, mapHeight);
       }
 
       // グリッド
-      drawGrid();
+      if (showGrid) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.lineWidth = 1;
+        const gridSize = 50;
+
+        for (let x = 0; x <= mapWidth; x += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, mapHeight);
+          ctx.stroke();
+        }
+
+        for (let y = 0; y <= mapHeight; y += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(mapWidth, y);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      const fadeDuration = 0.5;
 
       // --- ユニット ---
       for (const unit of units) {
+        if (unit.timeline.length === 0) continue;
+
         const pos = getSmoothPosition(unit.timeline, currentTime);
         if (!pos) continue;
 
-        const x = pos.x * scaleX;
-        const y = pos.y * scaleY;
+        const spawnTime = unit.timeline[0].t;
+        const despawnTime = unit.timeline[unit.timeline.length - 1].t;
+
+        const { visible, alpha, scale } = getSpawnState(
+          currentTime,
+          spawnTime,
+          despawnTime,
+          fadeDuration
+        );
+        if (!visible) continue;
+
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.globalAlpha = alpha;
+        ctx.scale(scale, scale);
 
         const cached = unitImages[unit.id];
         if (cached) {
-          ctx.drawImage(cached, x - 16, y - 16, 32, 32);
+          ctx.drawImage(cached, -16, -16, 32, 32);
         } else {
           ctx.beginPath();
-          ctx.arc(x, y, 10, 0, Math.PI * 2);
+          ctx.arc(0, 0, 10, 0, Math.PI * 2);
           ctx.fillStyle = unit.color;
           ctx.fill();
         }
 
+        // 選択ハイライト（開発ビューのみ）
+        if (enableSelection && selectedUnitId && selectedUnitId === unit.id) {
+          ctx.save();
+          ctx.globalAlpha = 1;
+          ctx.beginPath();
+          ctx.arc(0, 0, 14, 0, Math.PI * 2);
+          ctx.strokeStyle = "#facc15"; // yellow
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 名前表示（上に固定）
         ctx.fillStyle = "#fff";
         ctx.font = "12px sans-serif";
-        ctx.fillText(unit.name, x + 12, y - 12);
+        ctx.fillText(unit.name, 12, -14);
+
+        ctx.restore();
       }
 
       // --- キャラ ---
       characters?.forEach((ch) => {
+        if (ch.timeline.length === 0) return;
+
         const pos = getSmoothPosition(ch.timeline, currentTime);
         if (!pos) return;
 
-        const x = pos.x * scaleX;
-        const y = pos.y * scaleY;
+        const spawnTime = ch.timeline[0].t;
+        const despawnTime = ch.timeline[ch.timeline.length - 1].t;
+
+        const { visible, alpha, scale } = getSpawnState(
+          currentTime,
+          spawnTime,
+          despawnTime,
+          fadeDuration
+        );
+        if (!visible) return;
+
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.globalAlpha = alpha;
+        ctx.scale(scale, scale);
 
         const cached = charImages[ch.id];
         if (cached) {
-          ctx.drawImage(cached, x - 24, y - 24, 48, 48);
+          ctx.drawImage(cached, -24, -24, 48, 48);
+        } else {
+          ctx.fillStyle = "#f97316";
+          ctx.fillRect(-12, -12, 24, 24);
         }
 
         ctx.fillStyle = "#fbbf24";
         ctx.font = "13px sans-serif";
-        ctx.fillText(ch.name, x + 22, y - 10);
+        ctx.fillText(ch.name, 12, -10);
+
+        ctx.restore();
       });
     };
+
+    // 画面クリア & 背景
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    ctx.fillStyle = "#020617";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     if (viewMode === "camera") {
       const cam = getCameraAtTime(
@@ -250,23 +355,26 @@ export const BattlePlayer: React.FC<Props> = ({
         mapHeight
       );
 
-      const camX = cam.x * scaleX;
-      const camY = cam.y * scaleY;
-
       ctx.save();
+      // 画面中央を基準に
+      ctx.translate(canvasWidth / 2, canvasHeight / 2);
+      // マップ基準スケール × カメラズーム
+      ctx.scale(baseScale * cam.zoom, baseScale * cam.zoom);
+      // カメラ中心を原点に
+      ctx.translate(-cam.x, -cam.y);
 
-      ctx.scale(cam.zoom, cam.zoom);
-
-      const screenCenterX = canvasWidth / 2 / cam.zoom;
-      const screenCenterY = canvasHeight / 2 / cam.zoom;
-
-      ctx.translate(screenCenterX - camX, screenCenterY - camY);
-
-      drawScene();
+      drawWorld();
 
       ctx.restore();
     } else {
-      drawScene();
+      // 全体表示モード：マップをフィット＆センタリング
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(baseScale, baseScale);
+
+      drawWorld();
+
+      ctx.restore();
     }
   }, [
     battle,
@@ -276,11 +384,76 @@ export const BattlePlayer: React.FC<Props> = ({
     bgImage,
     unitImages,
     charImages,
+    selectedUnitId,
+    enableSelection,
   ]);
+
+  // ユニット選択（開発ビューのみ / mapモードのみ）
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!enableSelection || !onSelectUnit) return;
+    if (viewMode !== "map") return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const { map } = battle;
+    const mapWidth = map.width;
+    const mapHeight = map.height;
+
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+
+    const scaleX = canvasWidth / mapWidth;
+    const scaleY = canvasHeight / mapHeight;
+    const baseScale = Math.min(scaleX, scaleY);
+    const offsetX = (canvasWidth - mapWidth * baseScale) / 2;
+    const offsetY = (canvasHeight - mapHeight * baseScale) / 2;
+
+    // 画面座標 → マップ座標
+    const worldX = (clickX - offsetX) / baseScale;
+    const worldY = (clickY - offsetY) / baseScale;
+
+    let nearestId: string | null = null;
+    let nearestDistSq = Infinity;
+
+    const fadeDuration = 0.5;
+
+    for (const unit of battle.units) {
+      if (unit.timeline.length === 0) continue;
+      const pos = getSmoothPosition(unit.timeline, currentTime);
+      if (!pos) continue;
+
+      const spawnTime = unit.timeline[0].t;
+      const despawnTime = unit.timeline[unit.timeline.length - 1].t;
+      const { visible } = getSpawnState(
+        currentTime,
+        spawnTime,
+        despawnTime,
+        fadeDuration
+      );
+      if (!visible) continue;
+
+      const dx = worldX - pos.x;
+      const dy = worldY - pos.y;
+      const distSq = dx * dx + dy * dy;
+
+      const hitRadius = 20; // マップ座標系でのざっくり当たり判定
+      if (distSq <= hitRadius * hitRadius && distSq < nearestDistSq) {
+        nearestDistSq = distSq;
+        nearestId = unit.id;
+      }
+    }
+
+    onSelectUnit(nearestId);
+  };
 
   return (
     <div className="w-full h-full">
-      <canvas ref={canvasRef} className="w-full h-full" />
+      <canvas ref={canvasRef} className="w-full h-full" onClick={handleClick} />
     </div>
   );
 };
