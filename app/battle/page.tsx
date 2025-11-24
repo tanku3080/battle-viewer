@@ -305,7 +305,7 @@ export default function BattlePage() {
       {/* 本番表示モーダル */}
       {battle && isProductionOpen && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
-          <div className="w-full h-full max-w-[100vw] max-h-[100vh]">
+          <div className="w-full h-full max-w-[100vw] max-h-screen">
             <BattlePlayer
               battle={battle}
               currentTime={productionTime}
