@@ -20,6 +20,9 @@ export default function BattlePage() {
   const [viewMode, setViewMode] = useState<"map" | "camera">("map");
   const [showGrid, setShowGrid] = useState(false);
 
+  // 開発ビュー用ユニット選択
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+
   // 本番表示モード用
   const [isProductionOpen, setIsProductionOpen] = useState(false);
   const [productionTime, setProductionTime] = useState(0);
@@ -30,21 +33,6 @@ export default function BattlePage() {
 
   const prodLastFrameTimeRef = useRef<number | null>(null);
   const prodRafIdRef = useRef<number | null>(null);
-
-  // === 本番モード中、スペースキーで閉じる ===
-  useEffect(() => {
-    if (!isProductionOpen) return;
-
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        setIsProductionPlaying(false);
-        setIsProductionOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [isProductionOpen]);
 
   // JSON読み込み
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -73,6 +61,9 @@ export default function BattlePage() {
     setProductionTime(0);
     setIsProductionPlaying(false);
     setIsProductionOpen(false);
+
+    // 選択もクリア
+    setSelectedUnitId(null);
   };
 
   // === 開発ビュー用 再生ループ ===
@@ -113,7 +104,6 @@ export default function BattlePage() {
 
   // === 本番表示モーダル用 再生ループ ===
   useEffect(() => {
-    // モーダル閉じてる or 再生してないならループ停止
     if (!isProductionPlaying || !isProductionOpen) {
       if (prodRafIdRef.current !== null) {
         cancelAnimationFrame(prodRafIdRef.current);
@@ -150,6 +140,21 @@ export default function BattlePage() {
         cancelAnimationFrame(prodRafIdRef.current);
     };
   }, [isProductionPlaying, isProductionOpen, maxTime]);
+
+  // 本番モーダル表示中：スペースキーで閉じる
+  useEffect(() => {
+    if (!isProductionOpen) return;
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        setIsProductionPlaying(false);
+        setIsProductionOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isProductionOpen]);
 
   return (
     <main className="min-h-screen bg-[#050816] text-gray-200 p-6 flex flex-col gap-4">
@@ -196,7 +201,7 @@ export default function BattlePage() {
         </div>
       </section>
 
-      {/* 再生＆モード切替 */}
+      {/* 再生＆モード切り替え */}
       <section className="flex gap-4 items-center">
         {/* 開発ビュー START */}
         <button
@@ -264,7 +269,6 @@ export default function BattlePage() {
               disabled={!battle || maxTime <= 0}
               onClick={() => {
                 if (!battle) return;
-                // 本番モーダル用に0秒から再生開始
                 setProductionTime(0);
                 setIsProductionOpen(true);
                 setIsProductionPlaying(true);
@@ -284,6 +288,9 @@ export default function BattlePage() {
             currentTime={currentTime}
             viewMode={viewMode}
             showGrid={showGrid}
+            selectedUnitId={selectedUnitId}
+            onSelectUnit={setSelectedUnitId}
+            enableSelection={true}
           />
         ) : (
           <div className="opacity-60 text-sm">まず JSON を読み込め。</div>
@@ -302,7 +309,7 @@ export default function BattlePage() {
         />
       </section>
 
-      {/* 本番表示モーダル */}
+      {/* 本番表示モーダル（カメラビュー全画面・ハイライトなし） */}
       {battle && isProductionOpen && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
           <div className="w-full h-full max-w-[100vw] max-h-[100vh]">
@@ -311,6 +318,7 @@ export default function BattlePage() {
               currentTime={productionTime}
               viewMode="camera" // 本番はカメラビュー固定
               showGrid={false} // 本番はグリッド無し
+              // 選択関連は渡さない → 本番はハイライトなし
             />
           </div>
         </div>
