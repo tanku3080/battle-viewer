@@ -11,6 +11,7 @@ type Props = {
   battle: BattleData;
   currentTime: number;
   viewMode: "map" | "camera";
+  showGrid: boolean;
 };
 
 // 線形補間
@@ -21,7 +22,8 @@ function getSmoothPosition(timeline: TimelinePoint[], t: number) {
   if (timeline.length === 0) return null;
 
   if (t <= timeline[0].t) return timeline[0];
-  if (t >= timeline[timeline.length - 1].t) return timeline[timeline.length - 1];
+  if (t >= timeline[timeline.length - 1].t)
+    return timeline[timeline.length - 1];
 
   for (let i = 0; i < timeline.length - 1; i++) {
     const p1 = timeline[i];
@@ -39,7 +41,7 @@ function getSmoothPosition(timeline: TimelinePoint[], t: number) {
   return null;
 }
 
-// カメラ補間
+// カメラ補間（マップ座標系）
 function getCameraAtTime(
   timeline: CameraKeyframe[] | undefined,
   t: number,
@@ -74,54 +76,56 @@ export const BattlePlayer: React.FC<Props> = ({
   battle,
   currentTime,
   viewMode,
+  showGrid,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
-  const [unitImages, setUnitImages] = useState<Record<string, HTMLImageElement>>(
-    {}
-  );
-  const [charImages, setCharImages] = useState<Record<string, HTMLImageElement>>(
-    {}
-  );
+  const [unitImages, setUnitImages] = useState<
+    Record<string, HTMLImageElement>
+  >({});
+  const [charImages, setCharImages] = useState<
+    Record<string, HTMLImageElement>
+  >({});
 
   // 背景画像キャッシュ
   useEffect(() => {
+    let isMounted = true;
+
     if (!battle.map.image) {
-      setBgImage(null);
+      setTimeout(() => {
+        if (isMounted) setBgImage(null);
+      }, 0);
       return;
     }
 
     const img = new Image();
     img.src = battle.map.image;
-    img.onload = () => setBgImage(img);
+    img.onload = () => {
+      if (isMounted) setBgImage(img);
+    };
+
+    return () => {
+      isMounted = false;
+    };
   }, [battle.map.image]);
 
   // ユニット画像キャッシュ
   useEffect(() => {
-    const cache: Record<string, HTMLImageElement> = {};
-
     battle.units.forEach((u) => {
       if (!u.icon) return;
       const img = new Image();
       img.src = u.icon;
-      img.onload = () => {
-        cache[u.id] = img;
-        setUnitImages((prev) => ({ ...prev, [u.id]: img }));
-      };
+      img.onload = () => setUnitImages((prev) => ({ ...prev, [u.id]: img }));
     });
   }, [battle.units]);
 
   // キャラ画像キャッシュ
   useEffect(() => {
-    const cache: Record<string, HTMLImageElement> = {};
     battle.characters?.forEach((c) => {
       const img = new Image();
       img.src = c.icon;
-      img.onload = () => {
-        cache[c.id] = img;
-        setCharImages((prev) => ({ ...prev, [c.id]: img }));
-      };
+      img.onload = () => setCharImages((prev) => ({ ...prev, [c.id]: img }));
     });
   }, [battle.characters]);
 
@@ -130,91 +134,153 @@ export const BattlePlayer: React.FC<Props> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const parent = canvas.parentElement;
+    if (!parent) return;
+
+    const canvasWidth = parent.clientWidth;
+    const canvasHeight = parent.clientHeight;
+    if (canvasWidth === 0 || canvasHeight === 0) return;
+
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const { map, units, characters, camera } = battle;
-    const width = map.width;
-    const height = map.height;
+    const { map, units, characters } = battle;
+    const mapWidth = map.width;
+    const mapHeight = map.height;
 
-    canvas.width = width;
-    canvas.height = height;
+    // マップ座標→画面座標スケール
+    const scaleX = canvasWidth / mapWidth;
+    const scaleY = canvasHeight / mapHeight;
 
-const drawScene = () => {
-  // 背景
-  if (bgImage) {
-    ctx.drawImage(bgImage, 0, 0, width, height);
-  } else {
-    ctx.fillStyle = "#020617";
-    ctx.fillRect(0, 0, width, height);
-  }
+    const drawGrid = () => {
+      if (!showGrid) return;
 
-  // --- ユニット ---
-  for (const unit of units) {
-    const pos = getSmoothPosition(unit.timeline, currentTime);
-    if (!pos) continue;
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
 
-    const x = pos.x;
-    const y = pos.y;
+      const gridSize = 50; // マップ座標で50ごと
 
-    const cached = unitImages[unit.id];
-    if (cached) {
-      ctx.drawImage(cached, x - 16, y - 16, 32, 32);
-    } else {
-      ctx.beginPath();
-      ctx.arc(x, y, 10, 0, Math.PI * 2);
-      ctx.fillStyle = unit.color;
-      ctx.fill();
-    }
+      // 縦線（x）
+      for (let x = 0; x <= mapWidth; x += gridSize) {
+        const sx = x * scaleX;
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, canvasHeight);
+        ctx.stroke();
+      }
 
-    ctx.fillStyle = "#fff";
-    ctx.font = "12px sans-serif";
-    ctx.fillText(unit.name, x + 12, y - 12);
-  }
+      // 横線（y）
+      for (let y = 0; y <= mapHeight; y += gridSize) {
+        const sy = y * scaleY;
+        ctx.beginPath();
+        ctx.moveTo(0, sy);
+        ctx.lineTo(canvasWidth, sy);
+        ctx.stroke();
+      }
 
-  // --- キャラ ---
-  characters?.forEach((ch) => {
-    const pos = getSmoothPosition(ch.timeline, currentTime);
-    if (!pos) return;
+      ctx.restore();
+    };
 
-    const x = pos.x;
-    const y = pos.y;
+    const drawScene = () => {
+      // クリア
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    const cached = charImages[ch.id];
-    if (cached) {
-      ctx.drawImage(cached, x - 24, y - 24, 48, 48);
-    }
+      // 背景
+      if (bgImage) {
+        ctx.drawImage(bgImage, 0, 0, canvasWidth, canvasHeight);
+      } else {
+        ctx.fillStyle = "#020617";
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
 
-    ctx.fillStyle = "#fbbf24";
-    ctx.font = "13px sans-serif";
-    ctx.fillText(ch.name, x + 22, y - 10);
-  });
-};
+      // グリッド
+      drawGrid();
 
-    // === カメラモード ===
+      // --- ユニット ---
+      for (const unit of units) {
+        const pos = getSmoothPosition(unit.timeline, currentTime);
+        if (!pos) continue;
+
+        const x = pos.x * scaleX;
+        const y = pos.y * scaleY;
+
+        const cached = unitImages[unit.id];
+        if (cached) {
+          ctx.drawImage(cached, x - 16, y - 16, 32, 32);
+        } else {
+          ctx.beginPath();
+          ctx.arc(x, y, 10, 0, Math.PI * 2);
+          ctx.fillStyle = unit.color;
+          ctx.fill();
+        }
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(unit.name, x + 12, y - 12);
+      }
+
+      // --- キャラ ---
+      characters?.forEach((ch) => {
+        const pos = getSmoothPosition(ch.timeline, currentTime);
+        if (!pos) return;
+
+        const x = pos.x * scaleX;
+        const y = pos.y * scaleY;
+
+        const cached = charImages[ch.id];
+        if (cached) {
+          ctx.drawImage(cached, x - 24, y - 24, 48, 48);
+        }
+
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "13px sans-serif";
+        ctx.fillText(ch.name, x + 22, y - 10);
+      });
+    };
+
     if (viewMode === "camera") {
-      const cam = getCameraAtTime(camera, currentTime, width, height);
+      const cam = getCameraAtTime(
+        battle.camera,
+        currentTime,
+        mapWidth,
+        mapHeight
+      );
+
+      const camX = cam.x * scaleX;
+      const camY = cam.y * scaleY;
+
       ctx.save();
 
-      const zoom = cam.zoom;
-      ctx.scale(zoom, zoom);
+      ctx.scale(cam.zoom, cam.zoom);
 
-      const cx = width / 2 / zoom;
-      const cy = height / 2 / zoom;
-      ctx.translate(cx - cam.x, cy - cam.y);
+      const screenCenterX = canvasWidth / 2 / cam.zoom;
+      const screenCenterY = canvasHeight / 2 / cam.zoom;
+
+      ctx.translate(screenCenterX - camX, screenCenterY - camY);
 
       drawScene();
 
       ctx.restore();
     } else {
-      // === 全体モード ===
       drawScene();
     }
-  }, [battle, currentTime, viewMode, bgImage, unitImages, charImages]);
+  }, [
+    battle,
+    currentTime,
+    viewMode,
+    showGrid,
+    bgImage,
+    unitImages,
+    charImages,
+  ]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <canvas ref={canvasRef} className="rounded-md border border-gray-700" />
+    <div className="w-full h-full">
+      <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );
 };

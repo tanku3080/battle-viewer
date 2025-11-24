@@ -1,0 +1,39 @@
+name: Auto PR Body With Commit List
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  build-pr-body:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate commit list
+        id: commits
+        run: |
+          COMMITS=$(git log --oneline origin/develop..HEAD)
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update PR body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commits = `${{ steps.commits.outputs.commits }}`.trim();
+            const body = `
+## PR内容
+${commits.split('\n').map(c => `- ${c}`).join('\n')}
+`;
+            github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              body
+            });
