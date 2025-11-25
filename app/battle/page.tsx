@@ -1,296 +1,124 @@
 "use client";
 
-import Link from "next/link";
-import { useState, useRef, useEffect, ChangeEvent } from "react";
-import type {
-  BattleData,
-  Unit,
-  Character,
-  TimelinePoint,
-} from "../../types/battle";
+import { ChangeEvent, useState } from "react";
+
+import { useBattlePlayback } from "@/hook/useBattlePlayback";
+import { useSelection } from "@/hook/useSelection";
+import { loadBattleJson } from "@/utils/battle/loadBattleJson";
+
+import { PageHeader } from "@/components/layout/PageHeader";
+import { PlaybackControls } from "@/components/battle/controls/PlaybackControls";
+import { ViewModeButtons } from "@/components/battle/controls/ViewModeButtons";
+import { PanelContainer } from "@/components/battle/PanelContainer";
 import { TimelineBar } from "@/components/TimelineBar";
-import { BattlePlayer } from "@/components/BattlePlayer";
+import { ProductionModal } from "@/components/ProductionModal/ProductionModal";
+import { BattlePlayer } from "@/components/battle/BattlePlayer/BattlePlayer";
+
+import type { BattleData } from "@/types/battle";
 
 export default function BattlePage() {
   const [battle, setBattle] = useState<BattleData | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [maxTime, setMaxTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-
   const [viewMode, setViewMode] = useState<"map" | "camera">("map");
   const [showGrid, setShowGrid] = useState(false);
 
-  // 本番表示モード用
-  const [isProductionOpen, setIsProductionOpen] = useState(false);
-  const [productionTime, setProductionTime] = useState(0);
-  const [isProductionPlaying, setIsProductionPlaying] = useState(false);
+  const {
+    currentTime,
+    maxTime,
+    isPlaying,
+    start,
+    stop,
+    seek,
 
-  const lastFrameTimeRef = useRef<number | null>(null);
-  const rafIdRef = useRef<number | null>(null);
+    productionTime,
+    isProductionOpen,
+    startProduction,
+    closeProduction,
 
-  const prodLastFrameTimeRef = useRef<number | null>(null);
-  const prodRafIdRef = useRef<number | null>(null);
+    setCurrentTime,
+    setIsPlaying,
+  } = useBattlePlayback(battle);
 
-  // === 本番モード中、スペースキーで閉じる ===
-  useEffect(() => {
-    if (!isProductionOpen) return;
+  const {
+    selectedUnitId,
+    selectedCharacterId,
+    selectUnit,
+    selectCharacter,
+    panelData,
+  } = useSelection(battle, currentTime);
 
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        setIsProductionPlaying(false);
-        setIsProductionOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [isProductionOpen]);
-
+  // ----------------------------------------
   // JSON読み込み
+  // ----------------------------------------
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const text = await file.text();
-    const parsed = JSON.parse(text) as BattleData;
+    const parsed = loadBattleJson(JSON.parse(text) as BattleData);
 
     setBattle(parsed);
-
-    const times: number[] = [];
-    parsed.units.forEach((u: Unit) =>
-      u.timeline.forEach((p: TimelinePoint) => times.push(p.t))
-    );
-    parsed.characters?.forEach((c: Character) =>
-      c.timeline.forEach((p: TimelinePoint) => times.push(p.t))
-    );
-
-    const max = times.length ? Math.max(...times) : 0;
-    setMaxTime(max);
-    setCurrentTime(0);
-    setIsPlaying(false);
-
-    // 本番用タイムもリセット
-    setProductionTime(0);
-    setIsProductionPlaying(false);
-    setIsProductionOpen(false);
+    seek(0);
+    stop();
   };
-
-  // === 開発ビュー用 再生ループ ===
-  useEffect(() => {
-    if (!isPlaying) {
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-      lastFrameTimeRef.current = null;
-      return;
-    }
-
-    const loop = (timestamp: number) => {
-      if (!lastFrameTimeRef.current) {
-        lastFrameTimeRef.current = timestamp;
-      }
-      const delta = timestamp - lastFrameTimeRef.current;
-      lastFrameTimeRef.current = timestamp;
-
-      setCurrentTime((prev) => {
-        const next = prev + delta / 1000;
-        if (next >= maxTime) {
-          setIsPlaying(false);
-          return maxTime;
-        }
-        return next;
-      });
-
-      rafIdRef.current = requestAnimationFrame(loop);
-    };
-
-    rafIdRef.current = requestAnimationFrame(loop);
-
-    return () => {
-      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
-    };
-  }, [isPlaying, maxTime]);
-
-  // === 本番表示モーダル用 再生ループ ===
-  useEffect(() => {
-    // モーダル閉じてる or 再生してないならループ停止
-    if (!isProductionPlaying || !isProductionOpen) {
-      if (prodRafIdRef.current !== null) {
-        cancelAnimationFrame(prodRafIdRef.current);
-      }
-      prodLastFrameTimeRef.current = null;
-      return;
-    }
-
-    const loop = (timestamp: number) => {
-      if (!prodLastFrameTimeRef.current) {
-        prodLastFrameTimeRef.current = timestamp;
-      }
-      const delta = timestamp - prodLastFrameTimeRef.current;
-      prodLastFrameTimeRef.current = timestamp;
-
-      setProductionTime((prev) => {
-        const next = prev + delta / 1000;
-        if (next >= maxTime) {
-          // 再生終了 → モーダル自動クローズ
-          setIsProductionPlaying(false);
-          setIsProductionOpen(false);
-          return maxTime;
-        }
-        return next;
-      });
-
-      prodRafIdRef.current = requestAnimationFrame(loop);
-    };
-
-    prodRafIdRef.current = requestAnimationFrame(loop);
-
-    return () => {
-      if (prodRafIdRef.current !== null)
-        cancelAnimationFrame(prodRafIdRef.current);
-    };
-  }, [isProductionPlaying, isProductionOpen, maxTime]);
 
   return (
     <main className="min-h-screen bg-[#050816] text-gray-200 p-6 flex flex-col gap-4">
       {/* ヘッダー */}
-      <section className="rounded-xl p-4 bg-[#111827] flex flex-col gap-3">
-        <div className="flex gap-4 items-center">
-          <button
-            onClick={() => document.getElementById("json-input")?.click()}
-            className="px-4 py-2 bg-blue-600 rounded-md text-white font-semibold"
-          >
-            JSONを読み込む
-          </button>
+      <PageHeader onSelectFile={handleFileChange} />
 
-          <input
-            id="json-input"
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-
-          <Link
-            href="/"
-            className="px-4 py-2 border border-gray-600 rounded-md text-gray-200"
-          >
-            タイトルに戻る
-          </Link>
-        </div>
-
-        {/* 読み込んだ情報 */}
-        <div className="text-sm opacity-80">
-          {battle ? (
-            <>
-              <div>タイトル：{battle.title}</div>
-              <div>
-                部隊数：{battle.units.length}　 キャラクター：
-                {battle.characters ? battle.characters.length : 0}
-              </div>
-              <div>タイムライン：0〜{maxTime.toFixed(1)} 秒</div>
-            </>
-          ) : (
-            <div>JSONを読み込むと戦場情報がここに出る。</div>
-          )}
-        </div>
-      </section>
-
-      {/* 再生＆モード切替 */}
+      {/* 再生・モード操作 */}
       <section className="flex gap-4 items-center">
-        {/* 開発ビュー START */}
-        <button
-          onClick={() => {
-            if (!battle) return;
+        <PlaybackControls
+          currentTime={currentTime}
+          isPlaying={isPlaying}
+          onStart={start}
+          onStop={stop}
+        />
 
-            if (isPlaying || currentTime >= maxTime) {
-              setCurrentTime(0);
-              requestAnimationFrame(() => setIsPlaying(true));
-            } else {
-              setIsPlaying(true);
-            }
-          }}
+        <ViewModeButtons
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          showGrid={showGrid}
+          setShowGrid={setShowGrid}
+        />
+
+        <button
+          onClick={startProduction}
           disabled={!battle}
-          className="px-4 py-2 rounded-md bg-green-600 disabled:bg-green-900 text-white"
+          className="ml-4 px-4 py-2 rounded-md bg-purple-600 text-white disabled:bg-purple-900"
         >
-          START
+          本番開始
         </button>
-
-        <button
-          onClick={() => setIsPlaying(false)}
-          disabled={!battle || !isPlaying}
-          className="px-4 py-2 rounded-md bg-red-600 disabled:bg-red-900 text-white"
-        >
-          STOP
-        </button>
-
-        <span className="opacity-80 text-sm">
-          現在：{currentTime.toFixed(1)} s
-        </span>
-
-        {/* モード切り替え ＋ グリッド ＋ 本番開始 */}
-        {battle && (
-          <>
-            <button
-              className={`px-3 py-2 rounded border ${
-                viewMode === "map" ? "bg-blue-600" : "bg-gray-700"
-              }`}
-              onClick={() => setViewMode("map")}
-            >
-              全体
-            </button>
-
-            <button
-              className={`px-3 py-2 rounded border ${
-                viewMode === "camera" ? "bg-blue-600" : "bg-gray-700"
-              }`}
-              onClick={() => setViewMode("camera")}
-            >
-              カメラ
-            </button>
-
-            <label className="flex items-center gap-2 ml-4">
-              <input
-                type="checkbox"
-                checked={showGrid}
-                onChange={(e) => setShowGrid(e.target.checked)}
-              />
-              <span>グリッド表示</span>
-            </label>
-
-            {/* 本番開始ボタン */}
-            <button
-              className="ml-4 px-4 py-2 rounded-md bg-purple-600 text-white disabled:bg-purple-900"
-              disabled={!battle || maxTime <= 0}
-              onClick={() => {
-                if (!battle) return;
-                // 本番モーダル用に0秒から再生開始
-                setProductionTime(0);
-                setIsProductionOpen(true);
-                setIsProductionPlaying(true);
-              }}
-            >
-              本番開始
-            </button>
-          </>
-        )}
       </section>
 
-      {/* 開発ビュー用 キャンバス */}
-      <section className="flex-1 min-h-[500px] rounded-xl border border-gray-700 bg-[#020617] p-2">
-        {battle ? (
+      {/* メインビュー：左キャンバス + 右パネル */}
+      <section className="flex-1 min-h-[500px] rounded-xl border border-gray-700 bg-[#020617] p-2 flex gap-3 overflow-hidden">
+        {/* キャンバス */}
+        <div className="flex-1 min-w-0 h-full">
           <BattlePlayer
             battle={battle}
             currentTime={currentTime}
             viewMode={viewMode}
             showGrid={showGrid}
+            selectedUnitId={selectedUnitId}
+            selectedCharacterId={selectedCharacterId}
+            onSelectUnit={selectUnit}
+            onSelectCharacter={selectCharacter}
+            enableSelection={true}
           />
-        ) : (
-          <div className="opacity-60 text-sm">まず JSON を読み込め。</div>
+        </div>
+
+        {/* 詳細パネル */}
+        {panelData && (
+          <PanelContainer
+            panelData={panelData}
+            currentTime={currentTime}
+            viewMode={viewMode}
+          />
         )}
       </section>
 
-      {/* タイムライン（開発ビュー用） */}
+      {/* タイムライン */}
       <section className="rounded-xl bg-[#111827] p-4">
         <TimelineBar
           currentTime={currentTime}
@@ -302,19 +130,13 @@ export default function BattlePage() {
         />
       </section>
 
-      {/* 本番表示モーダル */}
-      {battle && isProductionOpen && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
-          <div className="w-full h-full max-w-[100vw] max-h-[100vh]">
-            <BattlePlayer
-              battle={battle}
-              currentTime={productionTime}
-              viewMode="camera" // 本番はカメラビュー固定
-              showGrid={false} // 本番はグリッド無し
-            />
-          </div>
-        </div>
-      )}
+      {/* 本番ビュー */}
+      <ProductionModal
+        battle={battle}
+        productionTime={productionTime}
+        isOpen={isProductionOpen}
+        onClose={closeProduction}
+      />
     </main>
   );
 }

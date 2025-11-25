@@ -4,13 +4,7 @@ export type TimelinePoint = {
   t: number;
   x: number;
   y: number;
-};
-
-export type CameraKeyframe = {
-  t: number;
-  x: number;
-  y: number;
-  zoom: number;
+  dir?: number; // 方向（ラジアン）※旧JSON互換のため optional
 };
 
 export type Unit = {
@@ -18,7 +12,7 @@ export type Unit = {
   force: string;
   name: string;
   color: string;
-  icon?: string | null;
+  icon: string | null;
   timeline: TimelinePoint[];
 };
 
@@ -29,6 +23,13 @@ export type Character = {
   timeline: TimelinePoint[];
 };
 
+export type CameraKeyframe = {
+  t: number;
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 export type BattleData = {
   title: string;
   map: {
@@ -36,7 +37,28 @@ export type BattleData = {
     width: number;
     height: number;
   };
-  camera?: CameraKeyframe[];
+  camera: CameraKeyframe[];
   units: Unit[];
   characters?: Character[];
 };
+
+export type RenderTransform =
+  | {
+      mode: "map";
+      baseScale: number;
+      offsetX: number;
+      offsetY: number;
+      canvasWidth: number;
+      canvasHeight: number;
+      mapWidth: number;
+      mapHeight: number;
+    }
+  | {
+      mode: "camera";
+      baseScale: number;
+      canvasWidth: number;
+      canvasHeight: number;
+      mapWidth: number;
+      mapHeight: number;
+      cam: { x: number; y: number; zoom: number };
+    };
