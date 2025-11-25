@@ -18,7 +18,7 @@ export function PanelContainer({ panelData, currentTime }: Props) {
   if (!panelData) return null;
 
   return (
-    <aside className="w-[260px] h-full bg-[#0f1624] border-l border-gray-700 p-3 flex flex-col flex-shrink-0 overflow-y-auto">
+    <aside className="w-[260px] h-full bg-[#0f1624] border-l border-gray-700 p-3 flex flex-col shrink-0 overflow-y-auto">
       <div className="flex items-center justify-between gap-2 mb-3">
         <span className="text-gray-300 text-xs">選択詳細</span>
         <span className="text-[11px] text-gray-500">
