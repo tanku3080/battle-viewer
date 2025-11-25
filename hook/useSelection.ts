@@ -1,88 +1,113 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { BattleData } from "@/types/battle";
+import type { BattleData, TimelinePoint } from "@/types/battle";
 import { getSmoothTransform } from "@/components/battle/BattlePlayer/transform";
 
-/** Panel 用データ型（PanelContainer.tsx がこれを要求している） */
-export type PanelData =
+/** クリック選択状態 */
+export type SelectedEntity =
   | {
-      kind: "unit";
+      type: "unit" | "character";
       id: string;
-      name: string;
-      force: string;
-      x?: number;
-      y?: number;
-      dirDeg?: number;
     }
-  | {
-      kind: "character";
-      id: string;
-      name: string;
-      x?: number;
-      y?: number;
-      dirDeg?: number;
-      force?: undefined;
-    };
+  | null;
+
+/** パネル表示用データ */
+export type PanelData = {
+  type: "unit" | "character";
+  id: string;
+  name: string;
+  iconPath: string | null;
+  currentPosition: { x: number; y: number } | null;
+  dirDeg?: number;
+  timelineLength: number;
+  appearAt: number;
+  disappearAt: number;
+  force?: string;
+};
+
+function getTimelineMeta(timeline: TimelinePoint[], currentTime: number) {
+  if (!timeline || timeline.length === 0) return null;
+
+  const appearAt = timeline[0]?.t ?? 0;
+  const disappearAt = timeline[timeline.length - 1]?.t ?? appearAt;
+  const transform = getSmoothTransform(timeline, currentTime);
+
+  const hasDir = timeline.some((p) => p.dir !== undefined);
+  const dirDeg =
+    hasDir && transform?.dir !== undefined
+      ? (transform.dir * 180) / Math.PI
+      : undefined;
+
+  return {
+    timelineLength: timeline.length,
+    appearAt,
+    disappearAt,
+    currentPosition: transform
+      ? {
+          x: transform.x,
+          y: transform.y,
+        }
+      : null,
+    dirDeg,
+  };
+}
 
 export function useSelection(battle: BattleData | null, currentTime: number) {
-  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
-  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
-    null
-  );
+  const [selectedEntity, setSelectedEntity] = useState<SelectedEntity>(null);
 
   const selectUnit = (id: string | null) => {
-    setSelectedUnitId(id);
-    setSelectedCharacterId(null);
+    setSelectedEntity(id ? { type: "unit", id } : null);
   };
 
   const selectCharacter = (id: string | null) => {
-    setSelectedCharacterId(id);
-    setSelectedUnitId(null);
+    setSelectedEntity(id ? { type: "character", id } : null);
   };
 
+  const selectedUnitId =
+    selectedEntity?.type === "unit" ? selectedEntity.id : null;
+  const selectedCharacterId =
+    selectedEntity?.type === "character" ? selectedEntity.id : null;
+
   const panelData: PanelData | null = useMemo(() => {
-    if (!battle) return null;
+    if (!battle || !selectedEntity) return null;
 
-    // キャラクター
-    if (selectedCharacterId) {
-      const ch = battle.characters?.find((c) => c.id === selectedCharacterId);
-      if (!ch) return null;
+    if (selectedEntity.type === "unit") {
+      const unit = battle.units.find((u) => u.id === selectedEntity.id);
+      if (!unit) return null;
 
-      const tr = getSmoothTransform(ch.timeline, currentTime);
+      const meta = getTimelineMeta(unit.timeline, currentTime);
+      if (!meta) return null;
 
       return {
-        kind: "character",
-        id: ch.id,
-        name: ch.name,
-        x: tr?.x,
-        y: tr?.y,
-        dirDeg: tr ? (tr.dir ?? 0) * (180 / Math.PI) : undefined,
+        type: "unit",
+        id: unit.id,
+        name: unit.name,
+        iconPath: unit.icon ?? null,
+        force: unit.force,
+        ...meta,
       };
     }
 
-    // ユニット
-    if (selectedUnitId) {
-      const u = battle.units.find((u) => u.id === selectedUnitId);
-      if (!u) return null;
+    const character = battle.characters?.find(
+      (c) => c.id === selectedEntity.id
+    );
+    if (!character) return null;
 
-      const tr = getSmoothTransform(u.timeline, currentTime);
+    const meta = getTimelineMeta(character.timeline, currentTime);
+    if (!meta) return null;
 
-      return {
-        kind: "unit",
-        id: u.id,
-        name: u.name,
-        force: u.force,
-        x: tr?.x,
-        y: tr?.y,
-        dirDeg: tr ? (tr.dir ?? 0) * (180 / Math.PI) : undefined,
-      };
-    }
-
-    return null;
-  }, [battle, currentTime, selectedUnitId, selectedCharacterId]);
+    return {
+      type: "character",
+      id: character.id,
+      name: character.name,
+      iconPath: character.icon ?? null,
+      ...meta,
+    };
+  }, [battle, currentTime, selectedEntity]);
 
   return {
+    selectedEntity,
     selectedUnitId,
     selectedCharacterId,
     selectUnit,

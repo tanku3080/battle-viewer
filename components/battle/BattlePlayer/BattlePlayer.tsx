@@ -5,6 +5,28 @@ import type { BattleData } from "@/types/battle";
 import { getCameraAtTime } from "./transform";
 import { drawWorld } from "./drawWorld";
 import { hitTestAtTime } from "./hitTest";
+import { convertClickToWorld } from "@/utils/battle/convertClickToWorld";
+
+type RenderTransform =
+  | {
+      mode: "map";
+      baseScale: number;
+      offsetX: number;
+      offsetY: number;
+      canvasWidth: number;
+      canvasHeight: number;
+      mapWidth: number;
+      mapHeight: number;
+    }
+  | {
+      mode: "camera";
+      baseScale: number;
+      canvasWidth: number;
+      canvasHeight: number;
+      mapWidth: number;
+      mapHeight: number;
+      cam: { x: number; y: number; zoom: number };
+    };
 
 type Props = {
   battle: BattleData | null;
@@ -30,6 +52,7 @@ export const BattlePlayer: React.FC<Props> = ({
   enableSelection = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const transformRef = useRef<RenderTransform | null>(null);
 
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [unitImages, setUnitImages] = useState<
@@ -134,6 +157,17 @@ export const BattlePlayer: React.FC<Props> = ({
         mapWidth,
         mapHeight
       );
+
+      transformRef.current = {
+        mode: "camera",
+        baseScale,
+        canvasWidth,
+        canvasHeight,
+        mapWidth,
+        mapHeight,
+        cam,
+      };
+
       ctx.save();
       ctx.translate(canvasWidth / 2, canvasHeight / 2);
       ctx.scale(baseScale * cam.zoom, baseScale * cam.zoom);
@@ -155,6 +189,17 @@ export const BattlePlayer: React.FC<Props> = ({
 
       ctx.restore();
     } else {
+      transformRef.current = {
+        mode: "map",
+        baseScale,
+        offsetX,
+        offsetY,
+        canvasWidth,
+        canvasHeight,
+        mapWidth,
+        mapHeight,
+      };
+
       ctx.save();
       ctx.translate(offsetX, offsetY);
       ctx.scale(baseScale, baseScale);
@@ -199,32 +244,19 @@ export const BattlePlayer: React.FC<Props> = ({
 
   // クリック選択
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!battle) return;
-    if (!enableSelection) return;
-    if (viewMode !== "map") return;
+    if (!battle || !enableSelection) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    const transform = transformRef.current as RenderTransform;
+    if (!transform) return;
 
     const rect = canvas.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    const map = battle.map;
-    const mapWidth = map.width;
-    const mapHeight = map.height;
-
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-
-    const scaleX = canvasWidth / mapWidth;
-    const scaleY = canvasHeight / mapHeight;
-    const baseScale = Math.min(scaleX, scaleY);
-    const offsetX = (canvasWidth - mapWidth * baseScale) / 2;
-    const offsetY = (canvasHeight - mapHeight * baseScale) / 2;
-
-    const worldX = (clickX - offsetX) / baseScale;
-    const worldY = (clickY - offsetY) / baseScale;
+    const { worldX, worldY } = convertClickToWorld(clickX, clickY, transform);
 
     const hit = hitTestAtTime({
       battle,
@@ -236,14 +268,17 @@ export const BattlePlayer: React.FC<Props> = ({
 
     if (hit.characterId) {
       onSelectCharacter?.(hit.characterId);
-      onSelectUnit?.(null);
-    } else if (hit.unitId) {
-      onSelectUnit?.(hit.unitId);
-      onSelectCharacter?.(null);
-    } else {
-      onSelectUnit?.(null);
-      onSelectCharacter?.(null);
+      return;
     }
+
+    if (hit.unitId) {
+      onSelectUnit?.(hit.unitId);
+      return;
+    }
+
+    // 何もヒットしてないときだけ null にする
+    onSelectUnit?.(null);
+    onSelectCharacter?.(null);
   };
 
   return (

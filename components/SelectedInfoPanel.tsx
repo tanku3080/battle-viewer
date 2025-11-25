@@ -3,67 +3,106 @@
 import React from "react";
 
 type Props = {
-  kind: "unit" | "character";
+  type: "unit" | "character";
   name: string;
   id: string;
   force?: string;
-  currentTime: number;
-  x?: number;
-  y?: number;
+  iconPath: string | null;
+  currentPosition: { x: number; y: number } | null;
+  timelineLength: number;
+  appearAt: number;
+  disappearAt: number;
   dirDeg?: number;
 };
 
 export const SelectedInfoPanel: React.FC<Props> = ({
-  kind,
+  type,
   name,
   id,
   force,
-  currentTime,
-  x,
-  y,
+  iconPath,
+  currentPosition,
+  timelineLength,
+  appearAt,
+  disappearAt,
   dirDeg,
 }) => {
   return (
-    <aside className="w-72 h-full rounded-lg bg-[#111827] border border-gray-700 p-3 text-sm flex flex-col gap-2">
-      <div className="text-xs uppercase tracking-wide text-gray-400">
-        {kind === "unit" ? "ユニット情報" : "キャラクター情報"}
+    <aside className="w-full h-full rounded-lg bg-[#111827] border border-gray-700 p-3 text-sm flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="px-2 py-[2px] rounded-full border border-gray-600 text-[11px] text-gray-200">
+          {type === "unit" ? "UNIT" : "CHARACTER"}
+        </span>
+        <span className="text-[11px] text-gray-400 break-all">ID: {id}</span>
       </div>
-      <div className="text-lg font-semibold">{name}</div>
-      <div className="text-xs text-gray-400 break-all">ID: {id}</div>
 
-      {force && (
-        <div className="mt-1">
-          <span className="text-gray-400 text-xs">勢力: </span>
-          <span>{force}</span>
-        </div>
-      )}
-
-      <div className="mt-2 border-t border-gray-700 pt-2 space-y-1">
-        <div>
-          <span className="text-gray-400 text-xs">現在時刻: </span>
-          <span>{currentTime.toFixed(2)} s</span>
-        </div>
-
-        {x !== undefined && y !== undefined && (
-          <div>
-            <span className="text-gray-400 text-xs">位置: </span>
-            <span>
-              x: {x.toFixed(1)}, y: {y.toFixed(1)}
-            </span>
+      <div className="flex items-center gap-3">
+        {iconPath ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={iconPath}
+            alt={`${name} icon`}
+            className="w-10 h-10 rounded-md object-contain bg-[#0b1020] border border-gray-700"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-md bg-[#0b1020] border border-gray-700 flex items-center justify-center text-[10px] text-gray-500">
+            no icon
           </div>
         )}
+        <div className="flex flex-col leading-tight">
+          <div className="text-lg font-semibold">{name}</div>
+          {force && (
+            <div className="text-xs text-gray-400">
+              <span className="mr-1 text-gray-500">勢力</span>
+              {force}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <dl className="space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-gray-400 text-xs">現在位置</dt>
+          <dd className="text-right">
+            {currentPosition
+              ? `x: ${currentPosition.x.toFixed(1)}, y: ${currentPosition.y.toFixed(1)}`
+              : "取得不可"}
+          </dd>
+        </div>
 
         {dirDeg !== undefined && (
-          <div>
-            <span className="text-gray-400 text-xs">向き: </span>
-            <span>{dirDeg.toFixed(1)}°</span>
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="text-gray-400 text-xs">dir</dt>
+            <dd className="text-right">{dirDeg.toFixed(1)}°</dd>
           </div>
         )}
-      </div>
 
-      <div className="mt-auto text-[11px] text-gray-500">
-        キャンバス上をクリックして対象を切り替え。
-        ユニットとキャラはどちらか1つだけ選択される。
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-gray-400 text-xs">timeline length</dt>
+          <dd className="text-right">{timelineLength}</dd>
+        </div>
+
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-gray-400 text-xs">appearAt</dt>
+          <dd className="text-right">{appearAt.toFixed(2)} s</dd>
+        </div>
+
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-gray-400 text-xs">disappearAt</dt>
+          <dd className="text-right">{disappearAt.toFixed(2)} s</dd>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <dt className="text-gray-400 text-xs">iconPath</dt>
+          <dd className="text-xs text-gray-200 break-all">
+            {iconPath ?? "無し"}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-auto text-[11px] text-gray-500 leading-relaxed">
+        キャンバスをクリックして unit / character を切り替え。
+        どちらか1つだけ選択されます。
       </div>
     </aside>
   );

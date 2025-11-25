@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ChangeEvent, useState } from "react";
 
 import { useBattlePlayback } from "@/hook/useBattlePlayback";
@@ -93,26 +92,30 @@ export default function BattlePage() {
       </section>
 
       {/* メインビュー：左キャンバス + 右パネル */}
-      <section className="flex-1 min-h-[500px] rounded-xl border border-gray-700 bg-[#020617] p-2 flex gap-3">
+      <section className="flex-1 min-h-[500px] rounded-xl border border-gray-700 bg-[#020617] p-2 flex gap-3 overflow-hidden">
         {/* キャンバス */}
-        <BattlePlayer
-          battle={battle}
-          currentTime={currentTime}
-          viewMode={viewMode}
-          showGrid={showGrid}
-          selectedUnitId={selectedUnitId}
-          selectedCharacterId={selectedCharacterId}
-          onSelectUnit={selectUnit}
-          onSelectCharacter={selectCharacter}
-          enableSelection={true}
-        />
+        <div className="flex-1 min-w-0 h-full">
+          <BattlePlayer
+            battle={battle}
+            currentTime={currentTime}
+            viewMode={viewMode}
+            showGrid={showGrid}
+            selectedUnitId={selectedUnitId}
+            selectedCharacterId={selectedCharacterId}
+            onSelectUnit={selectUnit}
+            onSelectCharacter={selectCharacter}
+            enableSelection={true}
+          />
+        </div>
 
         {/* 詳細パネル */}
-        <PanelContainer
-          panelData={panelData}
-          currentTime={currentTime}
-          viewMode={viewMode}
-        />
+        {panelData && (
+          <PanelContainer
+            panelData={panelData}
+            currentTime={currentTime}
+            viewMode={viewMode}
+          />
+        )}
       </section>
 
       {/* タイムライン */}

@@ -36,7 +36,7 @@ export function screenToWorld(
 }
 
 /**
- * クリック判定（キャラ → ユニットの優先順）
+ * クリック判定（ユニット → キャラの優先順）
  */
 export function hitTest(
   battle: BattleData,
@@ -46,38 +46,6 @@ export function hitTest(
 ) {
   const fadeDuration = 0.5;
 
-  let hitCharacterId: string | null = null;
-  let minCharDist = Infinity;
-
-  // ---- キャラ判定 ----
-  battle.characters?.forEach((ch) => {
-    if (ch.timeline.length === 0) return;
-
-    const tr = getSmoothTransform(ch.timeline, t);
-    if (!tr) return;
-
-    const spawnTime = ch.timeline[0].t;
-    const despawnTime = ch.timeline[ch.timeline.length - 1].t;
-
-    const { visible } = getSpawnState(t, spawnTime, despawnTime, fadeDuration);
-    if (!visible) return;
-
-    const dx = worldX - tr.x;
-    const dy = worldY - tr.y;
-    const dist = dx * dx + dy * dy;
-
-    const radius = 24;
-    if (dist <= radius * radius && dist < minCharDist) {
-      minCharDist = dist;
-      hitCharacterId = ch.id;
-    }
-  });
-
-  if (hitCharacterId) {
-    return { kind: "character" as const, id: hitCharacterId };
-  }
-
-  // ---- ユニット判定 ----
   let hitUnitId: string | null = null;
   let minUnitDist = Infinity;
 
@@ -106,6 +74,37 @@ export function hitTest(
 
   if (hitUnitId) {
     return { kind: "unit" as const, id: hitUnitId };
+  }
+
+  // ---- キャラ判定 ----
+  let hitCharacterId: string | null = null;
+  let minCharDist = Infinity;
+
+  battle.characters?.forEach((ch) => {
+    if (ch.timeline.length === 0) return;
+
+    const tr = getSmoothTransform(ch.timeline, t);
+    if (!tr) return;
+
+    const spawnTime = ch.timeline[0].t;
+    const despawnTime = ch.timeline[ch.timeline.length - 1].t;
+
+    const { visible } = getSpawnState(t, spawnTime, despawnTime, fadeDuration);
+    if (!visible) return;
+
+    const dx = worldX - tr.x;
+    const dy = worldY - tr.y;
+    const dist = dx * dx + dy * dy;
+
+    const radius = 24;
+    if (dist <= radius * radius && dist < minCharDist) {
+      minCharDist = dist;
+      hitCharacterId = ch.id;
+    }
+  });
+
+  if (hitCharacterId) {
+    return { kind: "character" as const, id: hitCharacterId };
   }
 
   return null;

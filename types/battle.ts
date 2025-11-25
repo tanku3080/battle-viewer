@@ -41,3 +41,24 @@ export type BattleData = {
   units: Unit[];
   characters?: Character[];
 };
+
+export type RenderTransform =
+  | {
+      mode: "map";
+      baseScale: number;
+      offsetX: number;
+      offsetY: number;
+      canvasWidth: number;
+      canvasHeight: number;
+      mapWidth: number;
+      mapHeight: number;
+    }
+  | {
+      mode: "camera";
+      baseScale: number;
+      canvasWidth: number;
+      canvasHeight: number;
+      mapWidth: number;
+      mapHeight: number;
+      cam: { x: number; y: number; zoom: number };
+    };
