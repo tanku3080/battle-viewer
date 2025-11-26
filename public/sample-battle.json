@@ -1,18 +1,68 @@
 {
-  "title": "演出確認バトル",
-  "map": {
-    "image": "",
-    "width": 800,
-    "height": 450
+  "meta": {
+    "title": "戦闘名",
+    "duration": 60
   },
 
-  "camera": [
-    { "t": 0, "x": 400, "y": 225, "zoom": 1.0 },
-    { "t": 3, "x": 100, "y": 350, "zoom": 3.0 },
-    { "t": 6, "x": 700, "y": 100, "zoom": 6.0 },
-    { "t": 10, "x": 250, "y": 200, "zoom": 2.0 },
-    { "t": 15, "x": 400, "y": 225, "zoom": 1.0 }
-  ],
+  "map": {
+    "image": "/maps/sample.png",
+    "width": 2400,
+    "height": 1350
+  },
+
+  "hierarchy": {
+    "legions": [
+      {
+        "id": "legion_red",
+        "name": "赤軍レギオン",
+        "children": [
+          {
+            "id": "corps_red_1",
+            "name": "赤軍第1軍団",
+            "children": [
+              {
+                "id": "div_red_1",
+                "name": "赤軍第1師団",
+                "children": [
+                  {
+                    "id": "reg_red_1",
+                    "name": "赤軍第1連隊",
+                    "units": ["red1", "red2"],
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+
+      {
+        "id": "legion_blue",
+        "name": "青軍レギオン",
+        "children": [
+          {
+            "id": "corps_blue_1",
+            "name": "青軍第1軍団",
+            "children": [
+              {
+                "id": "div_blue_1",
+                "name": "青軍第1師団",
+                "children": [
+                  {
+                    "id": "reg_blue_1",
+                    "name": "青軍第1連隊",
+                    "units": ["blue1", "blue2"],
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
 
   "units": [
     {
@@ -20,61 +70,126 @@
       "force": "red",
       "name": "赤軍1",
       "color": "#f87171",
-      "icon": null,
-      "timeline": [
-        { "t": 0, "x": 100, "y": 350 },
-        { "t": 4, "x": 150, "y": 330 },
-        { "t": 8, "x": 200, "y": 310 }
-      ]
+      "icon": null
     },
     {
       "id": "red2",
       "force": "red",
-      "name": "赤軍2（5秒で出現→12秒で消滅）",
+      "name": "赤軍2",
       "color": "#f43f5e",
-      "icon": null,
-      "timeline": [
-        { "t": 5, "x": 300, "y": 250 },
-        { "t": 8, "x": 320, "y": 240 },
-        { "t": 12, "x": 330, "y": 230 }
-      ]
+      "icon": null
+    },
+    {
+      "id": "red3",
+      "force": "red",
+      "name": "赤軍3",
+      "color": "#fb7185",
+      "icon": null
+    },
+    {
+      "id": "red4",
+      "force": "red",
+      "name": "赤軍4",
+      "color": "#f472b6",
+      "icon": null
     },
     {
       "id": "blue1",
       "force": "blue",
       "name": "青軍1",
       "color": "#60a5fa",
-      "icon": null,
-      "timeline": [
-        { "t": 0, "x": 700, "y": 100 },
-        { "t": 6, "x": 650, "y": 150 },
-        { "t": 12, "x": 600, "y": 180 }
-      ]
+      "icon": null
     },
     {
       "id": "blue2",
       "force": "blue",
-      "name": "青軍2（8秒で出現→18秒で消滅）",
+      "name": "青軍2",
       "color": "#3b82f6",
-      "icon": null,
-      "timeline": [
-        { "t": 8, "x": 500, "y": 200 },
-        { "t": 12, "x": 480, "y": 210 },
-        { "t": 18, "x": 470, "y": 230 }
-      ]
+      "icon": null
     }
   ],
 
   "characters": [
     {
       "id": "commander",
-      "name": "指揮官（5秒で出現→15秒で消滅）",
-      "icon": "/charas/templatebattle/commander.png",
-      "timeline": [
+      "name": "指揮官",
+      "icon": "/charas/templatebattle/commander.png"
+    }
+  ],
+
+  "events": [
+    {
+      "t": 12,
+      "event": "destroyed",
+      "legion": "reg_red_1"
+    },
+    {
+      "t": 20,
+      "event": "detach",
+      "source": "reg_blue_1",
+      "from": "div_blue_1"
+    },
+    {
+      "t": 25,
+      "event": "merge",
+      "source": "reg_blue_1",
+      "target": "div_red_1"
+    },
+    {
+      "t": 30,
+      "event": "reform",
+      "legion": "reg_red_1",
+      "units": ["red3", "red4"]
+    },
+    {
+      "t": 40,
+      "event": "transfer",
+      "source": "reg_red_1",
+      "from": "div_red_1",
+      "to": "div_blue_1"
+    }
+  ],
+
+  "timeline": {
+    "camera": [
+      { "t": 0, "x": 400, "y": 225, "zoom": 1.0 },
+      { "t": 10, "x": 100, "y": 350, "zoom": 3.0 },
+      { "t": 20, "x": 700, "y": 100, "zoom": 5.0 },
+      { "t": 30, "x": 250, "y": 200, "zoom": 2.0 },
+      { "t": 40, "x": 400, "y": 225, "zoom": 1.0 }
+    ],
+
+    "units": {
+      "red1": [
+        { "t": 0, "x": 100, "y": 350 },
+        { "t": 4, "x": 150, "y": 330 },
+        { "t": 8, "x": 200, "y": 310 }
+      ],
+      "red2": [
+        { "t": 5, "x": 300, "y": 250 },
+        { "t": 8, "x": 320, "y": 240 },
+        { "t": 12, "x": 330, "y": 230 }
+      ],
+      "blue1": [
+        { "t": 0, "x": 700, "y": 100 },
+        { "t": 6, "x": 650, "y": 150 },
+        { "t": 12, "x": 600, "y": 180 }
+      ],
+      "blue2": [
+        { "t": 8, "x": 500, "y": 200 },
+        { "t": 12, "x": 480, "y": 210 },
+        { "t": 18, "x": 470, "y": 230 }
+      ],
+      "red3": [],
+      "red4": []
+    },
+
+    "characters": {
+      "commander": [
         { "t": 5, "x": 400, "y": 220 },
         { "t": 10, "x": 420, "y": 240 },
         { "t": 15, "x": 440, "y": 260 }
       ]
     }
-  ]
+  }
 }
