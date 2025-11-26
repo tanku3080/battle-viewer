@@ -4,7 +4,10 @@ import { ChangeEvent, useState } from "react";
 
 import { useBattlePlayback } from "@/hook/useBattlePlayback";
 import { useSelection } from "@/hook/useSelection";
-import { loadBattleJson } from "@/utils/battle/loadBattleJson";
+import {
+  loadBattleJson,
+  type RawBattleJson,
+} from "@/utils/battle/loadBattleJson";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PlaybackControls } from "@/components/battle/controls/PlaybackControls";
@@ -15,6 +18,7 @@ import { ProductionModal } from "@/components/ProductionModal/ProductionModal";
 import { BattlePlayer } from "@/components/battle/BattlePlayer/BattlePlayer";
 
 import type { BattleData } from "@/types/battle";
+import router from "next/router";
 
 export default function BattlePage() {
   const [battle, setBattle] = useState<BattleData | null>(null);
@@ -54,7 +58,7 @@ export default function BattlePage() {
     if (!file) return;
 
     const text = await file.text();
-    const parsed = loadBattleJson(JSON.parse(text) as BattleData);
+    const parsed = loadBattleJson(JSON.parse(text) as RawBattleJson);
 
     setBattle(parsed);
     seek(0);
@@ -62,12 +66,39 @@ export default function BattlePage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#050816] text-gray-200 p-6 flex flex-col gap-4">
-      {/* ヘッダー */}
-      <PageHeader onSelectFile={handleFileChange} />
+    <main className="w-screen h-screen overflow-hidden bg-[#050816] text-gray-200 flex flex-col">
+      {/* 上部コントロールバー（1行にまとめる） */}
+      <div className="w-full flex items-center gap-4 p-3 border-b border-gray-700">
+        {/* hidden input */}
+        <input
+          id="json-input"
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={handleFileChange}
+        />
 
-      {/* 再生・モード操作 */}
-      <section className="flex gap-4 items-center">
+        {/* JSON 読み込み */}
+        <button
+          onClick={() => {
+            (
+              document.getElementById("json-input") as HTMLInputElement
+            )?.click();
+          }}
+          className="px-4 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
+        >
+          JSONを読み込む
+        </button>
+
+        {/* タイトルに戻る */}
+        <button
+          onClick={() => router.push("/")}
+          className="px-4 py-2 rounded-md bg-gray-600 text-white"
+        >
+          タイトルに戻る
+        </button>
+
+        {/* 再生コントロール */}
         <PlaybackControls
           currentTime={currentTime}
           isPlaying={isPlaying}
@@ -75,6 +106,7 @@ export default function BattlePage() {
           onStop={stop}
         />
 
+        {/* 表示モード切替 */}
         <ViewModeButtons
           viewMode={viewMode}
           setViewMode={setViewMode}
@@ -82,44 +114,33 @@ export default function BattlePage() {
           setShowGrid={setShowGrid}
         />
 
+        {/* 本番開始 */}
         <button
           onClick={startProduction}
           disabled={!battle}
-          className="ml-4 px-4 py-2 rounded-md bg-purple-600 text-white disabled:bg-purple-900"
+          className="px-4 py-2 rounded-md bg-purple-600 text-white disabled:bg-purple-900"
         >
           本番開始
         </button>
-      </section>
+      </div>
 
-      {/* メインビュー：左キャンバス + 右パネル */}
-      <section className="flex-1 min-h-[500px] rounded-xl border border-gray-700 bg-[#020617] p-2 flex gap-3 overflow-hidden">
-        {/* キャンバス */}
-        <div className="flex-1 min-w-0 h-full">
-          <BattlePlayer
-            battle={battle}
-            currentTime={currentTime}
-            viewMode={viewMode}
-            showGrid={showGrid}
-            selectedUnitId={selectedUnitId}
-            selectedCharacterId={selectedCharacterId}
-            onSelectUnit={selectUnit}
-            onSelectCharacter={selectCharacter}
-            enableSelection={true}
-          />
-        </div>
+      {/* キャンバス */}
+      <div className="flex-1 relative overflow-hidden">
+        <BattlePlayer
+          battle={battle}
+          currentTime={currentTime}
+          viewMode={viewMode}
+          showGrid={showGrid}
+          selectedUnitId={selectedUnitId}
+          selectedCharacterId={selectedCharacterId}
+          onSelectUnit={selectUnit}
+          onSelectCharacter={selectCharacter}
+          enableSelection={true}
+        />
+      </div>
 
-        {/* 詳細パネル */}
-        {panelData && (
-          <PanelContainer
-            panelData={panelData}
-            currentTime={currentTime}
-            viewMode={viewMode}
-          />
-        )}
-      </section>
-
-      {/* タイムライン */}
-      <section className="rounded-xl bg-[#111827] p-4">
+      {/* シークバー（固定） */}
+      <div className="w-full fixed bottom-0 left-0 bg-[#111827] border-t border-gray-700 p-4">
         <TimelineBar
           currentTime={currentTime}
           maxTime={maxTime}
@@ -128,15 +149,7 @@ export default function BattlePage() {
             setIsPlaying(false);
           }}
         />
-      </section>
-
-      {/* 本番ビュー */}
-      <ProductionModal
-        battle={battle}
-        productionTime={productionTime}
-        isOpen={isProductionOpen}
-        onClose={closeProduction}
-      />
+      </div>
     </main>
   );
 }

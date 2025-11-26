@@ -1,137 +1,77 @@
 // utils/battle/hitTest.ts
 
 import type { BattleData } from "@/types/battle";
-import { getSmoothTransform } from "./transform";
-import { getSpawnState } from "./spawnEffects";
-
-/**
- * キャンバスクリックを「マップ座標」に変換
- */
-export function screenToWorld(
-  clickX: number,
-  clickY: number,
-  canvas: HTMLCanvasElement,
-  mapWidth: number,
-  mapHeight: number
-) {
-  const rect = canvas.getBoundingClientRect();
-
-  const x = clickX - rect.left;
-  const y = clickY - rect.top;
-
-  const canvasWidth = canvas.width;
-  const canvasHeight = canvas.height;
-
-  const scaleX = canvasWidth / mapWidth;
-  const scaleY = canvasHeight / mapHeight;
-  const baseScale = Math.min(scaleX, scaleY);
-
-  const offsetX = (canvasWidth - mapWidth * baseScale) / 2;
-  const offsetY = (canvasHeight - mapHeight * baseScale) / 2;
-
-  return {
-    worldX: (x - offsetX) / baseScale,
-    worldY: (y - offsetY) / baseScale,
-  };
-}
+import { prepareFrameState } from "./runtime";
 
 /**
  * クリック判定（ユニット → キャラの優先順）
- */
-export function hitTest(
-  battle: BattleData,
-  t: number,
-  worldX: number,
-  worldY: number
-) {
-  const fadeDuration = 0.5;
-
-  let hitUnitId: string | null = null;
-  let minUnitDist = Infinity;
-
-  battle.units.forEach((unit) => {
-    if (unit.timeline.length === 0) return;
-
-    const tr = getSmoothTransform(unit.timeline, t);
-    if (!tr) return;
-
-    const spawnTime = unit.timeline[0].t;
-    const despawnTime = unit.timeline[unit.timeline.length - 1].t;
-
-    const { visible } = getSpawnState(t, spawnTime, despawnTime, fadeDuration);
-    if (!visible) return;
-
-    const dx = worldX - tr.x;
-    const dy = worldY - tr.y;
-    const dist = dx * dx + dy * dy;
-
-    const radius = 20;
-    if (dist <= radius * radius && dist < minUnitDist) {
-      minUnitDist = dist;
-      hitUnitId = unit.id;
-    }
-  });
-
-  if (hitUnitId) {
-    return { kind: "unit" as const, id: hitUnitId };
-  }
-
-  // ---- キャラ判定 ----
-  let hitCharacterId: string | null = null;
-  let minCharDist = Infinity;
-
-  battle.characters?.forEach((ch) => {
-    if (ch.timeline.length === 0) return;
-
-    const tr = getSmoothTransform(ch.timeline, t);
-    if (!tr) return;
-
-    const spawnTime = ch.timeline[0].t;
-    const despawnTime = ch.timeline[ch.timeline.length - 1].t;
-
-    const { visible } = getSpawnState(t, spawnTime, despawnTime, fadeDuration);
-    if (!visible) return;
-
-    const dx = worldX - tr.x;
-    const dy = worldY - tr.y;
-    const dist = dx * dx + dy * dy;
-
-    const radius = 24;
-    if (dist <= radius * radius && dist < minCharDist) {
-      minCharDist = dist;
-      hitCharacterId = ch.id;
-    }
-  });
-
-  if (hitCharacterId) {
-    return { kind: "character" as const, id: hitCharacterId };
-  }
-
-  return null;
-}
-
-/**
- * BattlePlayer.tsx から使う用のラッパー
- * { unitId, characterId } を返す
+ * cameraScale に応じて当たり判定の半径を調整
  */
 export function hitTestAtTime(args: {
   battle: BattleData;
   currentTime: number;
   worldX: number;
   worldY: number;
-  fadeDuration: number; // 今は未使用だがインターフェースだけ合わせておく
+  fadeDuration: number;
+  cameraScale: number; // ← ★★★ 必須
 }) {
-  const { battle, currentTime, worldX, worldY } = args;
+  const { battle, currentTime, worldX, worldY, fadeDuration, cameraScale } =
+    args;
 
-  const res = hitTest(battle, currentTime, worldX, worldY);
+  const frame = prepareFrameState(battle, currentTime, fadeDuration);
 
-  if (!res) {
-    return { unitId: null, characterId: null };
+  // ============================================
+  // ユニット判定（優先）
+  // ============================================
+  let hitUnitId: string | null = null;
+  let minUnitDist = Infinity;
+
+  const unitBaseRadius = 20; // 画像サイズ基準
+  const unitRadius = unitBaseRadius / cameraScale; // ← ★ ズーム反映
+
+  frame.units.forEach((state) => {
+    if (!state.visible || !state.transform) return;
+
+    // 階層フィルタ（LOD）
+    if (frame.hierarchy.activeUnitIds.size > 0) {
+      if (!frame.hierarchy.activeUnitIds.has(state.unit.id)) return;
+    }
+
+    const dx = worldX - state.transform.x;
+    const dy = worldY - state.transform.y;
+    const dist = dx * dx + dy * dy;
+
+    if (dist <= unitRadius * unitRadius && dist < minUnitDist) {
+      minUnitDist = dist;
+      hitUnitId = state.unit.id;
+    }
+  });
+
+  if (hitUnitId) {
+    return { unitId: hitUnitId, characterId: null };
   }
 
-  if (res.kind === "character") {
-    return { unitId: null, characterId: res.id };
-  }
+  // ============================================
+  // キャラ判定
+  // ============================================
+  let hitCharacterId: string | null = null;
+  let minCharDist = Infinity;
 
-  return { unitId: res.id, characterId: null };
+  const charBaseRadius = 28;
+  const charRadius = charBaseRadius / cameraScale; // ← ★ ズーム反映
+
+  frame.characters.forEach((ch) => {
+    if (!ch.visible || !ch.transform) return;
+
+    const dx = worldX - ch.transform.x;
+    const dy = worldY - ch.transform.y;
+    const dist = dx * dx + dy * dy;
+
+    if (dist <= charRadius * charRadius && dist < minCharDist) {
+      minCharDist = dist;
+      hitCharacterId = ch.id;
+    }
+  });
+
+  return { unitId: null, characterId: hitCharacterId };
 }

@@ -40,6 +40,11 @@ export function useBattlePlayback(battle: BattleData | null) {
     battle.characters?.forEach((c) =>
       c.timeline.forEach((p) => timelineTimes.push(p.t))
     );
+    battle.camera?.forEach((c) => timelineTimes.push(c.t));
+    battle.events?.forEach((e) => timelineTimes.push(e.t));
+    if (battle.meta?.duration !== undefined) {
+      timelineTimes.push(battle.meta.duration);
+    }
 
     const max = timelineTimes.length ? Math.max(...timelineTimes) : 0;
 
