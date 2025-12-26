@@ -1,4 +1,4 @@
-// types/battle.ts
+// utils/battle/battle.ts
 
 export type TimelinePoint = {
   t: number;
@@ -24,10 +24,37 @@ export type Unit = UnitDefinition & {
 export type Character = {
   id: string;
   name: string;
-  icon: string;
+  icon?: string | null;
   timeline: TimelinePoint[];
-  appearAt: number;
-  disappearAt: number;
+  appearAt?: number;
+  disappearAt?: number;
+};
+
+export type HierarchyLevel = "legion" | "corps" | "division" | "regiment";
+
+export type HierarchyNode = {
+  id: string;
+  level: HierarchyLevel;
+  name: string;
+  parentId: string | null;
+  childrenIds: string[];
+  unitIds: string[];
+  status: "active" | "destroyed";
+  history: Array<{
+    t: number;
+    event: string;
+    detail?: unknown;
+  }>;
+};
+
+// LODConfig（loadBattleJson.ts が参照してるやつ）
+export type LODBand = { min: number; max: number };
+export type LODConfig = {
+  corps: LODBand;
+  division: LODBand;
+  regiment: LODBand;
+  unit: LODBand;
+  fadeRange: number;
 };
 
 export type CameraKeyframe = {
@@ -37,78 +64,45 @@ export type CameraKeyframe = {
   zoom: number;
 };
 
-export type LODRange = { min: number; max: number };
-export type LODConfig = {
-  corps: LODRange;
-  division: LODRange;
-  regiment: LODRange;
-  unit: LODRange;
-  fadeRange: number;
-};
-
-export type HierarchyLevel = "legion" | "corps" | "division" | "regiment";
-
-export type HierarchyNodeStatus = "active" | "destroyed" | "merged";
-
-export type HierarchyHistory = {
-  t: number;
-  event: string;
-  detail?: Record<string, string | number | null | undefined>;
-};
-
-export type HierarchyNode = {
-  id: string;
-  name: string;
-  level: HierarchyLevel;
-  parentId: string | null;
-  childrenIds: string[];
-  unitIds: string[];
-  status: HierarchyNodeStatus;
-  history: HierarchyHistory[];
-  pos: unknown;
-};
-
-export type DestroyedEvent = {
-  t: number;
-  event: "destroyed";
-  legion: string;
-};
-
-export type DetachEvent = {
-  t: number;
-  event: "detach";
-  source: string;
-  from: string;
-};
-
-export type MergeEvent = {
-  t: number;
-  event: "merge";
-  source: string;
-  target: string;
-};
-
-export type TransferEvent = {
-  t: number;
-  event: "transfer";
-  source: string;
-  from: string;
-  to: string;
-};
-
-export type ReformEvent = {
-  t: number;
-  event: "reform";
-  legion: string;
-  units: string[];
-};
+export type CameraTarget =
+  | { type: "legion"; id: string }
+  | { type: "corps"; id: string }
+  | { type: "division"; id: string }
+  | { type: "regiment"; id: string }
+  | { type: "unit"; id: string };
 
 export type BattleEvent =
-  | DestroyedEvent
-  | DetachEvent
-  | MergeEvent
-  | TransferEvent
-  | ReformEvent;
+  | {
+      t: number;
+      event: "destroyed";
+      target: string;
+    }
+  | {
+      t: number;
+      event: "detach";
+      source: string;
+      from: string;
+    }
+  | {
+      t: number;
+      event: "merge";
+      source: string;
+      target: string;
+    }
+  | {
+      t: number;
+      event: "transfer";
+      source: string;
+      from: string;
+      to: string;
+    }
+  | {
+      t: number;
+      event: "reform";
+      target: string;
+      parent: string | null;
+      children?: string[];
+    };
 
 export type BattleTimeline = {
   camera?: CameraKeyframe[];
@@ -116,31 +110,31 @@ export type BattleTimeline = {
   characters?: Record<string, TimelinePoint[]>;
 };
 
-export type CameraTarget = {
-  type: HierarchyLevel | "unit";
-  id: string;
+export type BattleMap = {
+  width: number;
+  height: number;
+  image?: string | null;
 };
 
+// ※ 今のloadBattleJson.tsのreturn形に合わせる（実装に存在するフィールド）
 export type BattleData = {
   title: string;
-  meta?: {
-    title?: string;
-    duration?: number;
-  };
-  cameraTarget?: CameraTarget | null;
-  map: {
-    image: string;
-    width: number;
-    height: number;
-  };
+  meta?: { title?: string; duration?: number };
+  map: BattleMap;
+
   lod: LODConfig;
+
+  // 互換用（既存実装が参照してる想定）
   camera: CameraKeyframe[];
+
   units: Unit[];
-  characters?: Character[];
+  characters: Character[];
   events: BattleEvent[];
   timeline: BattleTimeline;
+
   hierarchyNodes: Record<string, HierarchyNode>;
   hierarchyRoots: string[];
+
   unitIndex: Record<string, Unit>;
 };
 
@@ -161,6 +155,8 @@ export type RenderTransform =
   | {
       mode: "camera";
       baseScale: number;
+      offsetX: number;
+      offsetY: number;
       canvasWidth: number;
       canvasHeight: number;
       mapWidth: number;

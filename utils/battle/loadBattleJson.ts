@@ -74,50 +74,20 @@ function fillDir(timeline: TimelinePoint[]): TimelinePoint[] {
   });
 }
 
-function buildUnitDefinitions(
-  units: UnitDefinition[] | undefined,
-  timeline: BattleTimeline["units"],
-  events: BattleEvent[]
-) {
-  const defs: Record<string, UnitDefinition> = {};
-  units?.forEach((u) => {
-    defs[u.id] = {
+/**
+ * UnitDefinition[] を最終的に使う形へ整形（色のfallbackなど）
+ */
+function buildUnitDefinitions(units: UnitDefinition[]) {
+  return units.reduce<Record<string, UnitDefinition>>((acc, u) => {
+    acc[u.id] = {
       id: u.id,
       force: u.force,
       name: u.name ?? u.id,
       color: u.color ?? fallbackColor(u.id),
       icon: u.icon ?? null,
     };
-  });
-
-  // timeline で定義されているユニットを補完
-  Object.keys(timeline).forEach((id) => {
-    if (defs[id]) return;
-    defs[id] = {
-      id,
-      force: "unknown",
-      name: id,
-      color: fallbackColor(id),
-      icon: null,
-    };
-  });
-
-  // reform イベントで生えるユニットを補完
-  events.forEach((ev) => {
-    if (ev.event !== "reform") return;
-    ev.units.forEach((id) => {
-      if (defs[id]) return;
-      defs[id] = {
-        id,
-        force: "unknown",
-        name: id,
-        color: fallbackColor(id),
-        icon: null,
-      };
-    });
-  });
-
-  return defs;
+    return acc;
+  }, {});
 }
 
 function buildUnits(
@@ -125,10 +95,7 @@ function buildUnits(
   timeline: BattleTimeline["units"]
 ): { units: Unit[]; index: Record<string, Unit> } {
   const units: Unit[] = Object.values(unitDefs).map((def) => {
-    const fallbackTimeline: TimelinePoint[] | undefined = undefined;
-    const sorted = [...(timeline?.[def.id] ?? fallbackTimeline ?? [])].sort(
-      (a, b) => a.t - b.t
-    );
+    const sorted = [...(timeline?.[def.id] ?? [])].sort((a, b) => a.t - b.t);
     const tl = fillDir(sorted);
     const appearAt = tl.length ? tl[0].t : Number.POSITIVE_INFINITY;
     const disappearAt = tl.length
@@ -182,7 +149,6 @@ function buildCharacters(
 }
 
 export const DEFAULT_LOD: BattleData["lod"] = {
-  // drawSizePx が 40px 未満 → レギオンだけ
   corps: { min: 40, max: 80 },
   division: { min: 80, max: 140 },
   regiment: { min: 140, max: 220 },
@@ -192,12 +158,12 @@ export const DEFAULT_LOD: BattleData["lod"] = {
 
 /**
  * JSON 読み込み後の battle データ整形
- * dir 補完などの各種加工をここで実施する
  */
 export function loadBattleJson(raw: RawBattleJson): BattleData {
   const cameraTimeline = [...(raw.timeline?.camera ?? raw.camera ?? [])].sort(
     (a, b) => a.t - b.t
   );
+
   const timeline: BattleTimeline = {
     camera: cameraTimeline,
     units: raw.timeline?.units ?? {},
@@ -205,11 +171,8 @@ export function loadBattleJson(raw: RawBattleJson): BattleData {
   };
 
   const orderedEvents = sortEvents(raw.events ?? []);
-  const unitDefs = buildUnitDefinitions(
-    raw.units ?? [],
-    timeline.units,
-    orderedEvents
-  );
+
+  const unitDefs = buildUnitDefinitions(raw.units ?? []);
   const { units, index: unitIndex } = buildUnits(unitDefs, timeline.units);
   const characters = buildCharacters(raw.characters, timeline.characters ?? {});
 
@@ -218,7 +181,6 @@ export function loadBattleJson(raw: RawBattleJson): BattleData {
     unitIndex
   );
 
-  //lod を BattleData に必ず入れる
   const lod: LODConfig = {
     corps: { ...DEFAULT_LOD.corps, ...(raw.lod?.corps ?? {}) },
     division: { ...DEFAULT_LOD.division, ...(raw.lod?.division ?? {}) },

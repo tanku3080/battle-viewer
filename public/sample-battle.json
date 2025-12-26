@@ -11,65 +11,90 @@
   },
 
   "hierarchy": {
-    "legions": [
-      {
+    "roots": ["legion_red", "legion_blue"],
+    "nodes": {
+      "legion_red": {
         "id": "legion_red",
+        "level": "legion",
         "name": "赤軍レギオン",
-        "pos": { "x": 300, "y": 300 },
-        "children": [
-          {
-            "id": "corps_red_1",
-            "name": "赤軍第1軍団",
-            "pos": { "x": 300, "y": 300 },
-            "children": [
-              {
-                "id": "div_red_1",
-                "name": "赤軍第1師団",
-                "pos": { "x": 300, "y": 300 },
-                "children": [
-                  {
-                    "id": "reg_red_1",
-                    "name": "赤軍第1連隊",
-                    "pos": { "x": 300, "y": 300 },
-                    "units": ["red1", "red2"],
-                    "children": []
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "parentId": null,
+        "childrenIds": ["corps_red_1"],
+        "unitIds": [],
+        "status": "active",
+        "history": []
+      },
+      "corps_red_1": {
+        "id": "corps_red_1",
+        "level": "corps",
+        "name": "赤軍第1軍団",
+        "parentId": "legion_red",
+        "childrenIds": ["div_red_1"],
+        "unitIds": [],
+        "status": "active",
+        "history": []
+      },
+      "div_red_1": {
+        "id": "div_red_1",
+        "level": "division",
+        "name": "赤軍第1師団",
+        "parentId": "corps_red_1",
+        "childrenIds": ["reg_red_1"],
+        "unitIds": [],
+        "status": "active",
+        "history": []
+      },
+      "reg_red_1": {
+        "id": "reg_red_1",
+        "level": "regiment",
+        "name": "赤軍第1連隊",
+        "parentId": "div_red_1",
+        "childrenIds": [],
+        "unitIds": ["red1", "red2"],
+        "status": "active",
+        "history": []
       },
 
-      {
+      "legion_blue": {
         "id": "legion_blue",
+        "level": "legion",
         "name": "青軍レギオン",
-        "pos": { "x": 700, "y": 150 },
-        "children": [
-          {
-            "id": "corps_blue_1",
-            "name": "青軍第1軍団",
-            "pos": { "x": 700, "y": 150 },
-            "children": [
-              {
-                "id": "div_blue_1",
-                "name": "青軍第1師団",
-                "pos": { "x": 700, "y": 150 },
-                "children": [
-                  {
-                    "id": "reg_blue_1",
-                    "name": "青軍第1連隊",
-                    "pos": { "x": 700, "y": 150 },
-                    "units": ["blue1", "blue2"],
-                    "children": []
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "parentId": null,
+        "childrenIds": ["corps_blue_1"],
+        "unitIds": [],
+        "status": "active",
+        "history": []
+      },
+      "corps_blue_1": {
+        "id": "corps_blue_1",
+        "level": "corps",
+        "name": "青軍第1軍団",
+        "parentId": "legion_blue",
+        "childrenIds": ["div_blue_1"],
+        "unitIds": [],
+        "status": "active",
+        "history": []
+      },
+      "div_blue_1": {
+        "id": "div_blue_1",
+        "level": "division",
+        "name": "青軍第1師団",
+        "parentId": "corps_blue_1",
+        "childrenIds": ["reg_blue_1"],
+        "unitIds": [],
+        "status": "active",
+        "history": []
+      },
+      "reg_blue_1": {
+        "id": "reg_blue_1",
+        "level": "regiment",
+        "name": "青軍第1連隊",
+        "parentId": "div_blue_1",
+        "childrenIds": [],
+        "unitIds": ["blue1", "blue2"],
+        "status": "active",
+        "history": []
       }
-    ]
+    }
   },
 
   "units": [
@@ -78,42 +103,60 @@
       "force": "red",
       "name": "赤軍1",
       "color": "#f87171",
-      "icon": null
+      "icon": null,
+      "timeline": [],
+      "appearAt": 0,
+      "disappearAt": 9999
     },
     {
       "id": "red2",
       "force": "red",
       "name": "赤軍2",
       "color": "#f43f5e",
-      "icon": null
+      "icon": null,
+      "timeline": [],
+      "appearAt": 0,
+      "disappearAt": 9999
     },
     {
       "id": "red3",
       "force": "red",
       "name": "赤軍3",
       "color": "#fb7185",
-      "icon": null
+      "icon": null,
+      "timeline": [],
+      "appearAt": 0,
+      "disappearAt": 9999
     },
     {
       "id": "red4",
       "force": "red",
       "name": "赤軍4",
       "color": "#f472b6",
-      "icon": null
+      "icon": null,
+      "timeline": [],
+      "appearAt": 0,
+      "disappearAt": 9999
     },
     {
       "id": "blue1",
       "force": "blue",
       "name": "青軍1",
       "color": "#60a5fa",
-      "icon": null
+      "icon": null,
+      "timeline": [],
+      "appearAt": 0,
+      "disappearAt": 9999
     },
     {
       "id": "blue2",
       "force": "blue",
       "name": "青軍2",
       "color": "#3b82f6",
-      "icon": null
+      "icon": null,
+      "timeline": [],
+      "appearAt": 0,
+      "disappearAt": 9999
     }
   ],
 
@@ -121,7 +164,14 @@
     {
       "id": "commander",
       "name": "指揮官",
-      "icon": "/charas/templatebattle/commander.png"
+      "icon": "/charas/templatebattle/commander.png",
+      "timeline": [
+        { "t": 5, "x": 400, "y": 220 },
+        { "t": 10, "x": 420, "y": 240 },
+        { "t": 15, "x": 440, "y": 260 }
+      ],
+      "appearAt": 0,
+      "disappearAt": 9999
     }
   ],
 
@@ -129,7 +179,7 @@
     {
       "t": 12,
       "event": "destroyed",
-      "legion": "reg_red_1"
+      "target": "reg_red_1"
     },
     {
       "t": 20,
@@ -146,8 +196,9 @@
     {
       "t": 30,
       "event": "reform",
-      "legion": "reg_red_1",
-      "units": ["red3", "red4"]
+      "target": "reg_red_1",
+      "parent": "div_red_1",
+      "children": ["red3", "red4"]
     },
     {
       "t": 40,
@@ -190,14 +241,6 @@
       ],
       "red3": [],
       "red4": []
-    },
-
-    "characters": {
-      "commander": [
-        { "t": 5, "x": 400, "y": 220 },
-        { "t": 10, "x": 420, "y": 240 },
-        { "t": 15, "x": 440, "y": 260 }
-      ]
     }
   }
 }

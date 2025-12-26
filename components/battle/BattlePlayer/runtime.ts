@@ -1,6 +1,4 @@
 import type {
-  BattleData,
-  BattleEvent,
   CameraKeyframe,
   CameraTarget,
   HierarchyLevel,
@@ -8,13 +6,14 @@ import type {
   TimelinePoint,
   Unit,
 } from "@/utils/battle/battle";
+import type { BattleEvent, BattleData } from "@/types/battle";
 import { cloneHierarchyNodes } from "@/utils/battle/hierarchy";
 import { getSmoothTransform } from "./transform";
 import { getSpawnState } from "./spawnEffects";
 
 /* -------------------------------------------------
    型定義
----------------------------------------------------*/
+------------------------------------------------- */
 
 export type UnitRenderState = {
   unit: Unit;
@@ -27,7 +26,7 @@ export type UnitRenderState = {
 export type CharacterRenderState = {
   id: string;
   name: string;
-  icon: string;
+  icon?: string | null;
   transform: TimelinePoint | null;
   visible: boolean;
   alpha: number;
@@ -53,28 +52,8 @@ export type FrameState = {
 };
 
 /* -------------------------------------------------
-   キャッシュ（位置 / カメラ）
----------------------------------------------------*/
-
-type PositionCache = Map<string, { x: number; y: number }>;
-
-const positionCache = new WeakMap<BattleData, PositionCache>();
-const cameraCache = new WeakMap<BattleData, CameraKeyframe>();
-
-function ensurePositionCache(battle: BattleData): PositionCache {
-  if (!positionCache.has(battle)) {
-    positionCache.set(battle, new Map());
-  }
-  return positionCache.get(battle)!;
-}
-
-function ensureCameraCache(battle: BattleData): CameraKeyframe | null {
-  return cameraCache.get(battle) ?? null;
-}
-
-/* -------------------------------------------------
-   ユニット・キャラのフレーム状態収集
----------------------------------------------------*/
+   ユニット状態
+------------------------------------------------- */
 
 function collectUnitStates(
   battle: BattleData,
@@ -108,76 +87,79 @@ function collectUnitStates(
   return { unitStates, unitMap };
 }
 
+/* -------------------------------------------------
+   キャラ状態
+------------------------------------------------- */
+
 function collectCharacterStates(
   battle: BattleData,
   currentTime: number,
   fadeDuration: number
-): CharacterRenderState[] {
-  return (
-    battle.characters?.map((ch) => {
-      const transform = getSmoothTransform(ch.timeline, currentTime);
-      const { visible, alpha, scale } = getSpawnState(
-        currentTime,
-        ch.appearAt,
-        ch.disappearAt,
-        fadeDuration
-      );
+) {
+  const result: CharacterRenderState[] = [];
 
-      return {
-        id: ch.id,
-        name: ch.name,
-        icon: ch.icon,
-        transform,
-        visible,
-        alpha,
-        scale,
-      };
-    }) ?? []
-  );
+  (battle.characters ?? []).forEach((ch) => {
+    const transform = getSmoothTransform(ch.timeline ?? [], currentTime);
+
+    const appearAt = ch.appearAt ?? 0;
+    const disappearAt = ch.disappearAt ?? Number.POSITIVE_INFINITY;
+
+    const { visible, alpha, scale } = getSpawnState(
+      currentTime,
+      appearAt,
+      disappearAt,
+      fadeDuration
+    );
+
+    result.push({
+      id: ch.id,
+      name: ch.name,
+      icon: ch.icon ?? null,
+      transform,
+      visible,
+      alpha,
+      scale,
+    });
+  });
+
+  return result;
 }
 
 /* -------------------------------------------------
-   イベント適用
----------------------------------------------------*/
+   ヒエラルキー更新
+------------------------------------------------- */
 
-function removeChild(parent: HierarchyNode | undefined, childId: string) {
-  if (!parent) return;
+function removeChild(parent: HierarchyNode, childId: string) {
   parent.childrenIds = parent.childrenIds.filter((id) => id !== childId);
 }
 
-function addChild(parent: HierarchyNode | undefined, childId: string) {
-  if (!parent) return;
-  if (!parent.childrenIds.includes(childId)) {
-    parent.childrenIds.push(childId);
-  }
+function addChild(parent: HierarchyNode, childId: string) {
+  if (!parent.childrenIds.includes(childId)) parent.childrenIds.push(childId);
 }
 
-function applyEvents(
-  nodes: Record<string, HierarchyNode>,
+function applyEventsToHierarchy(
+  baseNodes: Record<string, HierarchyNode>,
   events: BattleEvent[],
-  t: number
+  currentTime: number
 ) {
-  events.forEach((ev) => {
-    if (ev.t > t) return;
+  const nodes = cloneHierarchyNodes(baseNodes);
 
+  const relevant = events
+    .filter((e) => e.t <= currentTime)
+    .sort((a, b) => a.t - b.t);
+
+  for (const ev of relevant) {
     if (ev.event === "destroyed") {
-      const node = nodes[ev.legion];
-      if (!node) return;
-      node.status = "destroyed";
-      node.unitIds = [];
-      node.history.push({
-        t: ev.t,
-        event: ev.event,
-        detail: { legion: ev.legion },
-      });
-      return;
+      const target = nodes[ev.target];
+      if (!target) continue;
+      target.status = "destroyed";
+      target.history.push({ t: ev.t, event: ev.event });
+      continue;
     }
 
     if (ev.event === "detach") {
       const source = nodes[ev.source];
-      const from = nodes[ev.from];
-      if (!source) return;
-      removeChild(from, source.id);
+      if (!source) continue;
       if (source.parentId) removeChild(nodes[source.parentId], source.id);
       source.parentId = null;
       source.history.push({
@@ -185,13 +167,13 @@ function applyEvents(
         event: ev.event,
         detail: { from: ev.from },
       });
-      return;
+      continue;
     }
 
     if (ev.event === "merge") {
       const source = nodes[ev.source];
       const target = nodes[ev.target];
-      if (!source || !target) return;
+      if (!source || !target) continue;
       if (source.parentId) removeChild(nodes[source.parentId], source.id);
       source.parentId = target.id;
       addChild(target, source.id);
@@ -201,76 +183,86 @@ function applyEvents(
         event: ev.event,
         detail: { target: ev.target },
       });
-      return;
+      continue;
     }
 
     if (ev.event === "transfer") {
       const source = nodes[ev.source];
-      const from = nodes[ev.from];
       const to = nodes[ev.to];
-      if (!source || !to) return;
-      removeChild(from, source.id);
+      if (!source || !to) continue;
       if (source.parentId) removeChild(nodes[source.parentId], source.id);
       source.parentId = to.id;
       addChild(to, source.id);
+      source.status = "active";
       source.history.push({
         t: ev.t,
         event: ev.event,
         detail: { from: ev.from, to: ev.to },
       });
-      return;
+      continue;
     }
 
     if (ev.event === "reform") {
-      const node = nodes[ev.legion];
-      if (!node) return;
-      ev.units.forEach((id) => {
-        if (!node.unitIds.includes(id)) node.unitIds.push(id);
-      });
-      node.status = "active";
-      node.history.push({
+      const target = nodes[ev.target];
+      if (!target) continue;
+
+      // parent の付け替え
+      if (target.parentId) removeChild(nodes[target.parentId], target.id);
+      target.parentId = ev.parent ?? null;
+      if (ev.parent && nodes[ev.parent]) addChild(nodes[ev.parent], target.id);
+
+      // children の上書き（指定がある場合）
+      if (ev.children) {
+        target.childrenIds = [...ev.children];
+        // 子側の parentId も合わせる
+        ev.children.forEach((cid) => {
+          if (nodes[cid]) nodes[cid].parentId = target.id;
+        });
+      }
+
+      target.status = "active";
+      target.history.push({
         t: ev.t,
         event: ev.event,
-        detail: { units: ev.units.length },
+        detail: { parent: ev.parent, children: ev.children },
       });
+      continue;
     }
-  });
+  }
+
+  return nodes;
 }
 
 /* -------------------------------------------------
-   階層位置計算
----------------------------------------------------*/
-
-function recomputeRoots(nodes: Record<string, HierarchyNode>) {
-  const roots: string[] = [];
-  Object.values(nodes).forEach((node) => {
-    if (!node.parentId || !nodes[node.parentId]) roots.push(node.id);
-  });
-  return roots;
-}
+   位置推定（子の平均座標）
+------------------------------------------------- */
 
 function computeHierarchyPositions(
-  battle: BattleData,
   nodes: Record<string, HierarchyNode>,
   unitStates: Record<string, UnitRenderState>
-): FrameHierarchyState {
-  const cache = ensurePositionCache(battle);
+): {
+  positioned: Record<string, NodeWithPosition>;
+  levels: Record<HierarchyLevel, string[]>;
+  roots: string[];
+} {
   const positioned: Record<string, NodeWithPosition> = {};
-  const levels = {
+  const levels: Record<HierarchyLevel, string[]> = {
     legion: [],
     corps: [],
     division: [],
     regiment: [],
-  } as Record<HierarchyLevel, string[]>;
-  const activeUnitIds = new Set<string>();
+  };
+
+  const cache = new Map<string, { x: number; y: number } | null>();
 
   const getPosition = (nodeId: string): { x: number; y: number } | null => {
-    if (positioned[nodeId]) return positioned[nodeId].position;
+    if (cache.has(nodeId)) return cache.get(nodeId) ?? null;
 
     const node = nodes[nodeId];
     if (!node) return null;
 
     let points: { x: number; y: number }[] = [];
+
     if (node.level === "regiment") {
       points = node.unitIds
         .map((id) => unitStates[id])
@@ -287,76 +279,149 @@ function computeHierarchyPositions(
     if (points.length > 0) {
       const sum = points.reduce(
         (acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }),
-        {
-          x: 0,
-          y: 0,
-        }
+        { x: 0, y: 0 }
       );
       position = { x: sum.x / points.length, y: sum.y / points.length };
-      cache.set(node.id, position);
-    } else {
-      position = cache.get(node.id) ?? null;
     }
 
-    positioned[node.id] = { ...node, position };
-    levels[node.level].push(node.id);
-    node.unitIds.forEach((uid: string) => activeUnitIds.add(uid));
-
+    cache.set(node.id, position);
     return position;
   };
 
-  const roots = recomputeRoots(nodes);
-  roots.forEach((rootId) => getPosition(rootId));
+  // ルート抽出
+  const roots = Object.values(nodes)
+    .filter((n) => !n.parentId)
+    .map((n) => n.id);
 
-  return { nodes: positioned, roots, levels, activeUnitIds };
+  // positioned 作成
+  for (const n of Object.values(nodes)) {
+    const pos = getPosition(n.id);
+    positioned[n.id] = { ...n, position: pos };
+    levels[n.level].push(n.id);
+  }
+
+  return { positioned, levels, roots };
 }
 
 /* -------------------------------------------------
-   フレーム構築
----------------------------------------------------*/
+   LOD フィルタ（ユニット集合）
+------------------------------------------------- */
+
+function computeActiveUnitIds(
+  hierarchy: Record<string, NodeWithPosition>,
+  selectedTarget: CameraTarget | null
+) {
+  const active = new Set<string>();
+
+  if (!selectedTarget) return active;
+
+  if (selectedTarget.type === "unit") {
+    active.add(selectedTarget.id);
+    return active;
+  }
+
+  const root = hierarchy[selectedTarget.id];
+  if (!root) return active;
+
+  const dfs = (id: string) => {
+    const node = hierarchy[id];
+    if (!node) return;
+    if (node.level === "regiment") {
+      node.unitIds.forEach((uid) => active.add(uid));
+      return;
+    }
+    node.childrenIds.forEach((cid) => dfs(cid));
+  };
+
+  dfs(root.id);
+  return active;
+}
+
+/* -------------------------------------------------
+   FrameState 生成（描画/クリック共通）
+------------------------------------------------- */
 
 export function prepareFrameState(
   battle: BattleData,
   currentTime: number,
-  fadeDuration: number
+  fadeDuration: number,
+  cameraTarget: CameraTarget | null = null
 ): FrameState {
   const { unitStates, unitMap } = collectUnitStates(
     battle,
     currentTime,
     fadeDuration
   );
+
   const characters = collectCharacterStates(battle, currentTime, fadeDuration);
 
-  const baseNodes = battle.hierarchyNodes ?? {};
-  const clonedNodes = cloneHierarchyNodes(baseNodes);
-  applyEvents(clonedNodes, battle.events ?? [], currentTime);
+  // ===== ここが防御ポイント =====
+  const hierarchyData = battle.hierarchy ?? {
+    nodes: {},
+    roots: [],
+  };
 
-  const hierarchy = computeHierarchyPositions(battle, clonedNodes, unitMap);
+  const events = battle.events ?? [];
+  // ============================
+
+  const nodes = applyEventsToHierarchy(
+    hierarchyData.nodes,
+    events,
+    currentTime
+  );
+
+  const { positioned, levels, roots } = computeHierarchyPositions(
+    nodes,
+    unitMap
+  );
+
+  const activeUnitIds = computeActiveUnitIds(positioned, cameraTarget);
 
   return {
     units: unitStates,
     unitMap,
     characters,
-    hierarchy,
+    hierarchy: {
+      nodes: positioned,
+      roots,
+      levels,
+      activeUnitIds,
+    },
   };
 }
 
 /* -------------------------------------------------
-   カメラ注視
----------------------------------------------------*/
+   注視カメラ（仕様化）
+------------------------------------------------- */
+
+export const CAMERA_FOLLOW_RATE = 0.2;
+
+export const CAMERA_ZOOM_PRESET: Record<HierarchyLevel | "unit", number> = {
+  legion: 0.2,
+  corps: 0.3,
+  division: 0.5,
+  regiment: 1.0,
+  unit: 2.5,
+};
+
+function ensureCameraCache(battle: BattleData) {
+  if (!cameraCache.has(battle)) cameraCache.set(battle, null);
+  return cameraCache.get(battle);
+}
+
+const cameraCache = new WeakMap<BattleData, CameraKeyframe | null>();
 
 export function focusCameraOn(
   battle: BattleData,
   frame: FrameState,
   baseCam: CameraKeyframe,
-  target: CameraTarget | null | undefined
-): CameraKeyframe {
-  // CameraKeyframe に正規化
+  target: CameraTarget | null
+) {
   const safeBase: CameraKeyframe = {
     t: baseCam.t ?? 0,
-    x: baseCam.x,
-    y: baseCam.y,
-    zoom: baseCam.zoom,
+    x: baseCam.x ?? battle.map.width / 2,
+    y: baseCam.y ?? battle.map.height / 2,
+    zoom: baseCam.zoom ?? 1,
   };
 
   if (!target) return safeBase;
@@ -372,22 +437,16 @@ export function focusCameraOn(
 
   if (!pos) return safeBase;
 
-  const zoomPreset: Record<HierarchyLevel | "unit", number> = {
-    legion: 0.2,
-    corps: 0.3,
-    division: 0.5,
-    regiment: 1.0,
-    unit: 2.5,
-  };
+  const zoomPreset = CAMERA_ZOOM_PRESET;
 
   const prev = ensureCameraCache(battle) ?? safeBase;
   const lerp = (a: number, b: number, r: number) => a + (b - a) * r;
 
   const nextCam: CameraKeyframe = {
     t: safeBase.t,
-    x: lerp(prev.x, pos.x, 0.2),
-    y: lerp(prev.y, pos.y, 0.2),
-    zoom: lerp(prev.zoom, zoomPreset[target.type], 0.2),
+    x: lerp(prev.x, pos.x, CAMERA_FOLLOW_RATE),
+    y: lerp(prev.y, pos.y, CAMERA_FOLLOW_RATE),
+    zoom: lerp(prev.zoom, zoomPreset[target.type], CAMERA_FOLLOW_RATE),
   };
 
   cameraCache.set(battle, nextCam);
