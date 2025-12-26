@@ -12,6 +12,7 @@ import { PlaybackControls } from "@/components/battle/controls/PlaybackControls"
 import { ViewModeButtons } from "@/components/battle/controls/ViewModeButtons";
 import { TimelineBar } from "@/components/TimelineBar";
 import { BattlePlayer } from "@/components/battle/BattlePlayer/BattlePlayer";
+import { PanelContainer } from "@/components/battle/PanelContainer";
 
 import { BattleData } from "@/utils/battle/battle";
 import { useRouter } from "next/navigation";
@@ -122,19 +123,23 @@ export default function BattlePage() {
         </button>
       </div>
 
-      {/* キャンバス */}
-      <div className="flex-1 relative overflow-hidden">
-        <BattlePlayer
-          battle={battle}
-          currentTime={currentTime}
-          viewMode={viewMode}
-          showGrid={showGrid}
-          selectedUnitId={selectedUnitId}
-          selectedCharacterId={selectedCharacterId}
-          onSelectUnit={selectUnit}
-          onSelectCharacter={selectCharacter}
-          enableSelection={true}
-        />
+      {/* キャンバス + サイドパネル */}
+      <div className="flex-1 relative overflow-hidden flex">
+        <div className="flex-1">
+          <BattlePlayer
+            battle={battle}
+            currentTime={currentTime}
+            viewMode={viewMode}
+            showGrid={showGrid}
+            selectedUnitId={selectedUnitId}
+            selectedCharacterId={selectedCharacterId}
+            onSelectUnit={selectUnit}
+            onSelectCharacter={selectCharacter}
+            enableSelection={true}
+          />
+        </div>
+
+        <PanelContainer panelData={panelData} currentTime={currentTime} />
       </div>
 
       {/* シークバー（固定） */}
