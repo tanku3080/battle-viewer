@@ -1,6 +1,6 @@
 // utils/battle/hitTest.ts
 
-import type { BattleData } from "@/types/battle";
+import { BattleData } from "@/utils/battle/battle";
 import { prepareFrameState } from "./runtime";
 
 /**

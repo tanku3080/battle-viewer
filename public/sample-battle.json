@@ -15,18 +15,22 @@
       {
         "id": "legion_red",
         "name": "赤軍レギオン",
+        "pos": { "x": 300, "y": 300 },
         "children": [
           {
             "id": "corps_red_1",
             "name": "赤軍第1軍団",
+            "pos": { "x": 300, "y": 300 },
             "children": [
               {
                 "id": "div_red_1",
                 "name": "赤軍第1師団",
+                "pos": { "x": 300, "y": 300 },
                 "children": [
                   {
                     "id": "reg_red_1",
                     "name": "赤軍第1連隊",
+                    "pos": { "x": 300, "y": 300 },
                     "units": ["red1", "red2"],
                     "children": []
                   }
@@ -40,18 +44,22 @@
       {
         "id": "legion_blue",
         "name": "青軍レギオン",
+        "pos": { "x": 700, "y": 150 },
         "children": [
           {
             "id": "corps_blue_1",
             "name": "青軍第1軍団",
+            "pos": { "x": 700, "y": 150 },
             "children": [
               {
                 "id": "div_blue_1",
                 "name": "青軍第1師団",
+                "pos": { "x": 700, "y": 150 },
                 "children": [
                   {
                     "id": "reg_blue_1",
                     "name": "青軍第1連隊",
+                    "pos": { "x": 700, "y": 150 },
                     "units": ["blue1", "blue2"],
                     "children": []
                   }

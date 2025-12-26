@@ -3,11 +3,12 @@ import type {
   HierarchyLevel,
   HierarchyNode,
   Unit,
-} from "@/types/battle";
+} from "./battle";
 
 export type HierarchySourceNode = {
   id: string;
   name?: string;
+  pos?: { x: number; y: number }; // ★追加
   children?: HierarchySourceNode[];
   units?: string[];
 };
@@ -58,6 +59,7 @@ export function buildHierarchyNodesFromJson(
       unitIds,
       status: "active",
       history: [],
+      pos: src.pos ?? undefined,
     };
 
     nodes[node.id] = node;

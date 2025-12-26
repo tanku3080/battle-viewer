@@ -8,17 +8,13 @@ import {
   loadBattleJson,
   type RawBattleJson,
 } from "@/utils/battle/loadBattleJson";
-
-import { PageHeader } from "@/components/layout/PageHeader";
 import { PlaybackControls } from "@/components/battle/controls/PlaybackControls";
 import { ViewModeButtons } from "@/components/battle/controls/ViewModeButtons";
-import { PanelContainer } from "@/components/battle/PanelContainer";
 import { TimelineBar } from "@/components/TimelineBar";
-import { ProductionModal } from "@/components/ProductionModal/ProductionModal";
 import { BattlePlayer } from "@/components/battle/BattlePlayer/BattlePlayer";
 
-import type { BattleData } from "@/types/battle";
-import router from "next/router";
+import { BattleData } from "@/utils/battle/battle";
+import { useRouter } from "next/navigation";
 
 export default function BattlePage() {
   const [battle, setBattle] = useState<BattleData | null>(null);
@@ -64,6 +60,8 @@ export default function BattlePage() {
     seek(0);
     stop();
   };
+
+  const router = useRouter();
 
   return (
     <main className="w-screen h-screen overflow-hidden bg-[#050816] text-gray-200 flex flex-col">

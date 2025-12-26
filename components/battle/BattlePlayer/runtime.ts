@@ -7,7 +7,7 @@ import type {
   HierarchyNode,
   TimelinePoint,
   Unit,
-} from "@/types/battle";
+} from "@/utils/battle/battle";
 import { cloneHierarchyNodes } from "@/utils/battle/hierarchy";
 import { getSmoothTransform } from "./transform";
 import { getSpawnState } from "./spawnEffects";
@@ -300,7 +300,7 @@ function computeHierarchyPositions(
 
     positioned[node.id] = { ...node, position };
     levels[node.level].push(node.id);
-    node.unitIds.forEach((uid) => activeUnitIds.add(uid));
+    node.unitIds.forEach((uid: string) => activeUnitIds.add(uid));
 
     return position;
   };
