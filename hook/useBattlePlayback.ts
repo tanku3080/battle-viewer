@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { BattleData } from "@/types/battle";
+import type { BattleData } from "@/utils/battle/battle";
 
 export function useBattlePlayback(battle: BattleData | null) {
   const [currentTime, setCurrentTime] = useState(0);

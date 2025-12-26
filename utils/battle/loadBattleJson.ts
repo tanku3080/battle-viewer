@@ -5,10 +5,11 @@ import type {
   BattleEvent,
   BattleTimeline,
   Character,
+  LODConfig,
   TimelinePoint,
   Unit,
   UnitDefinition,
-} from "@/types/battle";
+} from "./battle";
 import {
   buildHierarchyNodesFromJson,
   sortEvents,
@@ -16,6 +17,7 @@ import {
 } from "./hierarchy";
 
 export type RawBattleJson = {
+  lod?: Partial<LODConfig>;
   meta?: { title?: string; duration?: number };
   title?: string;
   map: BattleData["map"];
@@ -179,6 +181,15 @@ function buildCharacters(
   });
 }
 
+export const DEFAULT_LOD: BattleData["lod"] = {
+  // drawSizePx が 40px 未満 → レギオンだけ
+  corps: { min: 40, max: 80 },
+  division: { min: 80, max: 140 },
+  regiment: { min: 140, max: 220 },
+  unit: { min: 220, max: 999 },
+  fadeRange: 20,
+};
+
 /**
  * JSON 読み込み後の battle データ整形
  * dir 補完などの各種加工をここで実施する
@@ -207,10 +218,20 @@ export function loadBattleJson(raw: RawBattleJson): BattleData {
     unitIndex
   );
 
+  //lod を BattleData に必ず入れる
+  const lod: LODConfig = {
+    corps: { ...DEFAULT_LOD.corps, ...(raw.lod?.corps ?? {}) },
+    division: { ...DEFAULT_LOD.division, ...(raw.lod?.division ?? {}) },
+    regiment: { ...DEFAULT_LOD.regiment, ...(raw.lod?.regiment ?? {}) },
+    unit: { ...DEFAULT_LOD.unit, ...(raw.lod?.unit ?? {}) },
+    fadeRange: raw.lod?.fadeRange ?? DEFAULT_LOD.fadeRange,
+  };
+
   return {
     title: raw.meta?.title ?? raw.title ?? "Untitled Battle",
     meta: raw.meta,
     map: raw.map,
+    lod,
     camera: timeline.camera ?? [],
     units,
     characters,
