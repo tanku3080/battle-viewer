@@ -1,4 +1,4 @@
-import type { BattleData } from "@/utils/battle/battle";
+import type { BattleData } from "@/types/battle";
 import type { FrameState, NodeWithPosition } from "./runtime";
 import { prepareFrameState } from "./runtime";
 

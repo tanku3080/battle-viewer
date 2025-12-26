@@ -1,11 +1,8 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
-import type {
-  BattleData,
-  CameraTarget,
-  RenderTransform,
-} from "@/utils/battle/battle";
+import type { BattleData, CameraTarget } from "@/types/battle";
+import { RenderTransform } from "@/types/battle";
 import { getCameraAtTime } from "./transform";
 import { drawWorld } from "./drawWorld";
 import { hitTestAtTime } from "./hitTest";
@@ -51,24 +48,21 @@ export const BattlePlayer: React.FC<Props> = ({
   const dragStart = useRef({ x: 0, y: 0 });
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
 
-  /* -------------------------------------------------
-     ★ 修正点：wheel を DOM イベントで登録
-  ---------------------------------------------------*/
+  /* ================= ホイールズーム ================= */
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !battle) return;
 
     const onWheel = (e: WheelEvent) => {
-      if (!battle) return;
+      e.preventDefault();
 
-      e.preventDefault(); // ← ここでのみ呼ぶ
-      setCameraOverride(true);
+      const delta = Math.sign(e.deltaY);
+      const step = 0.1;
 
       setUserScale((prev) => {
-        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-        let next = prev * zoomFactor;
-        if (next < 1) next = 1;
-        if (next > 6) next = 6;
+        const next = prev + (delta > 0 ? -step : step);
+        if (next < 1) return 1;
+        if (next > 5) return 5;
         return next;
       });
 
@@ -81,7 +75,6 @@ export const BattlePlayer: React.FC<Props> = ({
       canvas.removeEventListener("wheel", onWheel);
     };
   }, [battle]);
-  /* ------------------------------------------------- */
 
   /* ================= 描画処理（省略なし） ================= */
   useEffect(() => {
@@ -112,17 +105,13 @@ export const BattlePlayer: React.FC<Props> = ({
 
     const fadeDuration = 0.5;
     const frameState = prepareFrameState(battle, currentTime, fadeDuration);
-    const resolvedTarget = cameraOverride
-      ? null
-      : cameraTarget ?? battle.cameraTarget ?? null;
+    const resolvedTarget = cameraOverride ? cameraTarget : null;
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    ctx.fillStyle = "#020617";
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     if (viewMode === "camera") {
       const rawCam = getCameraAtTime(
-        battle.camera,
+        battle.timeline.camera ?? [],
         currentTime,
         mapWidth,
         mapHeight
@@ -143,6 +132,8 @@ export const BattlePlayer: React.FC<Props> = ({
       transformRef.current = {
         mode: "camera",
         baseScale,
+        offsetX,
+        offsetY,
         canvasWidth,
         canvasHeight,
         mapWidth,
@@ -154,7 +145,9 @@ export const BattlePlayer: React.FC<Props> = ({
       };
 
       ctx.save();
-      ctx.translate(canvasWidth / 2, canvasHeight / 2);
+      // contain(offset) + mapCenter を基準に統一（canvasCenter と等価）
+      ctx.translate(offsetX, offsetY);
+      ctx.translate((mapWidth * baseScale) / 2, (mapHeight * baseScale) / 2);
       ctx.translate(viewOffset.x, viewOffset.y);
       ctx.scale(scaleFactor, scaleFactor);
       ctx.translate(-cam.x, -cam.y);
@@ -222,28 +215,28 @@ export const BattlePlayer: React.FC<Props> = ({
     currentTime,
     viewMode,
     showGrid,
+    userScale,
+    viewOffset.x,
+    viewOffset.y,
     selectedUnitId,
     selectedCharacterId,
     enableSelection,
     cameraTarget,
-    userScale,
-    viewOffset.x,
-    viewOffset.y,
     cameraOverride,
   ]);
 
-  /* ================= クリック ================= */
+  /* ================= クリック選択 ================= */
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!battle || !enableSelection) return;
-    const canvas = canvasRef.current;
-    const transform = transformRef.current;
-    if (!canvas || !transform) return;
+    if (!battle) return;
 
-    const rect = canvas.getBoundingClientRect();
+    const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    const { worldX, worldY } = convertClickToWorld(clickX, clickY, transform);
+    const tr = transformRef.current;
+    if (!tr) return;
+
+    const { worldX, worldY } = convertClickToWorld(clickX, clickY, tr);
 
     const hit = hitTestAtTime({
       battle,
@@ -254,8 +247,9 @@ export const BattlePlayer: React.FC<Props> = ({
       cameraScale: cameraScaleRef.current,
     });
 
-    if (hit.characterId) onSelectCharacter?.(hit.characterId);
-    else if (hit.unitId) onSelectUnit?.(hit.unitId);
+    // 優先：Unit → Character（仕様要件に合わせる）
+    if (hit.unitId) onSelectUnit?.(hit.unitId);
+    else if (hit.characterId) onSelectCharacter?.(hit.characterId);
     else {
       onSelectUnit?.(null);
       onSelectCharacter?.(null);
