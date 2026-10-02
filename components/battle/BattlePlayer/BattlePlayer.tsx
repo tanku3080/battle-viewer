@@ -204,11 +204,22 @@ export const BattlePlayer: React.FC<Props> = ({
       ctx.scale(scaleFactor, scaleFactor);
       ctx.translate(-cam.x, -cam.y);
 
+      const centerX = offsetX + (mapWidth * baseScale) / 2;
+      const centerY = offsetY + (mapHeight * baseScale) / 2;
+      const gridBounds = {
+        minX: (0 - centerX - viewOffset.x) / scaleFactor + cam.x,
+        minY: (0 - centerY - viewOffset.y) / scaleFactor + cam.y,
+        maxX: (canvasWidth - centerX - viewOffset.x) / scaleFactor + cam.x,
+        maxY: (canvasHeight - centerY - viewOffset.y) / scaleFactor + cam.y,
+      };
+
       drawWorld({
         ctx,
         battle,
         currentTime,
         showGrid,
+        viewMode,
+        gridBounds,
         fadeDuration,
         cameraScale: scaleFactor,
         frameState,
@@ -246,11 +257,20 @@ export const BattlePlayer: React.FC<Props> = ({
     ctx.translate(offsetX, offsetY);
     ctx.scale(scaleFactor, scaleFactor);
 
+    const gridBounds = {
+      minX: (0 - viewOffset.x - offsetX) / scaleFactor,
+      minY: (0 - viewOffset.y - offsetY) / scaleFactor,
+      maxX: (canvasWidth - viewOffset.x - offsetX) / scaleFactor,
+      maxY: (canvasHeight - viewOffset.y - offsetY) / scaleFactor,
+    };
+
     drawWorld({
       ctx,
       battle,
       currentTime,
       showGrid,
+      viewMode,
+      gridBounds,
       fadeDuration,
       cameraScale: scaleFactor,
       frameState,
