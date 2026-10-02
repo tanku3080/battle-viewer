@@ -23,7 +23,10 @@ export function hitTestAtTime(args: {
     args;
 
   const frame = prepareFrameState(battle, currentTime, fadeDuration);
-  const lodAlpha = computeLodAlphas(battle.lod, cameraScale);
+  const hasHierarchy = Object.keys(frame.hierarchy.nodes).length > 0;
+  const lodAlpha = hasHierarchy
+    ? computeLodAlphas(battle.lod, cameraScale)
+    : { legion: 0, corps: 0, division: 0, regiment: 0, unit: 1 };
   const dominantLevel = getDominantLodLevel(lodAlpha);
 
   // ============================================

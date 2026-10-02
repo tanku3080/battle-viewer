@@ -40,7 +40,7 @@ export function ViewModeButtons({
           checked={showGrid}
           onChange={(e) => setShowGrid(e.target.checked)}
         />
-        <span>グリッド表示</span>
+        <span>グリッド・中心軸表示</span>
       </label>
     </div>
   );

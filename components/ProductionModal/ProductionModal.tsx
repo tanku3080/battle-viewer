@@ -9,6 +9,7 @@ type Props = {
   battle: BattleData | null;
   productionTime: number;
   isOpen: boolean;
+  showGrid: boolean;
   onClose: () => void;
 };
 
@@ -16,6 +17,7 @@ export const ProductionModal: React.FC<Props> = ({
   battle,
   productionTime,
   isOpen,
+  showGrid,
   onClose,
 }) => {
   useProductionInput(isOpen, onClose);
@@ -29,7 +31,7 @@ export const ProductionModal: React.FC<Props> = ({
           battle={battle}
           currentTime={productionTime}
           viewMode="camera"
-          showGrid={false}
+          showGrid={showGrid}
           enableSelection={false}
         />
       </div>

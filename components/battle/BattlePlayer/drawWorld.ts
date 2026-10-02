@@ -8,6 +8,8 @@ type DrawArgs = {
   battle: BattleData;
   currentTime: number;
   showGrid: boolean;
+  viewMode: "map" | "camera";
+  gridBounds: { minX: number; minY: number; maxX: number; maxY: number };
   bgImage: HTMLImageElement | null;
   unitImages: Record<string, HTMLImageElement>;
   charImages: Record<string, HTMLImageElement>;
@@ -206,6 +208,8 @@ export function drawWorld(args: DrawArgs) {
     battle,
     currentTime,
     showGrid,
+    viewMode,
+    gridBounds,
     bgImage,
     unitImages,
     charImages,
@@ -232,31 +236,69 @@ export function drawWorld(args: DrawArgs) {
     ctx.fillRect(0, 0, mapWidth, mapHeight);
   }
 
-  // グリッド
+  // グリッド / 中心軸
   if (showGrid) {
-    ctx.save();
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
-    ctx.lineWidth = 1;
     const gridSize = 50;
+    const hasMapImage = Boolean(battle.map.image);
+    const clipToMap = viewMode === "camera" && hasMapImage;
+    const bounds = clipToMap
+      ? { minX: 0, minY: 0, maxX: mapWidth, maxY: mapHeight }
+      : gridBounds;
+    const safeScale = Math.max(cameraScale, 0.0001);
 
-    for (let x = 0; x <= mapWidth; x += gridSize) {
+    ctx.save();
+
+    if (clipToMap) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, mapHeight);
+      ctx.rect(0, 0, mapWidth, mapHeight);
+      ctx.clip();
+    }
+
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 1 / safeScale;
+
+    const startX = Math.floor(bounds.minX / gridSize) * gridSize;
+    const endX = Math.ceil(bounds.maxX / gridSize) * gridSize;
+    const startY = Math.floor(bounds.minY / gridSize) * gridSize;
+    const endY = Math.ceil(bounds.maxY / gridSize) * gridSize;
+
+    for (let x = startX; x <= endX; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, bounds.minY);
+      ctx.lineTo(x, bounds.maxY);
       ctx.stroke();
     }
 
-    for (let y = 0; y <= mapHeight; y += gridSize) {
+    for (let y = startY; y <= endY; y += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(mapWidth, y);
+      ctx.moveTo(bounds.minX, y);
+      ctx.lineTo(bounds.maxX, y);
       ctx.stroke();
     }
+
+    // JSON作成時の基準点。全体/カメラで同じマップ中心を共有する。
+    const centerX = mapWidth / 2;
+    const centerY = mapHeight / 2;
+    ctx.strokeStyle = "rgba(250,204,21,0.85)";
+    ctx.lineWidth = 2 / safeScale;
+
+    ctx.beginPath();
+    ctx.moveTo(bounds.minX, centerY);
+    ctx.lineTo(bounds.maxX, centerY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(centerX, bounds.minY);
+    ctx.lineTo(centerX, bounds.maxY);
+    ctx.stroke();
 
     ctx.restore();
   }
 
-  const lodAlpha = computeLodAlphas(battle.lod, cameraScale);
+  const hasHierarchy = Object.keys(frame.hierarchy.nodes).length > 0;
+  const lodAlpha = hasHierarchy
+    ? computeLodAlphas(battle.lod, cameraScale)
+    : { legion: 0, corps: 0, division: 0, regiment: 0, unit: 1 };
   const alphaLegion = lodAlpha.legion;
   const alphaCorps = lodAlpha.corps;
   const alphaDivision = lodAlpha.division;
