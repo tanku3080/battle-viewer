@@ -22,6 +22,7 @@ export function hitTestAtTime(args: {
     args;
 
   const frame = prepareFrameState(battle, currentTime, fadeDuration);
+  const lodAlpha = computeLodAlphas(battle.lod, cameraScale);
 
   // ============================================
   // Unit 判定（最優先）
@@ -33,6 +34,7 @@ export function hitTestAtTime(args: {
   const unitRadius = unitBaseRadius / cameraScale; // ← 画面上の半径を一定に寄せる
 
   frame.units.forEach((state) => {
+    if (lodAlpha.unit <= 0.05) return;
     if (!state.visible || !state.transform) return;
 
     // 階層フィルタ（LOD）
@@ -91,7 +93,6 @@ export function hitTestAtTime(args: {
   // ============================================
   // Hierarchy Node 判定
   // ============================================
-  const lodAlpha = computeLodAlphas(battle.lod, cameraScale);
   const nodes = frame.hierarchy.nodes;
 
   const tryHitLevel = (
