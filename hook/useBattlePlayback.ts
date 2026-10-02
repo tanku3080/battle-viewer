@@ -157,7 +157,6 @@ export function useBattlePlayback(battle: BattleData | null) {
   };
 
   const startProduction = () => {
-    if (!battle) return;
     setProductionTime(0);
     setIsProductionPlaying(true);
     setIsProductionOpen(true);

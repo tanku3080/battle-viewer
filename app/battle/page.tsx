@@ -18,7 +18,7 @@ import { ProductionModal } from "@/components/ProductionModal/ProductionModal";
 import { BattlePlayer } from "@/components/battle/BattlePlayer/BattlePlayer";
 
 import type { BattleData } from "@/types/battle";
-import router from "next/router";
+import Link from "next/link";
 
 export default function BattlePage() {
   const [battle, setBattle] = useState<BattleData | null>(null);
@@ -90,13 +90,10 @@ export default function BattlePage() {
           JSONを読み込む
         </button>
 
-        {/* タイトルに戻る */}
-        <button
-          onClick={() => router.push("/")}
-          className="px-4 py-2 rounded-md bg-gray-600 text-white"
-        >
-          タイトルに戻る
-        </button>
+        {/* タイトルに戻る(cliantをファイルの文頭に入れているからrouter使用不可。) */}
+        <Link className="px-4 py-2 rounded-md bg-gray-600 text-white"  href={"/"}>
+        タイトルに戻る
+        </Link>
 
         {/* 再生コントロール */}
         <PlaybackControls
@@ -117,7 +114,7 @@ export default function BattlePage() {
         {/* 本番開始 */}
         <button
           onClick={startProduction}
-          disabled={!battle}
+          disabled={!battle? true:false}
           className="px-4 py-2 rounded-md bg-purple-600 text-white disabled:bg-purple-900"
         >
           本番開始
