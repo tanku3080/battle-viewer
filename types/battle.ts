@@ -26,8 +26,8 @@ export type Character = {
   name: string;
   icon?: string | null;
   timeline: TimelinePoint[];
-  appearAt?: number;
-  disappearAt?: number;
+  appearAt: number;
+  disappearAt: number;
 };
 
 export type HierarchyLevel = "legion" | "corps" | "division" | "regiment";
@@ -45,6 +45,16 @@ export type HierarchyNode = {
     event: string;
     detail?: unknown;
   }>;
+  pos?: { x: number; y: number };
+};
+
+export type LODBand = { min: number; max: number };
+export type LODConfig = {
+  corps: LODBand;
+  division: LODBand;
+  regiment: LODBand;
+  unit: LODBand;
+  fadeRange: number;
 };
 
 export type CameraKeyframe = {
@@ -60,62 +70,6 @@ export type CameraTarget =
   | { type: "division"; id: string }
   | { type: "regiment"; id: string }
   | { type: "unit"; id: string };
-
-export type BattleTimeline = {
-  camera?: CameraKeyframe[];
-  units: Record<string, TimelinePoint[]>;
-  characters?: Record<string, TimelinePoint[]>;
-};
-
-export type BattleMap = {
-  width: number;
-  height: number;
-  image?: string | null;
-};
-
-export type BattleData = {
-  map: BattleMap;
-  units: Unit[];
-  characters: Character[];
-  hierarchy: {
-    nodes: Record<string, HierarchyNode>;
-    roots: string[];
-  };
-  events: BattleEvent[];
-  timeline: BattleTimeline;
-
-  unitIndex: Record<string, Unit>;
-  characterIndex: Record<string, Character>;
-};
-
-export type RenderTransform =
-  | {
-      mode: "map";
-      baseScale: number;
-      offsetX: number;
-      offsetY: number;
-      canvasWidth: number;
-      canvasHeight: number;
-      mapWidth: number;
-      mapHeight: number;
-      viewOffsetX: number;
-      viewOffsetY: number;
-      scaleFactor: number;
-    }
-  | {
-      mode: "camera";
-      baseScale: number;
-      offsetX: number;
-      offsetY: number;
-      canvasWidth: number;
-      canvasHeight: number;
-      mapWidth: number;
-      mapHeight: number;
-      cam: { x: number; y: number; zoom: number };
-      viewOffsetX: number;
-      viewOffsetY: number;
-      scaleFactor: number;
-    };
 
 export type DestroyedEvent = {
   t: number;
@@ -159,3 +113,62 @@ export type BattleEvent =
   | MergeEvent
   | TransferEvent
   | ReformEvent;
+
+export type BattleTimeline = {
+  camera?: CameraKeyframe[];
+  units: Record<string, TimelinePoint[]>;
+  characters?: Record<string, TimelinePoint[]>;
+};
+
+export type BattleMap = {
+  width: number;
+  height: number;
+  image?: string | null;
+};
+
+export type BattleData = {
+  title: string;
+  meta?: { title?: string; duration?: number };
+  map: BattleMap;
+  lod: LODConfig;
+  camera: CameraKeyframe[];
+  units: Unit[];
+  characters: Character[];
+  hierarchy: {
+    nodes: Record<string, HierarchyNode>;
+    roots: string[];
+  };
+  events: BattleEvent[];
+  timeline: BattleTimeline;
+  unitIndex: Record<string, Unit>;
+  characterIndex: Record<string, Character>;
+};
+
+export type RenderTransform =
+  | {
+      mode: "map";
+      baseScale: number;
+      offsetX: number;
+      offsetY: number;
+      canvasWidth: number;
+      canvasHeight: number;
+      mapWidth: number;
+      mapHeight: number;
+      viewOffsetX: number;
+      viewOffsetY: number;
+      scaleFactor: number;
+    }
+  | {
+      mode: "camera";
+      baseScale: number;
+      offsetX: number;
+      offsetY: number;
+      canvasWidth: number;
+      canvasHeight: number;
+      mapWidth: number;
+      mapHeight: number;
+      cam: { x: number; y: number; zoom: number };
+      viewOffsetX: number;
+      viewOffsetY: number;
+      scaleFactor: number;
+    };
