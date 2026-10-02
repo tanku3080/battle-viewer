@@ -5,7 +5,7 @@
   },
 
   "map": {
-    "image": "/maps/sample.png",
+    "image": "/maps/sample.svg",
     "width": 2400,
     "height": 1350
   },
