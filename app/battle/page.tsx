@@ -152,6 +152,7 @@ export default function BattlePage() {
         battle={battle}
         productionTime={productionTime}
         isOpen={isProductionOpen}
+        showGrid={showGrid}
         onClose={closeProduction}
       />
     </main>
