@@ -2,6 +2,7 @@ import type { BattleData, HierarchyLevel } from "@/types/battle";
 import { prepareFrameState } from "./runtime";
 import {
   computeLodAlphas,
+  getDominantLodLevel,
   HIERARCHY_NODE_RADIUS,
 } from "@/utils/battle/lod";
 
@@ -23,6 +24,7 @@ export function hitTestAtTime(args: {
 
   const frame = prepareFrameState(battle, currentTime, fadeDuration);
   const lodAlpha = computeLodAlphas(battle.lod, cameraScale);
+  const dominantLevel = getDominantLodLevel(lodAlpha);
 
   // ============================================
   // Unit 判定（最優先）
@@ -34,7 +36,7 @@ export function hitTestAtTime(args: {
   const unitRadius = unitBaseRadius / cameraScale; // ← 画面上の半径を一定に寄せる
 
   frame.units.forEach((state) => {
-    if (lodAlpha.unit <= 0.05) return;
+    if (dominantLevel !== "unit") return;
     if (!state.visible || !state.transform) return;
 
     // 階層フィルタ（LOD）
@@ -122,38 +124,19 @@ export function hitTestAtTime(args: {
     return bestId;
   };
 
-  // 優先：Regiment > Division > Corps > Legion
-  const hitReg = tryHitLevel("regiment", lodAlpha.regiment);
-  if (hitReg)
-    return {
-      unitId: null as string | null,
-      characterId: null as string | null,
-      hierarchyNodeId: hitReg,
-    };
-
-  const hitDiv = tryHitLevel("division", lodAlpha.division);
-  if (hitDiv)
-    return {
-      unitId: null as string | null,
-      characterId: null as string | null,
-      hierarchyNodeId: hitDiv,
-    };
-
-  const hitCorps = tryHitLevel("corps", lodAlpha.corps);
-  if (hitCorps)
-    return {
-      unitId: null as string | null,
-      characterId: null as string | null,
-      hierarchyNodeId: hitCorps,
-    };
-
-  const hitLeg = tryHitLevel("legion", lodAlpha.legion);
-  if (hitLeg)
-    return {
-      unitId: null as string | null,
-      characterId: null as string | null,
-      hierarchyNodeId: hitLeg,
-    };
+  if (dominantLevel !== "unit") {
+    const hitHierarchy = tryHitLevel(
+      dominantLevel,
+      lodAlpha[dominantLevel]
+    );
+    if (hitHierarchy) {
+      return {
+        unitId: null as string | null,
+        characterId: null as string | null,
+        hierarchyNodeId: hitHierarchy,
+      };
+    }
+  }
 
   return {
     unitId: null as string | null,

@@ -6,7 +6,9 @@ import type {
   BattleTimeline,
   Character,
   HierarchyNode,
+  LODBand,
   LODConfig,
+  LodLevel,
   TimelinePoint,
   Unit,
   UnitDefinition,
@@ -16,6 +18,7 @@ import {
   sortEvents,
   type HierarchySourceNode,
 } from "./hierarchy";
+import { LOD_LEVELS } from "./lod";
 
 type RawUnit = Partial<Omit<UnitDefinition, "id">> & {
   id: string;
@@ -35,8 +38,12 @@ type RawHierarchy = {
   nodes?: Record<string, Partial<HierarchyNode> & { id?: string }>;
 };
 
+type RawLODConfig = Partial<Record<LodLevel, Partial<LODBand>>> & {
+  fadeRange?: number;
+};
+
 export type RawBattleJson = {
-  lod?: Partial<LODConfig>;
+  lod?: RawLODConfig;
   meta?: { title?: string; duration?: number };
   title?: string;
   map: BattleData["map"];
@@ -222,12 +229,42 @@ function normalizeHierarchy(
 }
 
 export const DEFAULT_LOD: LODConfig = {
-  corps: { min: 0, max: 14 },
-  division: { min: 14, max: 28 },
-  regiment: { min: 28, max: 56 },
-  unit: { min: 56, max: 999 },
-  fadeRange: 20,
+  legion: { min: 0, max: 18 },
+  corps: { min: 18, max: 30 },
+  division: { min: 30, max: 42 },
+  regiment: { min: 42, max: 54 },
+  unit: { min: 54, max: 999 },
+  fadeRange: 3,
 };
+
+function finiteOr(value: number | undefined, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : fallback;
+}
+
+function normalizeLod(raw: RawLODConfig | undefined): LODConfig {
+  let previousMax = 0;
+  const bands = {} as Record<LodLevel, LODBand>;
+
+  LOD_LEVELS.forEach((level, index) => {
+    const fallback = DEFAULT_LOD[level];
+    const requested = raw?.[level];
+    const fallbackWidth = Math.max(1, fallback.max - fallback.min);
+    const requestedMin = Math.max(0, finiteOr(requested?.min, fallback.min));
+    const min = index === 0 ? 0 : Math.max(previousMax, requestedMin);
+    const requestedMax = finiteOr(requested?.max, fallback.max);
+    const max = Math.max(requestedMax, min + fallbackWidth);
+
+    bands[level] = { min, max };
+    previousMax = max;
+  });
+
+  return {
+    ...bands,
+    fadeRange: Math.max(0, finiteOr(raw?.fadeRange, DEFAULT_LOD.fadeRange)),
+  };
+}
 
 export function loadBattleJson(raw: RawBattleJson): BattleData {
   validateMap(raw?.map);
@@ -250,13 +287,7 @@ export function loadBattleJson(raw: RawBattleJson): BattleData {
   );
   const hierarchy = normalizeHierarchy(raw.hierarchy, unitIndex);
 
-  const lod: LODConfig = {
-    corps: { ...DEFAULT_LOD.corps, ...(raw.lod?.corps ?? {}) },
-    division: { ...DEFAULT_LOD.division, ...(raw.lod?.division ?? {}) },
-    regiment: { ...DEFAULT_LOD.regiment, ...(raw.lod?.regiment ?? {}) },
-    unit: { ...DEFAULT_LOD.unit, ...(raw.lod?.unit ?? {}) },
-    fadeRange: raw.lod?.fadeRange ?? DEFAULT_LOD.fadeRange,
-  };
+  const lod = normalizeLod(raw.lod);
 
   return {
     title: raw.meta?.title ?? raw.title ?? "Untitled Battle",

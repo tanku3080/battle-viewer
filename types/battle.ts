@@ -31,6 +31,7 @@ export type Character = {
 };
 
 export type HierarchyLevel = "legion" | "corps" | "division" | "regiment";
+export type LodLevel = HierarchyLevel | "unit";
 
 export type HierarchyNode = {
   id: string;
@@ -50,6 +51,7 @@ export type HierarchyNode = {
 
 export type LODBand = { min: number; max: number };
 export type LODConfig = {
+  legion: LODBand;
   corps: LODBand;
   division: LODBand;
   regiment: LODBand;

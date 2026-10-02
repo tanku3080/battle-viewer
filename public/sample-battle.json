@@ -10,6 +10,15 @@
     "height": 1350
   },
 
+  "lod": {
+    "legion": { "min": 0, "max": 18 },
+    "corps": { "min": 18, "max": 30 },
+    "division": { "min": 30, "max": 42 },
+    "regiment": { "min": 42, "max": 54 },
+    "unit": { "min": 54, "max": 999 },
+    "fadeRange": 3
+  },
+
   "hierarchy": {
     "roots": ["legion_red", "legion_blue"],
     "nodes": {
