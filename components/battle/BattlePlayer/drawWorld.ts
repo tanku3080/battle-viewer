@@ -1,6 +1,7 @@
 import type { BattleData } from "@/types/battle";
 import type { FrameState, NodeWithPosition } from "./runtime";
 import { prepareFrameState } from "./runtime";
+import { computeLodAlphas } from "@/utils/battle/lod";
 
 type DrawArgs = {
   ctx: CanvasRenderingContext2D;
@@ -24,25 +25,6 @@ const LEVELS = {
   division: { radius: 26, font: "14px sans-serif" },
   regiment: { radius: 18, font: "13px sans-serif" },
 };
-
-// LOD 設定（仕様書デフォルト）
-const LOD_CONFIG = {
-  corps: { min: 0, max: 14 },
-  division: { min: 14, max: 28 },
-  regiment: { min: 28, max: 56 },
-  unit: { min: 56, max: 999 },
-  fadeRange: 20,
-};
-
-// LOD 判定用の基準サイズ（ワールド座標上の大きさ 1.0）
-// 実際のピクセルサイズ = BASE_SIZE * cameraScale
-const BASE_LOD_SIZE_PX = 24;
-
-function clamp01(v: number) {
-  if (v < 0) return 0;
-  if (v > 1) return 1;
-  return v;
-}
 
 function nodeColor(node: NodeWithPosition, battle: BattleData) {
   for (const uid of node.unitIds) {
@@ -280,37 +262,12 @@ export function drawWorld(args: DrawArgs) {
     ctx.restore();
   }
 
-  // ------------------- LOD 計算（仕様準拠） -------------------
-  // drawSizePx = BASE_LOD_SIZE_PX * cameraScale（※ baseScale は入れない）
-  const drawSizePx = BASE_LOD_SIZE_PX * cameraScale;
-  const fadeRange = LOD_CONFIG.fadeRange;
-
-  const fade = (thresholdPx: number) =>
-    clamp01((drawSizePx - (thresholdPx - fadeRange)) / (fadeRange * 2));
-
-  let alphaCorps = 1;
-  let alphaDivision = 0;
-  let alphaRegiment = 0;
-  let alphaUnit = 0;
-
-  // Corps → Division
-  const fCD = fade(LOD_CONFIG.division.min);
-  alphaDivision = fCD;
-  alphaCorps = 1 - fCD;
-
-  // Division → Regiment
-  const fDR = fade(LOD_CONFIG.regiment.min);
-  const divBase = alphaDivision;
-  alphaRegiment = fDR * divBase;
-  alphaDivision = divBase * (1 - fDR);
-
-  // Regiment → Unit
-  const fRU = fade(LOD_CONFIG.unit.min);
-  const regBase = alphaRegiment;
-  alphaUnit = fRU * regBase;
-  alphaRegiment = regBase * (1 - fRU);
-
-  const alphaLegion = alphaCorps; // レギオンは Corps と同じ扱い
+  const lodAlpha = computeLodAlphas(battle.lod, cameraScale);
+  const alphaLegion = lodAlpha.legion;
+  const alphaCorps = lodAlpha.corps;
+  const alphaDivision = lodAlpha.division;
+  const alphaRegiment = lodAlpha.regiment;
+  const alphaUnit = lodAlpha.unit;
 
   // ------------------- 階層描画 -------------------
   drawHierarchyNodes({
