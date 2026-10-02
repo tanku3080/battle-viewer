@@ -81,22 +81,18 @@ function drawHierarchyNodes(params: {
 function drawUnits(params: {
   ctx: CanvasRenderingContext2D;
   frame: FrameState;
-  battle: BattleData;
   alpha: number;
   unitImages: Record<string, HTMLImageElement>;
   selectedUnitId?: string | null;
   enableSelection?: boolean;
-  cameraScale: number;
 }) {
   const {
     ctx,
     frame,
-    battle,
     alpha,
     unitImages,
     selectedUnitId,
     enableSelection,
-    cameraScale,
   } = params;
 
   if (alpha <= 0) return;
@@ -157,7 +153,6 @@ function drawCharacters(params: {
   charImages: Record<string, HTMLImageElement>;
   selectedCharacterId?: string | null;
   enableSelection?: boolean;
-  cameraScale: number;
 }) {
   const {
     ctx,
@@ -165,7 +160,6 @@ function drawCharacters(params: {
     charImages,
     selectedCharacterId,
     enableSelection,
-    cameraScale,
   } = params;
 
   frame.characters.forEach((ch) => {
@@ -314,12 +308,10 @@ export function drawWorld(args: DrawArgs) {
   drawUnits({
     ctx,
     frame,
-    battle,
     alpha: alphaUnit,
     unitImages,
     selectedUnitId,
     enableSelection,
-    cameraScale,
   });
 
   // キャラ（いまは LOD 非対象）
@@ -329,6 +321,5 @@ export function drawWorld(args: DrawArgs) {
     charImages,
     selectedCharacterId,
     enableSelection,
-    cameraScale,
   });
 }
