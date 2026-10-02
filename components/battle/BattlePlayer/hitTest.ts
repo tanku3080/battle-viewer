@@ -1,5 +1,9 @@
 import type { BattleData, HierarchyLevel } from "@/types/battle";
 import { prepareFrameState } from "./runtime";
+import {
+  computeLodAlphas,
+  HIERARCHY_NODE_RADIUS,
+} from "@/utils/battle/lod";
 
 /**
  * クリック判定（仕様：Unit > Regiment > Division > Corps > Legion）
@@ -18,6 +22,7 @@ export function hitTestAtTime(args: {
     args;
 
   const frame = prepareFrameState(battle, currentTime, fadeDuration);
+  const lodAlpha = computeLodAlphas(battle.lod, cameraScale);
 
   // ============================================
   // Unit 判定（最優先）
@@ -29,6 +34,7 @@ export function hitTestAtTime(args: {
   const unitRadius = unitBaseRadius / cameraScale; // ← 画面上の半径を一定に寄せる
 
   frame.units.forEach((state) => {
+    if (lodAlpha.unit <= 0.05) return;
     if (!state.visible || !state.transform) return;
 
     // 階層フィルタ（LOD）
@@ -85,48 +91,8 @@ export function hitTestAtTime(args: {
   }
 
   // ============================================
-  // Hierarchy Node 判定（Unit > ... > Legion の残り）
+  // Hierarchy Node 判定
   // ============================================
-
-  // drawWorld と同じ基準
-  const BASE_LOD_SIZE_PX = 24;
-  type LodLevel = HierarchyLevel | "unit";
-
-  const LOD_CONFIG: Record<LodLevel, { min: number; max: number }> & {
-    fadeRange: number;
-  } = {
-    legion: { min: 0, max: 7 },
-    corps: { min: 0, max: 14 },
-    division: { min: 14, max: 28 },
-    regiment: { min: 28, max: 56 },
-    unit: { min: 56, max: 999 },
-    fadeRange: 20,
-  };
-
-  const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
-  const drawSizePx = BASE_LOD_SIZE_PX * cameraScale;
-  const fadeRange = LOD_CONFIG.fadeRange;
-
-  const fade = (thresholdPx: number) =>
-    clamp01((drawSizePx - (thresholdPx - fadeRange)) / (fadeRange * 2));
-
-  // Corps → Division → Regiment の段階式（drawWorld と同じ）
-  const fCD = fade(LOD_CONFIG.division.min);
-  const alphaCorps = 1 - fCD;
-  const alphaDivisionBase = fCD;
-
-  const fDR = fade(LOD_CONFIG.regiment.min);
-  const alphaRegiment = fDR * alphaDivisionBase;
-  const alphaDivision = alphaDivisionBase * (1 - fDR);
-
-  // ノード半径（drawWorld と統一：ワールド単位）
-  const NODE_RADIUS: Record<Exclude<HierarchyLevel, "unit">, number> = {
-    legion: 40,
-    corps: 32,
-    division: 26,
-    regiment: 18,
-  };
-
   const nodes = frame.hierarchy.nodes;
 
   const tryHitLevel = (
@@ -137,7 +103,7 @@ export function hitTestAtTime(args: {
 
     let bestId: string | null = null;
     let bestDist = Infinity;
-    const r = NODE_RADIUS[level];
+    const r = HIERARCHY_NODE_RADIUS[level];
 
     for (const id of frame.hierarchy.levels[level]) {
       const node = nodes[id];
@@ -157,7 +123,7 @@ export function hitTestAtTime(args: {
   };
 
   // 優先：Regiment > Division > Corps > Legion
-  const hitReg = tryHitLevel("regiment", alphaRegiment);
+  const hitReg = tryHitLevel("regiment", lodAlpha.regiment);
   if (hitReg)
     return {
       unitId: null as string | null,
@@ -165,7 +131,7 @@ export function hitTestAtTime(args: {
       hierarchyNodeId: hitReg,
     };
 
-  const hitDiv = tryHitLevel("division", alphaDivision);
+  const hitDiv = tryHitLevel("division", lodAlpha.division);
   if (hitDiv)
     return {
       unitId: null as string | null,
@@ -173,7 +139,7 @@ export function hitTestAtTime(args: {
       hierarchyNodeId: hitDiv,
     };
 
-  const hitCorps = tryHitLevel("corps", alphaCorps);
+  const hitCorps = tryHitLevel("corps", lodAlpha.corps);
   if (hitCorps)
     return {
       unitId: null as string | null,
@@ -181,7 +147,7 @@ export function hitTestAtTime(args: {
       hierarchyNodeId: hitCorps,
     };
 
-  const hitLeg = tryHitLevel("legion", 1);
+  const hitLeg = tryHitLevel("legion", lodAlpha.legion);
   if (hitLeg)
     return {
       unitId: null as string | null,

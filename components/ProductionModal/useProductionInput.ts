@@ -6,8 +6,9 @@ export function useProductionInput(isOpen: boolean, onClose: () => void) {
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.code === "Space" || event.code === "Escape") {
+        event.preventDefault();
         onClose();
       }
     };

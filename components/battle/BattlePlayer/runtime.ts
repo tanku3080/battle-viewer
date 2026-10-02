@@ -1,12 +1,13 @@
 import type {
+  BattleData,
+  BattleEvent,
   CameraKeyframe,
   CameraTarget,
   HierarchyLevel,
   HierarchyNode,
   TimelinePoint,
   Unit,
-} from "@/utils/battle/battle";
-import type { BattleEvent, BattleData } from "@/types/battle";
+} from "@/types/battle";
 import { cloneHierarchyNodes } from "@/utils/battle/hierarchy";
 import { getSmoothTransform } from "./transform";
 import { getSpawnState } from "./spawnEffects";
@@ -160,7 +161,9 @@ function applyEventsToHierarchy(
     if (ev.event === "detach") {
       const source = nodes[ev.source];
       if (!source) continue;
-      if (source.parentId) removeChild(nodes[source.parentId], source.id);
+      if (source.parentId && nodes[source.parentId]) {
+        removeChild(nodes[source.parentId], source.id);
+      }
       source.parentId = null;
       source.history.push({
         t: ev.t,
@@ -174,7 +177,9 @@ function applyEventsToHierarchy(
       const source = nodes[ev.source];
       const target = nodes[ev.target];
       if (!source || !target) continue;
-      if (source.parentId) removeChild(nodes[source.parentId], source.id);
+      if (source.parentId && nodes[source.parentId]) {
+        removeChild(nodes[source.parentId], source.id);
+      }
       source.parentId = target.id;
       addChild(target, source.id);
       source.status = "active";
@@ -190,7 +195,9 @@ function applyEventsToHierarchy(
       const source = nodes[ev.source];
       const to = nodes[ev.to];
       if (!source || !to) continue;
-      if (source.parentId) removeChild(nodes[source.parentId], source.id);
+      if (source.parentId && nodes[source.parentId]) {
+        removeChild(nodes[source.parentId], source.id);
+      }
       source.parentId = to.id;
       addChild(to, source.id);
       source.status = "active";
@@ -207,17 +214,23 @@ function applyEventsToHierarchy(
       if (!target) continue;
 
       // parent の付け替え
-      if (target.parentId) removeChild(nodes[target.parentId], target.id);
+      if (target.parentId && nodes[target.parentId]) {
+        removeChild(nodes[target.parentId], target.id);
+      }
       target.parentId = ev.parent ?? null;
       if (ev.parent && nodes[ev.parent]) addChild(nodes[ev.parent], target.id);
 
-      // children の上書き（指定がある場合）
+      // regiment の children は unit ID として扱う。
+      // それ以外の階層では子ノードの再編成として扱う。
       if (ev.children) {
-        target.childrenIds = [...ev.children];
-        // 子側の parentId も合わせる
-        ev.children.forEach((cid) => {
-          if (nodes[cid]) nodes[cid].parentId = target.id;
-        });
+        if (target.level === "regiment") {
+          target.unitIds = [...ev.children];
+        } else {
+          target.childrenIds = [...ev.children];
+          ev.children.forEach((cid) => {
+            if (nodes[cid]) nodes[cid].parentId = target.id;
+          });
+        }
       }
 
       target.status = "active";
@@ -260,6 +273,12 @@ function computeHierarchyPositions(
 
     const node = nodes[nodeId];
     if (!node) return null;
+
+    if (node.pos) {
+      const fixed = { ...node.pos };
+      cache.set(node.id, fixed);
+      return fixed;
+    }
 
     let points: { x: number; y: number }[] = [];
 

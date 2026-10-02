@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { BattleData } from "@/utils/battle/battle";
+import type { BattleData } from "@/types/battle";
 
 export function useBattlePlayback(battle: BattleData | null) {
   const [currentTime, setCurrentTime] = useState(0);
@@ -157,6 +157,7 @@ export function useBattlePlayback(battle: BattleData | null) {
   };
 
   const startProduction = () => {
+    if (!battle || maxTime <= 0) return;
     setProductionTime(0);
     setIsProductionPlaying(true);
     setIsProductionOpen(true);

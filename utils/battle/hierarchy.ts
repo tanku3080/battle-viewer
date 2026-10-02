@@ -3,12 +3,12 @@ import type {
   HierarchyLevel,
   HierarchyNode,
   Unit,
-} from "./battle";
+} from "@/types/battle";
 
 export type HierarchySourceNode = {
   id: string;
   name?: string;
-  pos?: { x: number; y: number }; // ★追加
+  pos?: { x: number; y: number };
   children?: HierarchySourceNode[];
   units?: string[];
 };
@@ -23,16 +23,18 @@ const LEVEL_ORDER: HierarchyLevel[] = [
 export function cloneHierarchyNodes(
   nodes: Record<string, HierarchyNode>
 ): Record<string, HierarchyNode> {
-  const cloned: Record<string, HierarchyNode> = {};
-  Object.values(nodes).forEach((n) => {
-    cloned[n.id] = {
-      ...n,
-      childrenIds: [...n.childrenIds],
-      unitIds: [...n.unitIds],
-      history: [...n.history],
-    };
-  });
-  return cloned;
+  return Object.fromEntries(
+    Object.values(nodes).map((node) => [
+      node.id,
+      {
+        ...node,
+        childrenIds: [...node.childrenIds],
+        unitIds: [...node.unitIds],
+        history: [...node.history],
+        pos: node.pos ? { ...node.pos } : undefined,
+      },
+    ])
+  );
 }
 
 export function buildHierarchyNodesFromJson(
@@ -48,18 +50,16 @@ export function buildHierarchyNodesFromJson(
     levelIndex: number
   ) => {
     const level = LEVEL_ORDER[Math.min(levelIndex, LEVEL_ORDER.length - 1)];
-    const unitIds = (src.units ?? []).filter((id) => !!unitIndex[id]);
-
     const node: HierarchyNode = {
       id: src.id,
       name: src.name ?? src.id,
       level,
       parentId,
       childrenIds: [],
-      unitIds,
+      unitIds: (src.units ?? []).filter((id) => !!unitIndex[id]),
       status: "active",
       history: [],
-      pos: src.pos ?? undefined,
+      pos: src.pos,
     };
 
     nodes[node.id] = node;
