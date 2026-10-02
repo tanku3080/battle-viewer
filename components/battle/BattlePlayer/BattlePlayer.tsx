@@ -327,7 +327,6 @@ export const BattlePlayer: React.FC<Props> = ({
 
   const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(false);
-    setCameraOverride(true);
     dragStart.current = { x: event.clientX, y: event.clientY };
   };
 
@@ -339,6 +338,7 @@ export const BattlePlayer: React.FC<Props> = ({
     if (dx === 0 && dy === 0) return;
 
     setIsDragging(true);
+    setCameraOverride(true);
     setViewOffset((previous) => ({
       x: previous.x + dx,
       y: previous.y + dy,
