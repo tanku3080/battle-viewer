@@ -41,7 +41,7 @@ export const BattlePlayer: React.FC<Props> = ({
   const charImagesRef = useRef<Record<string, HTMLImageElement>>({});
 
   const [userScale, setUserScale] = useState(1);
-  const [cameraOverride, setCameraOverride] = useState(false);
+  const cameraOverrideRef = useRef(false);
   const [assetVersion, setAssetVersion] = useState(0);
   const [resizeVersion, setResizeVersion] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -49,15 +49,8 @@ export const BattlePlayer: React.FC<Props> = ({
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    setUserScale(1);
-    setViewOffset({ x: 0, y: 0 });
-    setCameraOverride(false);
-  }, [battle]);
-
-  useEffect(() => {
-    if (!cameraTarget) return;
-    setCameraOverride(false);
-  }, [cameraTarget]);
+    cameraOverrideRef.current = false;
+  }, [battle, cameraTarget]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -77,8 +70,6 @@ export const BattlePlayer: React.FC<Props> = ({
     bgImageRef.current = null;
     unitImagesRef.current = {};
     charImagesRef.current = {};
-    setAssetVersion((value) => value + 1);
-
     if (!battle) return;
 
     const loadImage = (
@@ -166,7 +157,7 @@ export const BattlePlayer: React.FC<Props> = ({
       battle,
       currentTime,
       fadeDuration,
-      cameraOverride ? null : cameraTarget
+      cameraOverrideRef.current ? null : cameraTarget
     );
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -186,7 +177,7 @@ export const BattlePlayer: React.FC<Props> = ({
         zoom: rawCam.zoom ?? 1,
       };
 
-      const resolvedTarget = cameraOverride ? null : cameraTarget;
+      const resolvedTarget = cameraOverrideRef.current ? null : cameraTarget;
       const cam = focusCameraOn(battle, frameState, baseCam, resolvedTarget);
       const scaleFactor = baseScale * cam.zoom * userScale;
       cameraScaleRef.current = scaleFactor;
@@ -284,8 +275,7 @@ export const BattlePlayer: React.FC<Props> = ({
     selectedCharacterId,
     enableSelection,
     cameraTarget,
-    cameraOverride,
-    assetVersion,
+     assetVersion,
     resizeVersion,
   ]);
 
@@ -338,7 +328,7 @@ export const BattlePlayer: React.FC<Props> = ({
     if (dx === 0 && dy === 0) return;
 
     setIsDragging(true);
-    setCameraOverride(true);
+    cameraOverrideRef.current = true;
     setViewOffset((previous) => ({
       x: previous.x + dx,
       y: previous.y + dy,
