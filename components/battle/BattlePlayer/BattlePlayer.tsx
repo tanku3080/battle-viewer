@@ -7,6 +7,11 @@ import { drawWorld } from "./drawWorld";
 import { hitTestAtTime } from "./hitTest";
 import { convertClickToWorld } from "@/utils/battle/convertClickToWorld";
 import { focusCameraOn, prepareFrameState } from "./runtime";
+import {
+  getFittedMapScreenCenter,
+  getNextZoomScale,
+  getVisibleWorldBoundsCentered,
+} from "@/utils/battle/viewTransform";
 
 type Props = {
   battle: BattleData | null;
@@ -118,10 +123,7 @@ export const BattlePlayer: React.FC<Props> = ({
       event.preventDefault();
       const direction = Math.sign(event.deltaY);
 
-      setUserScale((previous) => {
-        const next = previous + (direction > 0 ? -0.1 : 0.1);
-        return Math.min(5, Math.max(1, next));
-      });
+      setUserScale((previous) => getNextZoomScale(previous, event.deltaY));
     };
 
     canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -197,21 +199,34 @@ export const BattlePlayer: React.FC<Props> = ({
         scaleFactor,
       };
 
+      const screenCenter = getFittedMapScreenCenter({
+        offsetX,
+        offsetY,
+        baseScale,
+        mapWidth,
+        mapHeight,
+      });
+
       ctx.save();
-      ctx.translate(offsetX, offsetY);
-      ctx.translate((mapWidth * baseScale) / 2, (mapHeight * baseScale) / 2);
+      ctx.translate(screenCenter.x, screenCenter.y);
       ctx.translate(viewOffset.x, viewOffset.y);
       ctx.scale(scaleFactor, scaleFactor);
       ctx.translate(-cam.x, -cam.y);
 
-      const centerX = offsetX + (mapWidth * baseScale) / 2;
-      const centerY = offsetY + (mapHeight * baseScale) / 2;
-      const gridBounds = {
-        minX: (0 - centerX - viewOffset.x) / scaleFactor + cam.x,
-        minY: (0 - centerY - viewOffset.y) / scaleFactor + cam.y,
-        maxX: (canvasWidth - centerX - viewOffset.x) / scaleFactor + cam.x,
-        maxY: (canvasHeight - centerY - viewOffset.y) / scaleFactor + cam.y,
-      };
+      const gridBounds = getVisibleWorldBoundsCentered({
+        canvasWidth,
+        canvasHeight,
+        offsetX,
+        offsetY,
+        baseScale,
+        mapWidth,
+        mapHeight,
+        viewOffsetX: viewOffset.x,
+        viewOffsetY: viewOffset.y,
+        scaleFactor,
+        worldCenterX: cam.x,
+        worldCenterY: cam.y,
+      });
 
       drawWorld({
         ctx,
@@ -252,17 +267,35 @@ export const BattlePlayer: React.FC<Props> = ({
       scaleFactor,
     };
 
-    ctx.save();
-    ctx.translate(viewOffset.x, viewOffset.y);
-    ctx.translate(offsetX, offsetY);
-    ctx.scale(scaleFactor, scaleFactor);
+    const mapCenter = { x: mapWidth / 2, y: mapHeight / 2 };
+    const screenCenter = getFittedMapScreenCenter({
+      offsetX,
+      offsetY,
+      baseScale,
+      mapWidth,
+      mapHeight,
+    });
 
-    const gridBounds = {
-      minX: (0 - viewOffset.x - offsetX) / scaleFactor,
-      minY: (0 - viewOffset.y - offsetY) / scaleFactor,
-      maxX: (canvasWidth - viewOffset.x - offsetX) / scaleFactor,
-      maxY: (canvasHeight - viewOffset.y - offsetY) / scaleFactor,
-    };
+    ctx.save();
+    ctx.translate(screenCenter.x, screenCenter.y);
+    ctx.translate(viewOffset.x, viewOffset.y);
+    ctx.scale(scaleFactor, scaleFactor);
+    ctx.translate(-mapCenter.x, -mapCenter.y);
+
+    const gridBounds = getVisibleWorldBoundsCentered({
+      canvasWidth,
+      canvasHeight,
+      offsetX,
+      offsetY,
+      baseScale,
+      mapWidth,
+      mapHeight,
+      viewOffsetX: viewOffset.x,
+      viewOffsetY: viewOffset.y,
+      scaleFactor,
+      worldCenterX: mapCenter.x,
+      worldCenterY: mapCenter.y,
+    });
 
     drawWorld({
       ctx,
