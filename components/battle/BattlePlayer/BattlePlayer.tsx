@@ -121,8 +121,6 @@ export const BattlePlayer: React.FC<Props> = ({
 
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      const direction = Math.sign(event.deltaY);
-
       setUserScale((previous) => getNextZoomScale(previous, event.deltaY));
     };
 
