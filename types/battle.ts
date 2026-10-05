@@ -40,7 +40,7 @@ export type HierarchyNode = {
   parentId: string | null;
   childrenIds: string[];
   unitIds: string[];
-  status: "active" | "destroyed";
+  status: HierarchyStatus;
   history: Array<{
     t: number;
     event: string;
@@ -134,7 +134,7 @@ export type BattleMap = {
 
 export type BattleData = {
   title: string;
-    map: BattleMap;
+  map: BattleMap;
   lod: LODConfig;
   camera: CameraKeyframe[];
   units: Unit[];
