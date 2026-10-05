@@ -187,7 +187,14 @@ function applyEventsToHierarchy(
     if (event.event === "merge") {
       const source = nodes[event.source];
       const target = nodes[event.target];
-      if (!source || !target || source.id === target.id) continue;
+      if (
+        !source ||
+        !target ||
+        source.id === target.id ||
+        source.level !== target.level
+      ) {
+        continue;
+      }
 
       if (source.parentId && nodes[source.parentId]) {
         removeChild(nodes[source.parentId], source.id);
@@ -203,6 +210,7 @@ function applyEventsToHierarchy(
         if (!target.unitIds.includes(unitId)) target.unitIds.push(unitId);
       });
 
+      target.status = "active";
       target.history.push({
         t: event.t,
         event: event.event,
