@@ -151,7 +151,7 @@
       "t": 12,
       "event": "merge",
       "source": "reg_blue_1",
-      "target": "div_red_1"
+      "target": "reg_red_1"
     },
     {
       "t": 16,
