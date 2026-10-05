@@ -5,7 +5,6 @@ import type {
   BattleEvent,
   BattleTimeline,
   Character,
-  CoordinateOrigin,
   HierarchyNode,
   LODBand,
   LODConfig,
@@ -20,6 +19,11 @@ import {
   type HierarchySourceNode,
 } from "./hierarchy";
 import { LOD_LEVELS } from "./lod";
+import {
+  toInternalPoint,
+  toInternalPosition,
+  validateCoordinateMap,
+} from "./coordinates";
 
 type RawUnit = Partial<Omit<UnitDefinition, "id">> & {
   id: string;
@@ -73,56 +77,6 @@ function fallbackColor(id: string) {
     hash = (hash + id.charCodeAt(i) * 17) % 997;
   }
   return FALLBACK_COLORS[hash % FALLBACK_COLORS.length];
-}
-
-function validateMap(map: BattleData["map"] | undefined) {
-  if (!map) throw new Error("map がありません");
-  if (!Number.isFinite(map.width) || map.width <= 0) {
-    throw new Error("map.width は 0 より大きい数値である必要があります");
-  }
-  if (!Number.isFinite(map.height) || map.height <= 0) {
-    throw new Error("map.height は 0 より大きい数値である必要があります");
-  }
-  if (
-    map.coordinateOrigin !== undefined &&
-    map.coordinateOrigin !== "top-left" &&
-    map.coordinateOrigin !== "center"
-  ) {
-    throw new Error(
-      'map.coordinateOrigin は "top-left" または "center" を指定してください'
-    );
-  }
-}
-
-function getCoordinateOrigin(
-  map: BattleData["map"]
-): CoordinateOrigin {
-  return map.coordinateOrigin ?? "top-left";
-}
-
-function toInternalPoint<T extends TimelinePoint>(
-  point: T,
-  map: BattleData["map"]
-): T {
-  if (getCoordinateOrigin(map) !== "center") return point;
-
-  return {
-    ...point,
-    x: point.x + map.width / 2,
-    y: point.y + map.height / 2,
-  };
-}
-
-function toInternalPosition(
-  position: { x: number; y: number } | undefined,
-  map: BattleData["map"]
-) {
-  if (!position || getCoordinateOrigin(map) !== "center") return position;
-
-  return {
-    x: position.x + map.width / 2,
-    y: position.y + map.height / 2,
-  };
 }
 
 function fillDir(timeline: TimelinePoint[]): TimelinePoint[] {
@@ -318,7 +272,7 @@ function normalizeLod(raw: RawLODConfig | undefined): LODConfig {
 }
 
 export function loadBattleJson(raw: RawBattleJson): BattleData {
-  validateMap(raw?.map);
+  validateCoordinateMap(raw?.map);
 
   const cameraTimeline = [...(raw.timeline?.camera ?? raw.camera ?? [])]
     .map((point) => toInternalPoint(point, raw.map))
