@@ -257,10 +257,24 @@ export function drawWorld(args: DrawArgs) {
     ctx.strokeStyle = "rgba(255,255,255,0.15)";
     ctx.lineWidth = 1 / safeScale;
 
-    const startX = Math.floor(bounds.minX / gridSize) * gridSize;
-    const endX = Math.ceil(bounds.maxX / gridSize) * gridSize;
-    const startY = Math.floor(bounds.minY / gridSize) * gridSize;
-    const endY = Math.ceil(bounds.maxY / gridSize) * gridSize;
+    const centerX = mapWidth / 2;
+    const centerY = mapHeight / 2;
+
+    // グリッドは必ず中央クロスを原点として展開する。
+    // これにより map.width / height が gridSize の倍数でなくても
+    // 中央軸とグリッド交点がずれない。
+    const startX =
+      centerX +
+      Math.floor((bounds.minX - centerX) / gridSize) * gridSize;
+    const endX =
+      centerX +
+      Math.ceil((bounds.maxX - centerX) / gridSize) * gridSize;
+    const startY =
+      centerY +
+      Math.floor((bounds.minY - centerY) / gridSize) * gridSize;
+    const endY =
+      centerY +
+      Math.ceil((bounds.maxY - centerY) / gridSize) * gridSize;
 
     for (let x = startX; x <= endX; x += gridSize) {
       ctx.beginPath();
@@ -277,8 +291,6 @@ export function drawWorld(args: DrawArgs) {
     }
 
     // JSON作成時の基準点。全体/カメラで同じマップ中心を共有する。
-    const centerX = mapWidth / 2;
-    const centerY = mapHeight / 2;
     ctx.strokeStyle = "rgba(250,204,21,0.85)";
     ctx.lineWidth = 2 / safeScale;
 
