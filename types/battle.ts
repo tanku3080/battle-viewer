@@ -40,7 +40,7 @@ export type HierarchyNode = {
   parentId: string | null;
   childrenIds: string[];
   unitIds: string[];
-  status: "active" | "destroyed";
+  status: HierarchyStatus;
   history: Array<{
     t: number;
     event: string;
@@ -73,17 +73,20 @@ export type CameraTarget =
   | { type: "regiment"; id: string }
   | { type: "unit"; id: string };
 
-export type DestroyedEvent = {
+export type HierarchyStatus = "active" | "destroyed";
+
+export type StatusEvent = {
   t: number;
-  event: "destroyed";
+  event: "status";
   target: string;
+  status: HierarchyStatus;
 };
 
-export type DetachEvent = {
+export type ReparentEvent = {
   t: number;
-  event: "detach";
-  source: string;
-  from: string;
+  event: "reparent";
+  target: string;
+  parent: string | null;
 };
 
 export type MergeEvent = {
@@ -93,27 +96,18 @@ export type MergeEvent = {
   target: string;
 };
 
-export type TransferEvent = {
-  t: number;
-  event: "transfer";
-  source: string;
-  from: string;
-  to: string;
-};
-
 export type ReformEvent = {
   t: number;
   event: "reform";
   target: string;
-  parent: string | null;
+  parent?: string | null;
   children?: string[];
 };
 
 export type BattleEvent =
-  | DestroyedEvent
-  | DetachEvent
+  | StatusEvent
+  | ReparentEvent
   | MergeEvent
-  | TransferEvent
   | ReformEvent;
 
 export type BattleTimeline = {
@@ -140,7 +134,6 @@ export type BattleMap = {
 
 export type BattleData = {
   title: string;
-  meta?: { title?: string; duration?: number };
   map: BattleMap;
   lod: LODConfig;
   camera: CameraKeyframe[];

@@ -249,3 +249,101 @@ test("sample JSONs: timelines are sorted, bounded, and visibly moving", () => {
     }
   }
 });
+
+const events = loadTs("utils/battle/events.ts");
+const duration = loadTs("utils/battle/getBattleDuration.ts");
+
+test("event normalization: legacy military events collapse into canonical events", () => {
+  assert.deepEqual(
+    events.normalizeBattleEvents([
+      { t: 1, event: "destroyed", target: "a" },
+      { t: 2, event: "detach", source: "b", from: "x" },
+      { t: 3, event: "transfer", source: "c", from: "x", to: "y" },
+      { t: 4, event: "merge", source: "d", target: "e" },
+    ]),
+    [
+      { t: 1, event: "status", target: "a", status: "destroyed" },
+      { t: 2, event: "reparent", target: "b", parent: null },
+      { t: 3, event: "reparent", target: "c", parent: "y" },
+      { t: 3, event: "status", target: "c", status: "active" },
+      { t: 4, event: "merge", source: "d", target: "e" },
+    ]
+  );
+});
+
+test("duration normal: playback duration is derived from the latest actual timestamp", () => {
+  const battle = {
+    units: [{ timeline: [{ t: 0 }, { t: 12 }] }],
+    characters: [{ timeline: [{ t: 2 }, { t: 18 }] }],
+    camera: [{ t: 0 }, { t: 15 }],
+    events: [{ t: 20 }],
+  };
+  assert.equal(duration.getBattleDuration(battle), 20);
+});
+
+test("duration boundary: empty battle data resolves to zero", () => {
+  assert.equal(
+    duration.getBattleDuration({
+      units: [],
+      characters: [],
+      camera: [],
+      events: [],
+    }),
+    0
+  );
+  assert.equal(duration.getBattleDuration(null), 0);
+});
+
+test("canonical samples do not duplicate derived or timeline fields", () => {
+  const files = [
+    "public/sample-battle.json",
+    "public/sample2-battle.json",
+    "public/sample3-encirclement.json",
+    "public/sample4-breakthrough.json",
+    "public/sample5-chase.json",
+  ];
+
+  for (const file of files) {
+    const data = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), file), "utf8")
+    );
+
+    assert.equal("meta" in data, false, `${file}: meta should be omitted`);
+    assert.equal("lod" in data, false, `${file}: default lod should be omitted`);
+    assert.equal(typeof data.title, "string", `${file}: title is required`);
+
+    for (const unit of data.units ?? []) {
+      assert.equal(
+        "timeline" in unit,
+        false,
+        `${file}: unit timeline must live only in timeline.units`
+      );
+      assert.equal("appearAt" in unit, false, `${file}: appearAt is derived`);
+      assert.equal(
+        "disappearAt" in unit,
+        false,
+        `${file}: disappearAt is derived`
+      );
+    }
+
+    for (const character of data.characters ?? []) {
+      assert.equal(
+        "timeline" in character,
+        false,
+        `${file}: character timeline must live only in timeline.characters`
+      );
+    }
+
+    if (data.hierarchy?.nodes) {
+      assert.equal(
+        "roots" in data.hierarchy,
+        false,
+        `${file}: hierarchy roots should be derived`
+      );
+      for (const node of Object.values(data.hierarchy.nodes)) {
+        assert.equal("history" in node, false, `${file}: history is runtime data`);
+        assert.equal("status" in node, false, `${file}: active is the default`);
+      }
+    }
+  }
+});
