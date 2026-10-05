@@ -146,100 +146,105 @@ function applyEventsToHierarchy(
   const nodes = cloneHierarchyNodes(baseNodes);
 
   const relevant = events
-    .filter((e) => e.t <= currentTime)
+    .filter((event) => event.t <= currentTime)
     .sort((a, b) => a.t - b.t);
 
-  for (const ev of relevant) {
-    if (ev.event === "destroyed") {
-      const target = nodes[ev.target];
-      if (!target) continue;
-      target.status = "destroyed";
-      target.history.push({ t: ev.t, event: ev.event });
-      continue;
-    }
-
-    if (ev.event === "detach") {
-      const source = nodes[ev.source];
-      if (!source) continue;
-      if (source.parentId && nodes[source.parentId]) {
-        removeChild(nodes[source.parentId], source.id);
-      }
-      source.parentId = null;
-      source.history.push({
-        t: ev.t,
-        event: ev.event,
-        detail: { from: ev.from },
-      });
-      continue;
-    }
-
-    if (ev.event === "merge") {
-      const source = nodes[ev.source];
-      const target = nodes[ev.target];
-      if (!source || !target) continue;
-      if (source.parentId && nodes[source.parentId]) {
-        removeChild(nodes[source.parentId], source.id);
-      }
-      source.parentId = target.id;
-      addChild(target, source.id);
-      source.status = "active";
-      source.history.push({
-        t: ev.t,
-        event: ev.event,
-        detail: { target: ev.target },
-      });
-      continue;
-    }
-
-    if (ev.event === "transfer") {
-      const source = nodes[ev.source];
-      const to = nodes[ev.to];
-      if (!source || !to) continue;
-      if (source.parentId && nodes[source.parentId]) {
-        removeChild(nodes[source.parentId], source.id);
-      }
-      source.parentId = to.id;
-      addChild(to, source.id);
-      source.status = "active";
-      source.history.push({
-        t: ev.t,
-        event: ev.event,
-        detail: { from: ev.from, to: ev.to },
-      });
-      continue;
-    }
-
-    if (ev.event === "reform") {
-      const target = nodes[ev.target];
+  for (const event of relevant) {
+    if (event.event === "status") {
+      const target = nodes[event.target];
       if (!target) continue;
 
-      // parent の付け替え
+      target.status = event.status;
+      target.history.push({
+        t: event.t,
+        event: event.event,
+        detail: { status: event.status },
+      });
+      continue;
+    }
+
+    if (event.event === "reparent") {
+      const target = nodes[event.target];
+      if (!target) continue;
+
       if (target.parentId && nodes[target.parentId]) {
         removeChild(nodes[target.parentId], target.id);
       }
-      target.parentId = ev.parent ?? null;
-      if (ev.parent && nodes[ev.parent]) addChild(nodes[ev.parent], target.id);
 
-      // regiment の children は unit ID として扱う。
-      // それ以外の階層では子ノードの再編成として扱う。
-      if (ev.children) {
+      target.parentId = event.parent;
+      if (event.parent && nodes[event.parent]) {
+        addChild(nodes[event.parent], target.id);
+      }
+
+      target.history.push({
+        t: event.t,
+        event: event.event,
+        detail: { parent: event.parent },
+      });
+      continue;
+    }
+
+    if (event.event === "merge") {
+      const source = nodes[event.source];
+      const target = nodes[event.target];
+      if (!source || !target || source.id === target.id) continue;
+
+      if (source.parentId && nodes[source.parentId]) {
+        removeChild(nodes[source.parentId], source.id);
+      }
+
+      // source配下をtargetへ吸収する。
+      source.childrenIds.forEach((childId) => {
+        const child = nodes[childId];
+        if (child) child.parentId = target.id;
+        addChild(target, childId);
+      });
+      source.unitIds.forEach((unitId) => {
+        if (!target.unitIds.includes(unitId)) target.unitIds.push(unitId);
+      });
+
+      target.history.push({
+        t: event.t,
+        event: event.event,
+        detail: { source: source.id },
+      });
+
+      // 統合元ノードは画面から消し、targetだけを残す。
+      delete nodes[source.id];
+      continue;
+    }
+
+    if (event.event === "reform") {
+      const target = nodes[event.target];
+      if (!target) continue;
+
+      if (event.parent !== undefined) {
+        if (target.parentId && nodes[target.parentId]) {
+          removeChild(nodes[target.parentId], target.id);
+        }
+        target.parentId = event.parent;
+        if (event.parent && nodes[event.parent]) {
+          addChild(nodes[event.parent], target.id);
+        }
+      }
+
+      if (event.children) {
         if (target.level === "regiment") {
-          target.unitIds = [...ev.children];
+          target.unitIds = [...event.children];
         } else {
-          target.childrenIds = [...ev.children];
-          ev.children.forEach((cid) => {
-            if (nodes[cid]) nodes[cid].parentId = target.id;
+          target.childrenIds = [...event.children];
+          event.children.forEach((childId) => {
+            if (nodes[childId]) nodes[childId].parentId = target.id;
           });
         }
       }
 
       target.status = "active";
       target.history.push({
-        t: ev.t,
-        event: ev.event,
-        detail: { parent: ev.parent, children: ev.children },
+        t: event.t,
+        event: event.event,
+        detail: { parent: event.parent, children: event.children },
       });
-      continue;
     }
   }
 
