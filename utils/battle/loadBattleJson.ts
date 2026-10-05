@@ -2,7 +2,6 @@
 
 import type {
   BattleData,
-  BattleEvent,
   BattleTimeline,
   Character,
   HierarchyNode,
@@ -19,6 +18,10 @@ import {
   type HierarchySourceNode,
 } from "./hierarchy";
 import { LOD_LEVELS } from "./lod";
+import {
+  normalizeBattleEvents,
+  type RawBattleEvent,
+} from "./events";
 import {
   toInternalPoint,
   toInternalPosition,
@@ -55,8 +58,9 @@ export type RawBattleJson = {
   hierarchy?: RawHierarchy;
   units?: RawUnit[];
   characters?: RawCharacter[];
-  events?: BattleEvent[];
+  events?: RawBattleEvent[];
   timeline?: Partial<BattleTimeline>;
+  /** @deprecated 旧JSON互換。新規JSONでは timeline.camera を使用 */
   camera?: BattleTimeline["camera"];
 };
 
@@ -299,15 +303,14 @@ export function loadBattleJson(raw: RawBattleJson): BattleData {
   const lod = normalizeLod(raw.lod);
 
   return {
-    title: raw.meta?.title ?? raw.title ?? "Untitled Battle",
-    meta: raw.meta,
+    title: raw.title ?? raw.meta?.title ?? "Untitled Battle",
     map: raw.map,
     lod,
     camera: cameraTimeline,
     units,
     characters,
     hierarchy,
-    events: sortEvents(raw.events ?? []),
+    events: sortEvents(normalizeBattleEvents(raw.events ?? [])),
     timeline,
     unitIndex,
     characterIndex,
