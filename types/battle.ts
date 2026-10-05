@@ -122,10 +122,20 @@ export type BattleTimeline = {
   characters?: Record<string, TimelinePoint[]>;
 };
 
+export type CoordinateOrigin = "top-left" | "center";
+
 export type BattleMap = {
   width: number;
   height: number;
   image?: string | null;
+  /**
+   * JSON上の座標原点。
+   * - top-left: 従来互換。左上が (0, 0)
+   * - center: マップ中央が (0, 0)
+   *
+   * 描画内部では従来どおり左上原点へ正規化する。
+   */
+  coordinateOrigin?: CoordinateOrigin;
 };
 
 export type BattleData = {
