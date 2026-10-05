@@ -100,10 +100,10 @@ function getCoordinateOrigin(
   return map.coordinateOrigin ?? "top-left";
 }
 
-function toInternalPoint(
-  point: TimelinePoint,
+function toInternalPoint<T extends TimelinePoint>(
+  point: T,
   map: BattleData["map"]
-): TimelinePoint {
+): T {
   if (getCoordinateOrigin(map) !== "center") return point;
 
   return {
