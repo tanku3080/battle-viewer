@@ -5,6 +5,7 @@ import type {
   BattleEvent,
   BattleTimeline,
   Character,
+  CoordinateOrigin,
   HierarchyNode,
   LODBand,
   LODConfig,
@@ -82,6 +83,46 @@ function validateMap(map: BattleData["map"] | undefined) {
   if (!Number.isFinite(map.height) || map.height <= 0) {
     throw new Error("map.height は 0 より大きい数値である必要があります");
   }
+  if (
+    map.coordinateOrigin !== undefined &&
+    map.coordinateOrigin !== "top-left" &&
+    map.coordinateOrigin !== "center"
+  ) {
+    throw new Error(
+      'map.coordinateOrigin は "top-left" または "center" を指定してください'
+    );
+  }
+}
+
+function getCoordinateOrigin(
+  map: BattleData["map"]
+): CoordinateOrigin {
+  return map.coordinateOrigin ?? "top-left";
+}
+
+function toInternalPoint(
+  point: TimelinePoint,
+  map: BattleData["map"]
+): TimelinePoint {
+  if (getCoordinateOrigin(map) !== "center") return point;
+
+  return {
+    ...point,
+    x: point.x + map.width / 2,
+    y: point.y + map.height / 2,
+  };
+}
+
+function toInternalPosition(
+  position: { x: number; y: number } | undefined,
+  map: BattleData["map"]
+) {
+  if (!position || getCoordinateOrigin(map) !== "center") return position;
+
+  return {
+    x: position.x + map.width / 2,
+    y: position.y + map.height / 2,
+  };
 }
 
 function fillDir(timeline: TimelinePoint[]): TimelinePoint[] {
@@ -123,7 +164,12 @@ function buildUnitTimeline(raw: RawBattleJson) {
     if (!(unit.id in merged) && unit.timeline) merged[unit.id] = unit.timeline;
   });
 
-  return merged;
+  return Object.fromEntries(
+    Object.entries(merged).map(([id, points]) => [
+      id,
+      points.map((point) => toInternalPoint(point, raw.map)),
+    ])
+  );
 }
 
 function buildCharacterTimeline(raw: RawBattleJson) {
@@ -137,7 +183,12 @@ function buildCharacterTimeline(raw: RawBattleJson) {
     }
   });
 
-  return merged;
+  return Object.fromEntries(
+    Object.entries(merged).map(([id, points]) => [
+      id,
+      points.map((point) => toInternalPoint(point, raw.map)),
+    ])
+  );
 }
 
 function buildUnits(
@@ -269,9 +320,9 @@ function normalizeLod(raw: RawLODConfig | undefined): LODConfig {
 export function loadBattleJson(raw: RawBattleJson): BattleData {
   validateMap(raw?.map);
 
-  const cameraTimeline = [...(raw.timeline?.camera ?? raw.camera ?? [])].sort(
-    (a, b) => a.t - b.t
-  );
+  const cameraTimeline = [...(raw.timeline?.camera ?? raw.camera ?? [])]
+    .map((point) => toInternalPoint(point, raw.map))
+    .sort((a, b) => a.t - b.t);
 
   const timeline: BattleTimeline = {
     camera: cameraTimeline,
@@ -286,6 +337,10 @@ export function loadBattleJson(raw: RawBattleJson): BattleData {
     timeline.characters ?? {}
   );
   const hierarchy = normalizeHierarchy(raw.hierarchy, unitIndex);
+
+  Object.values(hierarchy.nodes).forEach((node) => {
+    node.pos = toInternalPosition(node.pos, raw.map);
+  });
 
   const lod = normalizeLod(raw.lod);
 
