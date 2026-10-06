@@ -45,7 +45,7 @@ export function toInternalPoint<T extends CoordinatePointLike>(
   return {
     ...point,
     x: point.x + map.width / 2,
-    y: point.y + map.height / 2,
+    y: map.height / 2 - point.y,
   };
 }
 
@@ -57,6 +57,6 @@ export function toInternalPosition(
 
   return {
     x: position.x + map.width / 2,
-    y: position.y + map.height / 2,
+    y: map.height / 2 - position.y,
   };
 }

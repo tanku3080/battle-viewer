@@ -129,9 +129,13 @@ test("coordinate normal: center origin maps JSON (0,0) to map center", () => {
     x: 525,
     y: 340,
   });
-  assert.deepEqual(coordinates.toInternalPoint({ x: -525, y: -340 }, map), {
+  assert.deepEqual(coordinates.toInternalPoint({ x: -525, y: 340 }, map), {
     x: 0,
     y: 0,
+  });
+  assert.deepEqual(coordinates.toInternalPoint({ x: 525, y: -340 }, map), {
+    x: 1050,
+    y: 680,
   });
 });
 

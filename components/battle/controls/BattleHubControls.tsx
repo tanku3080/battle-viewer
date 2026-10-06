@@ -6,6 +6,7 @@ import {
   getBattleHubHealth,
   publishBattleToHub,
 } from "@/utils/battleHub/client";
+import { BattleHubAccessButton } from "@/components/battleHub/BattleHubAccessButton";
 
 type Props = {
   battleJson: RawBattleJson | null;
@@ -83,16 +84,18 @@ export function BattleHubControls({ battleJson }: Props) {
           {statusText}
         </span>
 
+        <BattleHubAccessButton />
+
         <button
           type="button"
-          disabled={!battleJson}
+          disabled={!battleJson || health !== "online"}
           onClick={() => {
             setMessage(null);
             setIsOpen(true);
           }}
           className="px-4 py-2 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Battle Hubへ投稿
+          JSONを投稿
         </button>
       </div>
 

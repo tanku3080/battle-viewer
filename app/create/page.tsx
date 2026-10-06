@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { DragEvent, useMemo, useRef, useState } from "react";
+import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { getCreatorPositionAt } from "@/utils/battleCreator/timeline";
 
 type SpatialType = "unit" | "character" | "legion" | "corps" | "division" | "regiment" | "camera";
 type EventType = "status" | "reparent" | "merge" | "reform";
@@ -34,31 +35,67 @@ export default function BattleCreator() {
   const [paletteOpen,setPaletteOpen] = useState(true);
   const [title,setTitle] = useState("");
   const [mapImage,setMapImage] = useState("");
-  const [coordinateOrigin,setCoordinateOrigin] = useState<"center"|"top-left">("center");
   const [mapWidth,setMapWidth] = useState(1200);
   const [mapHeight,setMapHeight] = useState(700);
   const [duration,setDuration] = useState(60);
   const [currentTime,setCurrentTime] = useState(0);
+  const [isPlaying,setIsPlaying] = useState(false);
   const [items,setItems] = useState<EditorItem[]>([]);
   const [events,setEvents] = useState<EditorEvent[]>([]);
   const [selectedKey,setSelectedKey] = useState<string|null>(null);
   const [draftItem,setDraftItem] = useState<EditorItem|null>(null);
   const [draftEvent,setDraftEvent] = useState<EditorEvent|null>(null);
   const [jsonOpen,setJsonOpen] = useState(false);
-  const selected = items.find((item)=>item.key===selectedKey) ?? draftItem ?? null;
+  const selectedSource = items.find((item)=>item.key===selectedKey) ?? draftItem ?? null;
+  const selected = selectedSource && selectedKey && !isHierarchy(selectedSource.type)
+    ? {
+        ...selectedSource,
+        ...getCreatorPositionAt(
+          selectedSource.timeline,
+          currentTime,
+          { x:selectedSource.x, y:selectedSource.y }
+        ),
+      }
+    : selectedSource;
 
   const toLogical = (clientX:number,clientY:number) => {
     const rect = editorRef.current?.getBoundingClientRect();
     if (!rect) return {x:0,y:0};
     const rx = ((clientX-rect.left)/rect.width)*mapWidth;
     const ry = ((clientY-rect.top)/rect.height)*mapHeight;
-    return coordinateOrigin==="center" ? {x:Math.round(rx-mapWidth/2),y:Math.round(ry-mapHeight/2)} : {x:Math.round(rx),y:Math.round(ry)};
+    return {x:Math.round(rx-mapWidth/2),y:Math.round(mapHeight/2-ry)};
   };
   const toPercent = (x:number,y:number) => {
-    const ix = coordinateOrigin==="center" ? x+mapWidth/2 : x;
-    const iy = coordinateOrigin==="center" ? y+mapHeight/2 : y;
+    const ix = x+mapWidth/2;
+    const iy = mapHeight/2-y;
     return {left:String((ix/mapWidth)*100)+"%",top:String((iy/mapHeight)*100)+"%"};
   };
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    let frame = 0;
+    let previous = performance.now();
+
+    const tick = (now:number) => {
+      const delta = (now - previous) / 1000;
+      previous = now;
+
+      setCurrentTime((value) => {
+        const next = value + delta;
+        if (next >= duration) {
+          setIsPlaying(false);
+          return duration;
+        }
+        return next;
+      });
+
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [duration,isPlaying]);
+
   const selectPalette = (type:PaletteType) => {
     setSelectedKey(null);
     if (isEventType(type)) { setDraftItem(null); setDraftEvent(emptyEvent(type,currentTime)); }
@@ -109,8 +146,8 @@ export default function BattleCreator() {
       if(e.type==="reform"&&e.target)return[{t:e.t,event:"reform",target:e.target,...(e.parent?{parent:e.parent}:{}),...(e.children?{children:e.children.split(",").map((v)=>v.trim()).filter(Boolean)}:{})}];
       return[];
     });
-    return {title,map:{...(mapImage.trim()?{image:mapImage.trim()}:{}),width:mapWidth,height:mapHeight,coordinateOrigin},...(Object.keys(nodes).length?{hierarchy:{nodes}}:{}),units,...(characters.length?{characters}:{}),...(jsonEvents.length?{events:jsonEvents}:{}),timeline:{...(camera.length?{camera}:{}),units:unitTimeline,...(Object.keys(charTimeline).length?{characters:charTimeline}:{})}};
-  },[coordinateOrigin,events,items,mapHeight,mapImage,mapWidth,title]);
+    return {title,map:{...(mapImage.trim()?{image:mapImage.trim()}:{}),width:mapWidth,height:mapHeight,coordinateOrigin:"center"},...(Object.keys(nodes).length?{hierarchy:{nodes}}:{}),units,...(characters.length?{characters}:{}),...(jsonEvents.length?{events:jsonEvents}:{}),timeline:{...(camera.length?{camera}:{}),units:unitTimeline,...(Object.keys(charTimeline).length?{characters:charTimeline}:{})}};
+  },[events,items,mapHeight,mapImage,mapWidth,title]);
 
   const saveJson=()=>{const blob=new Blob([JSON.stringify(battleJson,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(title.trim()||"battle")+".json";a.click();URL.revokeObjectURL(url);};
 
@@ -119,7 +156,7 @@ export default function BattleCreator() {
       <Link href="/home" className="px-3 py-2 rounded bg-gray-700">戻る</Link>
       <input value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="戦闘名" className="w-52 rounded border border-gray-600 bg-[#111827] px-3 py-2"/>
       <input value={mapImage} onChange={(e)=>setMapImage(e.target.value)} placeholder="map.image（任意）" className="w-56 rounded border border-gray-600 bg-[#111827] px-3 py-2"/>
-      <input type="number" min={1} value={mapWidth} onChange={(e)=>setMapWidth(Math.max(1,Number(e.target.value)))} title="map.width" className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"/><input type="number" min={1} value={mapHeight} onChange={(e)=>setMapHeight(Math.max(1,Number(e.target.value)))} title="map.height" className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"/><select value={coordinateOrigin} onChange={(e)=>setCoordinateOrigin(e.target.value as "center"|"top-left")} className="rounded border border-gray-600 bg-[#111827] px-3 py-2"><option value="center">原点: center</option><option value="top-left">原点: top-left</option></select>
+      <input type="number" min={1} value={mapWidth} onChange={(e)=>setMapWidth(Math.max(1,Number(e.target.value)))} title="map.width" className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"/><input type="number" min={1} value={mapHeight} onChange={(e)=>setMapHeight(Math.max(1,Number(e.target.value)))} title="map.height" className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"/><span className="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-300">原点: center / 上方向 +Y</span>
       <button onClick={()=>setJsonOpen((v)=>!v)} className="ml-auto px-3 py-2 rounded bg-slate-600">JSON確認</button>
       <button onClick={saveJson} className="px-3 py-2 rounded bg-emerald-600">JSON保存</button>
     </header>
@@ -131,9 +168,9 @@ export default function BattleCreator() {
       <section className="flex-1 min-w-0 flex flex-col">
         <div ref={editorRef} onDragOver={(e)=>e.preventDefault()} onDrop={drop} className="relative flex-1 m-4 overflow-hidden border border-gray-600 bg-[#0a1020]" style={{backgroundImage:"linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px)",backgroundSize:"50px 50px"}}>
           <div className="absolute left-1/2 top-0 bottom-0 w-px bg-yellow-400/80"/><div className="absolute top-1/2 left-0 right-0 h-px bg-yellow-400/80"/><div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-yellow-300 bg-black/60 px-1">(0,0)</div>
-          {items.map((item)=>{const pos=toPercent(item.x,item.y);const mark=PALETTE.find((p)=>p.type===item.type)?.mark??"?";return <button key={item.key} draggable onDragStart={(e)=>itemDrag(e,item.key)} onClick={()=>{setSelectedKey(item.key);setDraftItem(null);setDraftEvent(null);}} className={"absolute -translate-x-1/2 -translate-y-1/2 min-w-9 h-9 rounded-full border-2 font-bold "+(selectedKey===item.key?"border-yellow-300 bg-blue-600":"border-white/70 bg-slate-700")} style={pos} title={item.type+" "+(item.id||"(ID未設定)")+" @ "+item.x+","+item.y}>{mark}</button>;})}
+          {items.map((item)=>{const current=isHierarchy(item.type)?{x:item.x,y:item.y}:getCreatorPositionAt(item.timeline,currentTime,{x:item.x,y:item.y});const pos=toPercent(current.x,current.y);const mark=PALETTE.find((p)=>p.type===item.type)?.mark??"?";return <button key={item.key} draggable onDragStart={(e)=>itemDrag(e,item.key)} onClick={()=>{setSelectedKey(item.key);setDraftItem(null);setDraftEvent(null);}} className={"absolute -translate-x-1/2 -translate-y-1/2 min-w-9 h-9 rounded-full border-2 font-bold "+(selectedKey===item.key?"border-yellow-300 bg-blue-600":"border-white/70 bg-slate-700")} style={pos} title={item.type+" "+(item.id||"(ID未設定)")+" @ "+current.x.toFixed(1)+","+current.y.toFixed(1)}>{mark}</button>;})}
         </div>
-        <div className="shrink-0 border-t border-gray-700 bg-[#111827] px-5 py-3"><div className="flex items-center gap-3"><span className="w-20 text-sm">{currentTime.toFixed(1)}s</span><input type="range" min={0} max={duration} step={0.1} value={currentTime} onChange={(e)=>setCurrentTime(Number(e.target.value))} className="flex-1"/><label className="text-xs flex items-center gap-2">最大秒数<input type="number" min={1} value={duration} onChange={(e)=>setDuration(Math.max(1,Number(e.target.value)))} className="w-20 rounded border border-gray-600 bg-[#0b1020] px-2 py-1"/></label></div><p className="mt-1 text-xs text-gray-400">シーク後に配置済みUnit / Character / CameraをD&Dすると、その時刻の座標を記録します。</p></div>
+        <div className="shrink-0 border-t border-gray-700 bg-[#111827] px-5 py-3"><div className="flex items-center gap-3"><button type="button" onClick={()=>{if(currentTime>=duration)setCurrentTime(0);setIsPlaying(true);}} className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700">再生</button><button type="button" onClick={()=>setIsPlaying(false)} className="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500">ストップ</button><span className="w-20 text-sm">{currentTime.toFixed(1)}s</span><input type="range" min={0} max={duration} step={0.1} value={currentTime} onChange={(e)=>{setIsPlaying(false);setCurrentTime(Number(e.target.value));}} className="flex-1"/><label className="text-xs flex items-center gap-2">最大秒数<input type="number" min={1} value={duration} onChange={(e)=>setDuration(Math.max(1,Number(e.target.value)))} className="w-20 rounded border border-gray-600 bg-[#0b1020] px-2 py-1"/></label></div><p className="mt-1 text-xs text-gray-400">シーク後に配置済みUnit / Character / CameraをD&Dすると、その時刻の座標を記録します。シークを戻すと記録済みtimeline位置へ復元されます。</p></div>
       </section>
       <aside className="w-80 shrink-0 border-l border-gray-700 bg-[#0b1020] overflow-y-auto">
         {draftEvent?<EventProperties event={draftEvent} currentTime={currentTime} onChange={(patch)=>setDraftEvent({...draftEvent,...patch})} onAdd={addEvent}/>:selected?<ItemProperties item={selected} placed={Boolean(selectedKey)} currentTime={currentTime} onChange={updateSelected}/>:null}
