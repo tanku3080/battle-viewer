@@ -112,3 +112,52 @@ Browser
 Battle画面でJSONを読み込むと「Battle Hubへ投稿」ボタンが有効になります。
 投稿者名と説明を入力して、読み込んだ元JSONをBattle Hubへ送信できます。
 画面上の `Hub接続中 / Hub未接続` で `GET /api/health` の疎通状態を確認できます。
+
+
+## Login
+
+The initial route `/` is the login screen. Battle Hub owns the session state.
+
+Before starting Battle Hub, configure credentials:
+
+```bash
+export BATTLE_HUB_USERNAME=admin
+export BATTLE_HUB_PASSWORD='change-me'
+```
+
+Battle Viewer stores the backend session token only in an HttpOnly cookie through
+the Next.js auth proxy.
+
+Protected routes:
+
+- `/home`
+- `/battle`
+- `/create`
+
+User activity is shared through `localStorage`. If no operation occurs for one
+hour, the next pointer / keyboard / wheel / touch operation logs the user out and
+returns to `/`. While the user is active, the FE touches the backend session at
+most once per minute so the backend idle timeout and browser idle timeout stay
+aligned.
+
+## Battle JSON Creator
+
+The authenticated title screen now has:
+
+- `閲覧`: opens the existing Battle Viewer
+- `作成`: opens `/create`
+
+The creator provides:
+
+- collapsible element palette
+- Unit / Character / Legion / Corps / Division / Regiment / Camera marks
+- Status / Reparent / Merge / Reform event panels
+- tooltip guidance for every palette item
+- grid and center axes visible from the initial state
+- drag-and-drop placement
+- right-side property editor
+- bottom timeline seek bar
+- time-keyed position recording for Unit / Character / Camera
+- fixed `pos` editing for hierarchy nodes
+- generated JSON preview
+- JSON file export
