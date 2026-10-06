@@ -1,36 +1,114 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Battle Viewer
 
-## Getting Started
+JSONでユニット・部隊階層・カメラの時間変化を定義し、Canvas上で可視化するビューアーです。
 
-First, run the development server:
+## JSONの正規仕様
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+新しく作成するJSONは、**定義**と**時間変化**を分けます。
+同じtimelineを複数箇所へ重複記述しないでください。
+
+```json
+{
+  "title": "サンプル",
+  "map": {
+    "image": "/maps/sample.svg",
+    "width": 2400,
+    "height": 1350,
+    "coordinateOrigin": "center"
+  },
+  "units": [
+    {
+      "id": "red1",
+      "force": "red",
+      "name": "赤1",
+      "color": "#ef4444",
+      "icon": null
+    }
+  ],
+  "timeline": {
+    "camera": [
+      { "t": 0, "x": 0, "y": 0, "zoom": 1 }
+    ],
+    "units": {
+      "red1": [
+        { "t": 0, "x": -300, "y": 0 },
+        { "t": 5, "x": 100, "y": 50 }
+      ]
+    }
+  }
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 自動算出・省略可能
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `duration`: units / characters / camera / events の最大 `t` から自動算出
+- `appearAt` / `disappearAt`: 各timelineの先頭・末尾から自動算出
+- `lod`: 未指定時は既定値を使用
+- `hierarchy.roots`: `parentId == null` から自動算出
+- `HierarchyNode.status`: 未指定時は `active`
+- `HierarchyNode.history`: ランタイムで生成
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 正規event
 
-## Learn More
+| event | 意味 |
+| --- | --- |
+| `status` | `active / destroyed` の状態変更 |
+| `reparent` | 親部隊の変更。親を `null` にすると離脱 |
+| `merge` | 同階層のsourceをtargetへ吸収。sourceは消える |
+| `reform` | parentやchildren/unit構成をまとめて再編 |
 
-To learn more about Next.js, take a look at the following resources:
+例:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```json
+{ "t": 5, "event": "status", "target": "reg_a", "status": "destroyed" }
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```json
+{ "t": 10, "event": "reparent", "target": "reg_a", "parent": "div_b" }
+```
 
-## Deploy on Vercel
+```json
+{ "t": 15, "event": "merge", "source": "reg_a", "target": "reg_b" }
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+旧JSONの `destroyed / detach / transfer` は読み込み時に正規eventへ変換されるため、既存JSONとの互換性は維持します。
+旧 `meta.title / meta.duration`、unit/character内timeline、トップレベルcameraも読み込み互換用として残していますが、新規JSONでは使用しません。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 開発
+
+```bash
+npm ci
+npm run lint
+npm test
+npm run build
+```
+
+
+## Battle Hub連携
+
+Battle HubのSpring Boot APIを先に起動します。
+
+```bash
+# battle-hub
+mvn spring-boot:run
+```
+
+Battle Viewerはデフォルトで `http://localhost:8080` のBattle Hubへ接続します。
+接続先を変更する場合は `.env.local` に設定します。
+
+```bash
+BATTLE_HUB_API_BASE_URL=http://localhost:8080
+```
+
+Battle Viewer側はブラウザからSpring Bootへ直接アクセスせず、Next.jsのRoute Handlerを経由します。
+
+```text
+Browser
+  -> /api/battle-hub/*
+  -> Next.js Route Handler
+  -> Battle Hub Spring Boot /api/*
+```
+
+Battle画面でJSONを読み込むと「Battle Hubへ投稿」ボタンが有効になります。
+投稿者名と説明を入力して、読み込んだ元JSONをBattle Hubへ送信できます。
+画面上の `Hub接続中 / Hub未接続` で `GET /api/health` の疎通状態を確認できます。

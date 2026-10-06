@@ -1,29 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { ChangeEvent, useState } from "react";
-
+import type { BattleData } from "@/types/battle";
 import { useBattlePlayback } from "@/hook/useBattlePlayback";
 import { useSelection } from "@/hook/useSelection";
 import {
   loadBattleJson,
   type RawBattleJson,
 } from "@/utils/battle/loadBattleJson";
-
-import { PageHeader } from "@/components/layout/PageHeader";
 import { PlaybackControls } from "@/components/battle/controls/PlaybackControls";
 import { ViewModeButtons } from "@/components/battle/controls/ViewModeButtons";
-import { PanelContainer } from "@/components/battle/PanelContainer";
+import { ProductionButton } from "@/components/battle/controls/ProductionButton";
+import { BattleHubControls } from "@/components/battle/controls/BattleHubControls";
 import { TimelineBar } from "@/components/TimelineBar";
-import { ProductionModal } from "@/components/ProductionModal/ProductionModal";
 import { BattlePlayer } from "@/components/battle/BattlePlayer/BattlePlayer";
-
-import type { BattleData } from "@/types/battle";
-import Link from "next/link";
+import { PanelContainer } from "@/components/battle/PanelContainer";
+import { ProductionModal } from "@/components/ProductionModal/ProductionModal";
 
 export default function BattlePage() {
   const [battle, setBattle] = useState<BattleData | null>(null);
+  const [sourceBattleJson, setSourceBattleJson] = useState<RawBattleJson | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<"map" | "camera">("map");
   const [showGrid, setShowGrid] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const {
     currentTime,
@@ -32,12 +34,10 @@ export default function BattlePage() {
     start,
     stop,
     seek,
-
     productionTime,
     isProductionOpen,
     startProduction,
     closeProduction,
-
     setCurrentTime,
     setIsPlaying,
   } = useBattlePlayback(battle);
@@ -50,52 +50,57 @@ export default function BattlePage() {
     panelData,
   } = useSelection(battle, currentTime);
 
-  // ----------------------------------------
-  // JSON読み込み
-  // ----------------------------------------
-  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
 
-    const text = await file.text();
-    const parsed = loadBattleJson(JSON.parse(text) as RawBattleJson);
+    try {
+      const text = await file.text();
+      const raw = JSON.parse(text) as RawBattleJson;
+      const parsed = loadBattleJson(raw);
 
-    setBattle(parsed);
-    seek(0);
-    stop();
+      setBattle(parsed);
+      setSourceBattleJson(raw);
+      setLoadError(null);
+      seek(0);
+      stop();
+      selectUnit(null);
+      selectCharacter(null);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "JSONの読み込みに失敗しました"
+      );
+    }
   };
 
   return (
     <main className="w-screen h-screen overflow-hidden bg-[#050816] text-gray-200 flex flex-col">
-      {/* 上部コントロールバー（1行にまとめる） */}
       <div className="w-full flex items-center gap-4 p-3 border-b border-gray-700">
-        {/* hidden input */}
         <input
           id="json-input"
           type="file"
-          accept="application/json"
+          accept="application/json,.json"
           className="hidden"
           onChange={handleFileChange}
         />
 
-        {/* JSON 読み込み */}
         <button
-          onClick={() => {
-            (
-              document.getElementById("json-input") as HTMLInputElement
-            )?.click();
-          }}
+          onClick={() =>
+            (document.getElementById("json-input") as HTMLInputElement | null)?.click()
+          }
           className="px-4 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
         >
           JSONを読み込む
         </button>
 
-        {/* タイトルに戻る(cliantをファイルの文頭に入れているからrouter使用不可。) */}
-        <Link className="px-4 py-2 rounded-md bg-gray-600 text-white"  href={"/"}>
-        タイトルに戻る
+        <Link
+          className="px-4 py-2 rounded-md bg-gray-600 text-white"
+          href="/"
+        >
+          タイトルに戻る
         </Link>
 
-        {/* 再生コントロール */}
         <PlaybackControls
           currentTime={currentTime}
           isPlaying={isPlaying}
@@ -103,7 +108,6 @@ export default function BattlePage() {
           onStop={stop}
         />
 
-        {/* 表示モード切替 */}
         <ViewModeButtons
           viewMode={viewMode}
           setViewMode={setViewMode}
@@ -111,42 +115,53 @@ export default function BattlePage() {
           setShowGrid={setShowGrid}
         />
 
-        {/* 本番開始 */}
-        <button
-          onClick={startProduction}
-          disabled={!battle? true:false}
-          className="px-4 py-2 rounded-md bg-purple-600 text-white disabled:bg-purple-900"
-        >
-          本番開始
-        </button>
+        <ProductionButton disabled={!battle} onStart={startProduction} />
+
+        <BattleHubControls battleJson={sourceBattleJson} />
       </div>
 
-      {/* キャンバス */}
-      <div className="flex-1 relative overflow-hidden">
-        <BattlePlayer
-          battle={battle}
-          currentTime={currentTime}
-          viewMode={viewMode}
-          showGrid={showGrid}
-          selectedUnitId={selectedUnitId}
-          selectedCharacterId={selectedCharacterId}
-          onSelectUnit={selectUnit}
-          onSelectCharacter={selectCharacter}
-          enableSelection={true}
-        />
+      {loadError && (
+        <div className="px-4 py-2 bg-red-950 text-red-200 border-b border-red-800 text-sm">
+          JSON読込エラー: {loadError}
+        </div>
+      )}
+
+      <div className="flex-1 relative overflow-hidden flex pb-[72px]">
+        <div className="flex-1">
+          <BattlePlayer
+            battle={battle}
+            currentTime={currentTime}
+            viewMode={viewMode}
+            showGrid={showGrid}
+            selectedUnitId={selectedUnitId}
+            selectedCharacterId={selectedCharacterId}
+            onSelectUnit={selectUnit}
+            onSelectCharacter={selectCharacter}
+            enableSelection
+          />
+        </div>
+
+        <PanelContainer panelData={panelData} currentTime={currentTime} />
       </div>
 
-      {/* シークバー（固定） */}
       <div className="w-full fixed bottom-0 left-0 bg-[#111827] border-t border-gray-700 p-4">
         <TimelineBar
           currentTime={currentTime}
           maxTime={maxTime}
-          onChange={(v) => {
-            setCurrentTime(v);
+          onChange={(value) => {
+            setCurrentTime(value);
             setIsPlaying(false);
           }}
         />
       </div>
+
+      <ProductionModal
+        battle={battle}
+        productionTime={productionTime}
+        isOpen={isProductionOpen}
+        showGrid={showGrid}
+        onClose={closeProduction}
+      />
     </main>
   );
 }

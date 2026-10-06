@@ -1,11 +1,15 @@
-// utils/battle/hitTest.ts
-
-import type { BattleData } from "@/types/battle";
+import type { BattleData, HierarchyLevel } from "@/types/battle";
 import { prepareFrameState } from "./runtime";
+import {
+  computeLodAlphas,
+  getDominantLodLevel,
+  HIERARCHY_NODE_RADIUS,
+} from "@/utils/battle/lod";
 
 /**
- * クリック判定（ユニット → キャラの優先順）
- * cameraScale に応じて当たり判定の半径を調整
+ * クリック判定（仕様：Unit > Regiment > Division > Corps > Legion）
+ * - 入力座標は world 座標で渡す（screen->world は convertClickToWorld 側で統一）
+ * - cameraScale は「ワールド1.0が画面上何pxか」の係数（drawWorld と同じ）
  */
 export function hitTestAtTime(args: {
   battle: BattleData;
@@ -13,23 +17,29 @@ export function hitTestAtTime(args: {
   worldX: number;
   worldY: number;
   fadeDuration: number;
-  cameraScale: number; // ← ★★★ 必須
+  cameraScale: number;
 }) {
   const { battle, currentTime, worldX, worldY, fadeDuration, cameraScale } =
     args;
 
   const frame = prepareFrameState(battle, currentTime, fadeDuration);
+  const hasHierarchy = Object.keys(frame.hierarchy.nodes).length > 0;
+  const lodAlpha = hasHierarchy
+    ? computeLodAlphas(battle.lod, cameraScale)
+    : { legion: 0, corps: 0, division: 0, regiment: 0, unit: 1 };
+  const dominantLevel = getDominantLodLevel(lodAlpha);
 
   // ============================================
-  // ユニット判定（優先）
+  // Unit 判定（最優先）
   // ============================================
   let hitUnitId: string | null = null;
   let minUnitDist = Infinity;
 
-  const unitBaseRadius = 20; // 画像サイズ基準
-  const unitRadius = unitBaseRadius / cameraScale; // ← ★ ズーム反映
+  const unitBaseRadius = 16;
+  const unitRadius = unitBaseRadius / cameraScale; // ← 画面上の半径を一定に寄せる
 
   frame.units.forEach((state) => {
+    if (dominantLevel !== "unit") return;
     if (!state.visible || !state.transform) return;
 
     // 階層フィルタ（LOD）
@@ -48,17 +58,21 @@ export function hitTestAtTime(args: {
   });
 
   if (hitUnitId) {
-    return { unitId: hitUnitId, characterId: null };
+    return {
+      unitId: hitUnitId,
+      characterId: null as string | null,
+      hierarchyNodeId: null as string | null,
+    };
   }
 
   // ============================================
-  // キャラ判定
+  // Character 判定
   // ============================================
   let hitCharacterId: string | null = null;
   let minCharDist = Infinity;
 
-  const charBaseRadius = 28;
-  const charRadius = charBaseRadius / cameraScale; // ← ★ ズーム反映
+  const charBaseRadius = 18;
+  const charRadius = charBaseRadius / cameraScale;
 
   frame.characters.forEach((ch) => {
     if (!ch.visible || !ch.transform) return;
@@ -73,5 +87,63 @@ export function hitTestAtTime(args: {
     }
   });
 
-  return { unitId: null, characterId: hitCharacterId };
+  if (hitCharacterId) {
+    return {
+      unitId: null as string | null,
+      characterId: hitCharacterId,
+      hierarchyNodeId: null as string | null,
+    };
+  }
+
+  // ============================================
+  // Hierarchy Node 判定
+  // ============================================
+  const nodes = frame.hierarchy.nodes;
+
+  const tryHitLevel = (
+    level: Exclude<HierarchyLevel, "unit">,
+    alpha: number
+  ) => {
+    if (alpha <= 0.05) return null;
+
+    let bestId: string | null = null;
+    let bestDist = Infinity;
+    const r = HIERARCHY_NODE_RADIUS[level];
+
+    for (const id of frame.hierarchy.levels[level]) {
+      const node = nodes[id];
+      if (!node?.position) continue;
+
+      const dx = worldX - node.position.x;
+      const dy = worldY - node.position.y;
+      const dist = dx * dx + dy * dy;
+
+      if (dist <= r * r && dist < bestDist) {
+        bestDist = dist;
+        bestId = id;
+      }
+    }
+
+    return bestId;
+  };
+
+  if (dominantLevel !== "unit") {
+    const hitHierarchy = tryHitLevel(
+      dominantLevel,
+      lodAlpha[dominantLevel]
+    );
+    if (hitHierarchy) {
+      return {
+        unitId: null as string | null,
+        characterId: null as string | null,
+        hierarchyNodeId: hitHierarchy,
+      };
+    }
+  }
+
+  return {
+    unitId: null as string | null,
+    characterId: null as string | null,
+    hierarchyNodeId: null as string | null,
+  };
 }

@@ -2,9 +2,12 @@
 
 import type {
   BattleData,
-  BattleEvent,
   BattleTimeline,
   Character,
+  HierarchyNode,
+  LODBand,
+  LODConfig,
+  LodLevel,
   TimelinePoint,
   Unit,
   UnitDefinition,
@@ -14,16 +17,50 @@ import {
   sortEvents,
   type HierarchySourceNode,
 } from "./hierarchy";
+import { LOD_LEVELS } from "./lod";
+import {
+  normalizeBattleEvents,
+  type RawBattleEvent,
+} from "./events";
+import {
+  toInternalPoint,
+  toInternalPosition,
+  validateCoordinateMap,
+} from "./coordinates";
+
+type RawUnit = Partial<Omit<UnitDefinition, "id">> & {
+  id: string;
+  timeline?: TimelinePoint[];
+};
+
+type RawCharacter = {
+  id: string;
+  name?: string;
+  icon?: string | null;
+  timeline?: TimelinePoint[];
+};
+
+type RawHierarchy = {
+  legions?: HierarchySourceNode[];
+  roots?: string[];
+  nodes?: Record<string, Partial<HierarchyNode> & { id?: string }>;
+};
+
+type RawLODConfig = Partial<Record<LodLevel, Partial<LODBand>>> & {
+  fadeRange?: number;
+};
 
 export type RawBattleJson = {
+  lod?: RawLODConfig;
   meta?: { title?: string; duration?: number };
   title?: string;
   map: BattleData["map"];
-  hierarchy?: { legions?: HierarchySourceNode[] };
-  units?: UnitDefinition[];
-  characters?: Omit<Character, "timeline" | "appearAt" | "disappearAt">[];
-  events?: BattleEvent[];
-  timeline?: BattleTimeline;
+  hierarchy?: RawHierarchy;
+  units?: RawUnit[];
+  characters?: RawCharacter[];
+  events?: RawBattleEvent[];
+  timeline?: Partial<BattleTimeline>;
+  /** @deprecated 旧JSON互換。新規JSONでは timeline.camera を使用 */
   camera?: BattleTimeline["camera"];
 };
 
@@ -46,9 +83,6 @@ function fallbackColor(id: string) {
   return FALLBACK_COLORS[hash % FALLBACK_COLORS.length];
 }
 
-/**
- * dir が存在しない TimelinePoint に向きを自動付与する
- */
 function fillDir(timeline: TimelinePoint[]): TimelinePoint[] {
   if (!timeline.length) return timeline;
 
@@ -59,165 +93,226 @@ function fillDir(timeline: TimelinePoint[]): TimelinePoint[] {
     const prev = timeline[i - 1];
 
     if (next) {
-      const dx = next.x - p.x;
-      const dy = next.y - p.y;
-      return { ...p, dir: Math.atan2(dy, dx) };
+      return { ...p, dir: Math.atan2(next.y - p.y, next.x - p.x) };
     }
 
-    if (prev) {
-      return { ...p, dir: prev.dir ?? 0 };
-    }
-
-    return { ...p, dir: 0 };
+    return { ...p, dir: prev?.dir ?? 0 };
   });
 }
 
-function buildUnitDefinitions(
-  units: UnitDefinition[] | undefined,
-  timeline: BattleTimeline["units"],
-  events: BattleEvent[]
-) {
-  const defs: Record<string, UnitDefinition> = {};
-  units?.forEach((u) => {
-    defs[u.id] = {
-      id: u.id,
-      force: u.force,
-      name: u.name ?? u.id,
-      color: u.color ?? fallbackColor(u.id),
-      icon: u.icon ?? null,
+function buildUnitDefinitions(units: RawUnit[]) {
+  return units.reduce<Record<string, UnitDefinition>>((acc, unit) => {
+    acc[unit.id] = {
+      id: unit.id,
+      force: unit.force,
+      name: unit.name ?? unit.id,
+      color: unit.color ?? fallbackColor(unit.id),
+      icon: unit.icon ?? null,
     };
+    return acc;
+  }, {});
+}
+
+function buildUnitTimeline(raw: RawBattleJson) {
+  const merged: Record<string, TimelinePoint[]> = {
+    ...(raw.timeline?.units ?? {}),
+  };
+
+  raw.units?.forEach((unit) => {
+    if (!(unit.id in merged) && unit.timeline) merged[unit.id] = unit.timeline;
   });
 
-  // timeline で定義されているユニットを補完
-  Object.keys(timeline).forEach((id) => {
-    if (defs[id]) return;
-    defs[id] = {
+  return Object.fromEntries(
+    Object.entries(merged).map(([id, points]) => [
       id,
-      force: "unknown",
-      name: id,
-      color: fallbackColor(id),
-      icon: null,
-    };
+      points.map((point) => toInternalPoint(point, raw.map)),
+    ])
+  );
+}
+
+function buildCharacterTimeline(raw: RawBattleJson) {
+  const merged: Record<string, TimelinePoint[]> = {
+    ...(raw.timeline?.characters ?? {}),
+  };
+
+  raw.characters?.forEach((character) => {
+    if (!(character.id in merged) && character.timeline) {
+      merged[character.id] = character.timeline;
+    }
   });
 
-  // reform イベントで生えるユニットを補完
-  events.forEach((ev) => {
-    if (ev.event !== "reform") return;
-    ev.units.forEach((id) => {
-      if (defs[id]) return;
-      defs[id] = {
-        id,
-        force: "unknown",
-        name: id,
-        color: fallbackColor(id),
-        icon: null,
-      };
-    });
-  });
-
-  return defs;
+  return Object.fromEntries(
+    Object.entries(merged).map(([id, points]) => [
+      id,
+      points.map((point) => toInternalPoint(point, raw.map)),
+    ])
+  );
 }
 
 function buildUnits(
   unitDefs: Record<string, UnitDefinition>,
   timeline: BattleTimeline["units"]
 ): { units: Unit[]; index: Record<string, Unit> } {
-  const units: Unit[] = Object.values(unitDefs).map((def) => {
-    const fallbackTimeline: TimelinePoint[] | undefined = undefined;
-    const sorted = [...(timeline?.[def.id] ?? fallbackTimeline ?? [])].sort(
-      (a, b) => a.t - b.t
-    );
+  const units = Object.values(unitDefs).map((def) => {
+    const sorted = [...(timeline[def.id] ?? [])].sort((a, b) => a.t - b.t);
     const tl = fillDir(sorted);
-    const appearAt = tl.length ? tl[0].t : Number.POSITIVE_INFINITY;
-    const disappearAt = tl.length
-      ? tl[tl.length - 1].t
-      : Number.NEGATIVE_INFINITY;
 
     return {
       ...def,
       timeline: tl,
-      appearAt,
-      disappearAt,
+      appearAt: tl.length ? tl[0].t : Number.POSITIVE_INFINITY,
+      disappearAt: tl.length ? tl[tl.length - 1].t : Number.NEGATIVE_INFINITY,
     };
   });
 
-  const unitIndex: Record<string, Unit> = {};
-  units.forEach((u) => {
-    unitIndex[u.id] = u;
-  });
-
-  return { units, index: unitIndex };
+  return {
+    units,
+    index: Object.fromEntries(units.map((unit) => [unit.id, unit])),
+  };
 }
 
 function buildCharacters(
-  characters:
-    | Omit<Character, "timeline" | "appearAt" | "disappearAt">[]
-    | undefined,
-  timeline: BattleTimeline["characters"]
-): Character[] {
-  const ids = new Set<string>();
-  characters?.forEach((c) => ids.add(c.id));
-  Object.keys(timeline ?? {}).forEach((id) => ids.add(id));
+  definitions: RawCharacter[] | undefined,
+  timeline: Record<string, TimelinePoint[]>
+): { characters: Character[]; index: Record<string, Character> } {
+  const ids = new Set<string>(Object.keys(timeline));
+  definitions?.forEach((character) => ids.add(character.id));
 
-  return Array.from(ids).map((id) => {
-    const def = characters?.find((c) => c.id === id);
-    const sorted = [...(timeline?.[id] ?? [])].sort((a, b) => a.t - b.t);
+  const characters = Array.from(ids).map((id) => {
+    const def = definitions?.find((character) => character.id === id);
+    const sorted = [...(timeline[id] ?? [])].sort((a, b) => a.t - b.t);
     const tl = fillDir(sorted);
-    const appearAt = tl.length ? tl[0].t : Number.POSITIVE_INFINITY;
-    const disappearAt = tl.length
-      ? tl[tl.length - 1].t
-      : Number.NEGATIVE_INFINITY;
 
     return {
       id,
       name: def?.name ?? id,
-      icon: def?.icon ?? "",
+      icon: def?.icon ?? null,
       timeline: tl,
-      appearAt,
-      disappearAt,
+      appearAt: tl.length ? tl[0].t : Number.POSITIVE_INFINITY,
+      disappearAt: tl.length ? tl[tl.length - 1].t : Number.NEGATIVE_INFINITY,
     };
   });
-}
-
-/**
- * JSON 読み込み後の battle データ整形
- * dir 補完などの各種加工をここで実施する
- */
-export function loadBattleJson(raw: RawBattleJson): BattleData {
-  const cameraTimeline = [...(raw.timeline?.camera ?? raw.camera ?? [])].sort(
-    (a, b) => a.t - b.t
-  );
-  const timeline: BattleTimeline = {
-    camera: cameraTimeline,
-    units: raw.timeline?.units ?? {},
-    characters: raw.timeline?.characters ?? {},
-  };
-
-  const orderedEvents = sortEvents(raw.events ?? []);
-  const unitDefs = buildUnitDefinitions(
-    raw.units ?? [],
-    timeline.units,
-    orderedEvents
-  );
-  const { units, index: unitIndex } = buildUnits(unitDefs, timeline.units);
-  const characters = buildCharacters(raw.characters, timeline.characters ?? {});
-
-  const { nodes, roots } = buildHierarchyNodesFromJson(
-    raw.hierarchy,
-    unitIndex
-  );
 
   return {
-    title: raw.meta?.title ?? raw.title ?? "Untitled Battle",
-    meta: raw.meta,
+    characters,
+    index: Object.fromEntries(
+      characters.map((character) => [character.id, character])
+    ),
+  };
+}
+
+function normalizeHierarchy(
+  raw: RawHierarchy | undefined,
+  unitIndex: Record<string, Unit>
+) {
+  if (!raw?.nodes) {
+    return buildHierarchyNodesFromJson(raw, unitIndex);
+  }
+
+  const nodes: Record<string, HierarchyNode> = {};
+
+  Object.entries(raw.nodes).forEach(([key, value]) => {
+    const id = value.id ?? key;
+    if (!value.level) return;
+
+    nodes[id] = {
+      id,
+      level: value.level,
+      name: value.name ?? id,
+      parentId: value.parentId ?? null,
+      childrenIds: [...(value.childrenIds ?? [])],
+      unitIds: (value.unitIds ?? []).filter((unitId) => !!unitIndex[unitId]),
+      status: value.status ?? "active",
+      history: [...(value.history ?? [])],
+      pos: value.pos,
+    };
+  });
+
+  const roots =
+    raw.roots?.filter((id) => !!nodes[id]) ??
+    Object.values(nodes)
+      .filter((node) => !node.parentId || !nodes[node.parentId])
+      .map((node) => node.id);
+
+  return { nodes, roots };
+}
+
+export const DEFAULT_LOD: LODConfig = {
+  legion: { min: 0, max: 18 },
+  corps: { min: 18, max: 30 },
+  division: { min: 30, max: 42 },
+  regiment: { min: 42, max: 54 },
+  unit: { min: 54, max: 999 },
+  fadeRange: 3,
+};
+
+function finiteOr(value: number | undefined, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : fallback;
+}
+
+function normalizeLod(raw: RawLODConfig | undefined): LODConfig {
+  let previousMax = 0;
+  const bands = {} as Record<LodLevel, LODBand>;
+
+  LOD_LEVELS.forEach((level, index) => {
+    const fallback = DEFAULT_LOD[level];
+    const requested = raw?.[level];
+    const fallbackWidth = Math.max(1, fallback.max - fallback.min);
+    const requestedMin = Math.max(0, finiteOr(requested?.min, fallback.min));
+    const min = index === 0 ? 0 : Math.max(previousMax, requestedMin);
+    const requestedMax = finiteOr(requested?.max, fallback.max);
+    const max = Math.max(requestedMax, min + fallbackWidth);
+
+    bands[level] = { min, max };
+    previousMax = max;
+  });
+
+  return {
+    ...bands,
+    fadeRange: Math.max(0, finiteOr(raw?.fadeRange, DEFAULT_LOD.fadeRange)),
+  };
+}
+
+export function loadBattleJson(raw: RawBattleJson): BattleData {
+  validateCoordinateMap(raw?.map);
+
+  const cameraTimeline = [...(raw.timeline?.camera ?? raw.camera ?? [])]
+    .map((point) => toInternalPoint(point, raw.map))
+    .sort((a, b) => a.t - b.t);
+
+  const timeline: BattleTimeline = {
+    camera: cameraTimeline,
+    units: buildUnitTimeline(raw),
+    characters: buildCharacterTimeline(raw),
+  };
+
+  const unitDefs = buildUnitDefinitions(raw.units ?? []);
+  const { units, index: unitIndex } = buildUnits(unitDefs, timeline.units);
+  const { characters, index: characterIndex } = buildCharacters(
+    raw.characters,
+    timeline.characters ?? {}
+  );
+  const hierarchy = normalizeHierarchy(raw.hierarchy, unitIndex);
+
+  Object.values(hierarchy.nodes).forEach((node) => {
+    node.pos = toInternalPosition(node.pos, raw.map);
+  });
+
+  const lod = normalizeLod(raw.lod);
+
+  return {
+    title: raw.title ?? raw.meta?.title ?? "Untitled Battle",
     map: raw.map,
-    camera: timeline.camera ?? [],
+    lod,
+    camera: cameraTimeline,
     units,
     characters,
-    events: orderedEvents,
+    hierarchy,
+    events: sortEvents(normalizeBattleEvents(raw.events ?? [])),
     timeline,
-    hierarchyNodes: nodes,
-    hierarchyRoots: roots,
     unitIndex,
+    characterIndex,
   };
 }

@@ -1,14 +1,15 @@
-// utils/battle/drawWorld.ts
-
 import type { BattleData } from "@/types/battle";
 import type { FrameState, NodeWithPosition } from "./runtime";
 import { prepareFrameState } from "./runtime";
+import { computeLodAlphas } from "@/utils/battle/lod";
 
 type DrawArgs = {
   ctx: CanvasRenderingContext2D;
   battle: BattleData;
   currentTime: number;
   showGrid: boolean;
+  viewMode: "map" | "camera";
+  gridBounds: { minX: number; minY: number; maxX: number; maxY: number };
   bgImage: HTMLImageElement | null;
   unitImages: Record<string, HTMLImageElement>;
   charImages: Record<string, HTMLImageElement>;
@@ -26,22 +27,6 @@ const LEVELS = {
   division: { radius: 26, font: "14px sans-serif" },
   regiment: { radius: 18, font: "13px sans-serif" },
 };
-
-function levelAlpha(scale: number, min: number, max: number) {
-  const fadeInStart = Math.max(0, min - 0.1);
-  const fadeInEnd = min + 0.1;
-  const fadeOutStart = max - 0.1;
-  const fadeOutEnd = max + 0.1;
-
-  if (scale <= fadeInStart) return 0;
-  if (scale < fadeInEnd)
-    return (scale - fadeInStart) / (fadeInEnd - fadeInStart);
-  if (!Number.isFinite(max)) return 1;
-  if (scale <= fadeOutStart) return 1;
-  if (scale < fadeOutEnd)
-    return 1 - (scale - fadeOutStart) / (fadeOutEnd - fadeOutStart);
-  return 0;
-}
 
 function nodeColor(node: NodeWithPosition, battle: BattleData) {
   for (const uid of node.unitIds) {
@@ -98,24 +83,18 @@ function drawHierarchyNodes(params: {
 function drawUnits(params: {
   ctx: CanvasRenderingContext2D;
   frame: FrameState;
-  battle: BattleData;
   alpha: number;
   unitImages: Record<string, HTMLImageElement>;
   selectedUnitId?: string | null;
   enableSelection?: boolean;
-  mode: "unit" | "company";
-  cameraScale: number;
 }) {
   const {
     ctx,
     frame,
-    battle,
     alpha,
     unitImages,
     selectedUnitId,
     enableSelection,
-    mode,
-    cameraScale,
   } = params;
 
   if (alpha <= 0) return;
@@ -130,10 +109,11 @@ function drawUnits(params: {
     const drawAlpha = spawnAlpha * alpha;
     if (drawAlpha <= 0) return;
 
-    // ズームレベルに応じたサイズ
-    const baseSize = mode === "company" ? 18 : 32;
-    const iconSize = baseSize * (1 / cameraScale);
-    const radius = (mode === "company" ? 10 : 12) * (1 / cameraScale);
+    // cameraScale が大きくなるほど「画面上のサイズ」は大きくなる
+    // → ここではアイコンを「相対的に」調整したい場合に使える
+    const baseSize = 32;
+    const iconSize = baseSize;
+    const radius = 12;
 
     ctx.save();
     ctx.translate(transform.x, transform.y);
@@ -145,24 +125,19 @@ function drawUnits(params: {
     if (cached) {
       ctx.drawImage(cached, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
     } else {
-      if (mode === "company") {
-        ctx.fillStyle = unit.color;
-        ctx.fillRect(-iconSize / 2, -iconSize / 2, iconSize, iconSize);
-      } else {
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fillStyle = unit.color;
-        ctx.fill();
-      }
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fillStyle = unit.color;
+      ctx.fill();
     }
 
     if (enableSelection && selectedUnitId === unit.id) {
       ctx.save();
       ctx.globalAlpha = 1;
       ctx.beginPath();
-      ctx.arc(0, 0, iconSize / 2 + 8 / cameraScale, 0, Math.PI * 2);
+      ctx.arc(0, 0, iconSize / 2 + 8, 0, Math.PI * 2);
       ctx.strokeStyle = "#facc15";
-      ctx.lineWidth = 2 / cameraScale;
+      ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
     }
@@ -172,7 +147,7 @@ function drawUnits(params: {
 }
 
 // =============================
-//   キャラクター描画（ズーム対応）
+//   キャラクター描画
 // =============================
 function drawCharacters(params: {
   ctx: CanvasRenderingContext2D;
@@ -180,7 +155,6 @@ function drawCharacters(params: {
   charImages: Record<string, HTMLImageElement>;
   selectedCharacterId?: string | null;
   enableSelection?: boolean;
-  cameraScale: number;
 }) {
   const {
     ctx,
@@ -188,14 +162,13 @@ function drawCharacters(params: {
     charImages,
     selectedCharacterId,
     enableSelection,
-    cameraScale,
   } = params;
 
   frame.characters.forEach((ch) => {
     const { transform, visible, alpha, scale } = ch;
     if (!transform || !visible) return;
 
-    const size = 48 * (1 / cameraScale);
+    const size = 48; // とりあえず LOD 非対象（B ランク対応で調整可）
 
     ctx.save();
     ctx.translate(transform.x, transform.y);
@@ -215,9 +188,9 @@ function drawCharacters(params: {
       ctx.save();
       ctx.globalAlpha = 1;
       ctx.beginPath();
-      ctx.arc(0, 0, size / 2 + 10 / cameraScale, 0, Math.PI * 2);
+      ctx.arc(0, 0, size / 2 + 10, 0, Math.PI * 2);
       ctx.strokeStyle = "#22c55e";
-      ctx.lineWidth = 2 / cameraScale;
+      ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
     }
@@ -235,6 +208,8 @@ export function drawWorld(args: DrawArgs) {
     battle,
     currentTime,
     showGrid,
+    viewMode,
+    gridBounds,
     bgImage,
     unitImages,
     charImages,
@@ -261,37 +236,88 @@ export function drawWorld(args: DrawArgs) {
     ctx.fillRect(0, 0, mapWidth, mapHeight);
   }
 
-  // グリッド描画
+  // グリッド / 中心軸
   if (showGrid) {
-    ctx.save();
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
-    ctx.lineWidth = 1 / cameraScale;
     const gridSize = 50;
+    const hasMapImage = Boolean(battle.map.image);
+    const clipToMap = viewMode === "camera" && hasMapImage;
+    const bounds = clipToMap
+      ? { minX: 0, minY: 0, maxX: mapWidth, maxY: mapHeight }
+      : gridBounds;
+    const safeScale = Math.max(cameraScale, 0.0001);
 
-    for (let x = 0; x <= mapWidth; x += gridSize) {
+    ctx.save();
+
+    if (clipToMap) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, mapHeight);
+      ctx.rect(0, 0, mapWidth, mapHeight);
+      ctx.clip();
+    }
+
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 1 / safeScale;
+
+    const centerX = mapWidth / 2;
+    const centerY = mapHeight / 2;
+
+    // グリッドは必ず中央クロスを原点として展開する。
+    // これにより map.width / height が gridSize の倍数でなくても
+    // 中央軸とグリッド交点がずれない。
+    const startX =
+      centerX +
+      Math.floor((bounds.minX - centerX) / gridSize) * gridSize;
+    const endX =
+      centerX +
+      Math.ceil((bounds.maxX - centerX) / gridSize) * gridSize;
+    const startY =
+      centerY +
+      Math.floor((bounds.minY - centerY) / gridSize) * gridSize;
+    const endY =
+      centerY +
+      Math.ceil((bounds.maxY - centerY) / gridSize) * gridSize;
+
+    for (let x = startX; x <= endX; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, bounds.minY);
+      ctx.lineTo(x, bounds.maxY);
       ctx.stroke();
     }
 
-    for (let y = 0; y <= mapHeight; y += gridSize) {
+    for (let y = startY; y <= endY; y += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(mapWidth, y);
+      ctx.moveTo(bounds.minX, y);
+      ctx.lineTo(bounds.maxX, y);
       ctx.stroke();
     }
+
+    // JSON作成時の基準点。全体/カメラで同じマップ中心を共有する。
+    ctx.strokeStyle = "rgba(250,204,21,0.85)";
+    ctx.lineWidth = 2 / safeScale;
+
+    ctx.beginPath();
+    ctx.moveTo(bounds.minX, centerY);
+    ctx.lineTo(bounds.maxX, centerY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(centerX, bounds.minY);
+    ctx.lineTo(centerX, bounds.maxY);
+    ctx.stroke();
 
     ctx.restore();
   }
 
-  // LOD
-  const alphaLegion = levelAlpha(cameraScale, 0, 0.3);
-  const alphaDivision = levelAlpha(cameraScale, 0.3, 0.6);
-  const alphaRegiment = levelAlpha(cameraScale, 0.6, 1.2);
-  const alphaCompany = levelAlpha(cameraScale, 1.2, 2.0);
-  const alphaUnit = levelAlpha(cameraScale, 2.0, Number.POSITIVE_INFINITY);
+  const hasHierarchy = Object.keys(frame.hierarchy.nodes).length > 0;
+  const lodAlpha = hasHierarchy
+    ? computeLodAlphas(battle.lod, cameraScale)
+    : { legion: 0, corps: 0, division: 0, regiment: 0, unit: 1 };
+  const alphaLegion = lodAlpha.legion;
+  const alphaCorps = lodAlpha.corps;
+  const alphaDivision = lodAlpha.division;
+  const alphaRegiment = lodAlpha.regiment;
+  const alphaUnit = lodAlpha.unit;
 
+  // ------------------- 階層描画 -------------------
   drawHierarchyNodes({
     ctx,
     nodes: frame.hierarchy.levels.legion
@@ -307,7 +333,7 @@ export function drawWorld(args: DrawArgs) {
     nodes: frame.hierarchy.levels.corps
       .map((id) => frame.hierarchy.nodes[id])
       .filter(Boolean),
-    alpha: alphaLegion,
+    alpha: alphaCorps,
     battle,
     sizeKey: "corps",
   });
@@ -332,38 +358,22 @@ export function drawWorld(args: DrawArgs) {
     sizeKey: "regiment",
   });
 
-  // Company
+  // ユニット
   drawUnits({
     ctx,
     frame,
-    battle,
-    alpha: alphaCompany,
-    unitImages,
-    selectedUnitId,
-    enableSelection,
-    mode: "company",
-    cameraScale,
-  });
-
-  // Unit
-  drawUnits({
-    ctx,
-    frame,
-    battle,
     alpha: alphaUnit,
     unitImages,
     selectedUnitId,
     enableSelection,
-    mode: "unit",
-    cameraScale,
   });
 
+  // キャラ（いまは LOD 非対象）
   drawCharacters({
     ctx,
     frame,
     charImages,
     selectedCharacterId,
     enableSelection,
-    cameraScale,
   });
 }

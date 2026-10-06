@@ -4,7 +4,7 @@ export type TimelinePoint = {
   t: number;
   x: number;
   y: number;
-  dir?: number; // 方向（ラジアン）※旧JSON互換のため optional
+  dir?: number;
 };
 
 export type UnitDefinition = {
@@ -24,10 +24,39 @@ export type Unit = UnitDefinition & {
 export type Character = {
   id: string;
   name: string;
-  icon: string;
+  icon?: string | null;
   timeline: TimelinePoint[];
   appearAt: number;
   disappearAt: number;
+};
+
+export type HierarchyLevel = "legion" | "corps" | "division" | "regiment";
+export type LodLevel = HierarchyLevel | "unit";
+
+export type HierarchyNode = {
+  id: string;
+  level: HierarchyLevel;
+  name: string;
+  parentId: string | null;
+  childrenIds: string[];
+  unitIds: string[];
+  status: HierarchyStatus;
+  history: Array<{
+    t: number;
+    event: string;
+    detail?: unknown;
+  }>;
+  pos?: { x: number; y: number };
+};
+
+export type LODBand = { min: number; max: number };
+export type LODConfig = {
+  legion: LODBand;
+  corps: LODBand;
+  division: LODBand;
+  regiment: LODBand;
+  unit: LODBand;
+  fadeRange: number;
 };
 
 export type CameraKeyframe = {
@@ -37,38 +66,27 @@ export type CameraKeyframe = {
   zoom: number;
 };
 
-export type HierarchyLevel = "legion" | "corps" | "division" | "regiment";
+export type CameraTarget =
+  | { type: "legion"; id: string }
+  | { type: "corps"; id: string }
+  | { type: "division"; id: string }
+  | { type: "regiment"; id: string }
+  | { type: "unit"; id: string };
 
-export type HierarchyNodeStatus = "active" | "destroyed" | "merged";
+export type HierarchyStatus = "active" | "destroyed";
 
-export type HierarchyHistory = {
+export type StatusEvent = {
   t: number;
-  event: BattleEvent["event"];
-  detail?: Record<string, string | number | null | undefined>;
+  event: "status";
+  target: string;
+  status: HierarchyStatus;
 };
 
-export type HierarchyNode = {
-  id: string;
-  name: string;
-  level: HierarchyLevel;
-  parentId: string | null;
-  childrenIds: string[];
-  unitIds: string[];
-  status: HierarchyNodeStatus;
-  history: HierarchyHistory[];
-};
-
-export type DestroyedEvent = {
+export type ReparentEvent = {
   t: number;
-  event: "destroyed";
-  legion: string;
-};
-
-export type DetachEvent = {
-  t: number;
-  event: "detach";
-  source: string;
-  from: string;
+  event: "reparent";
+  target: string;
+  parent: string | null;
 };
 
 export type MergeEvent = {
@@ -78,26 +96,18 @@ export type MergeEvent = {
   target: string;
 };
 
-export type TransferEvent = {
-  t: number;
-  event: "transfer";
-  source: string;
-  from: string;
-  to: string;
-};
-
 export type ReformEvent = {
   t: number;
   event: "reform";
-  legion: string;
-  units: string[];
+  target: string;
+  parent?: string | null;
+  children?: string[];
 };
 
 export type BattleEvent =
-  | DestroyedEvent
-  | DetachEvent
+  | StatusEvent
+  | ReparentEvent
   | MergeEvent
-  | TransferEvent
   | ReformEvent;
 
 export type BattleTimeline = {
@@ -106,31 +116,37 @@ export type BattleTimeline = {
   characters?: Record<string, TimelinePoint[]>;
 };
 
-export type CameraTarget = {
-  type: HierarchyLevel | "unit";
-  id: string;
+export type CoordinateOrigin = "top-left" | "center";
+
+export type BattleMap = {
+  width: number;
+  height: number;
+  image?: string | null;
+  /**
+   * JSON上の座標原点。
+   * - top-left: 従来互換。左上が (0, 0)
+   * - center: マップ中央が (0, 0)
+   *
+   * 描画内部では従来どおり左上原点へ正規化する。
+   */
+  coordinateOrigin?: CoordinateOrigin;
 };
 
 export type BattleData = {
   title: string;
-  meta?: {
-    title?: string;
-    duration?: number;
-  };
-  cameraTarget?: CameraTarget | null;
-  map: {
-    image: string;
-    width: number;
-    height: number;
-  };
+  map: BattleMap;
+  lod: LODConfig;
   camera: CameraKeyframe[];
   units: Unit[];
-  characters?: Character[];
+  characters: Character[];
+  hierarchy: {
+    nodes: Record<string, HierarchyNode>;
+    roots: string[];
+  };
   events: BattleEvent[];
   timeline: BattleTimeline;
-  hierarchyNodes: Record<string, HierarchyNode>;
-  hierarchyRoots: string[];
   unitIndex: Record<string, Unit>;
+  characterIndex: Record<string, Character>;
 };
 
 export type RenderTransform =
@@ -143,15 +159,21 @@ export type RenderTransform =
       canvasHeight: number;
       mapWidth: number;
       mapHeight: number;
+      viewOffsetX: number;
+      viewOffsetY: number;
       scaleFactor: number;
     }
   | {
       mode: "camera";
       baseScale: number;
+      offsetX: number;
+      offsetY: number;
       canvasWidth: number;
       canvasHeight: number;
       mapWidth: number;
       mapHeight: number;
       cam: { x: number; y: number; zoom: number };
+      viewOffsetX: number;
+      viewOffsetY: number;
       scaleFactor: number;
     };

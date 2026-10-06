@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { BattleData } from "@/types/battle";
+import { getBattleDuration } from "@/utils/battle/getBattleDuration";
 
 export function useBattlePlayback(battle: BattleData | null) {
   const [currentTime, setCurrentTime] = useState(0);
@@ -33,20 +34,7 @@ export function useBattlePlayback(battle: BattleData | null) {
       return;
     }
 
-    const timelineTimes: number[] = [];
-    battle.units.forEach((u) =>
-      u.timeline.forEach((p) => timelineTimes.push(p.t))
-    );
-    battle.characters?.forEach((c) =>
-      c.timeline.forEach((p) => timelineTimes.push(p.t))
-    );
-    battle.camera?.forEach((c) => timelineTimes.push(c.t));
-    battle.events?.forEach((e) => timelineTimes.push(e.t));
-    if (battle.meta?.duration !== undefined) {
-      timelineTimes.push(battle.meta.duration);
-    }
-
-    const max = timelineTimes.length ? Math.max(...timelineTimes) : 0;
+    const max = getBattleDuration(battle);
 
     setMaxTime(max);
     setCurrentTime(0);
@@ -157,6 +145,7 @@ export function useBattlePlayback(battle: BattleData | null) {
   };
 
   const startProduction = () => {
+    if (!battle || maxTime <= 0) return;
     setProductionTime(0);
     setIsProductionPlaying(true);
     setIsProductionOpen(true);

@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { BattleData, CameraTarget, RenderTransform } from "@/types/battle";
 import { getCameraAtTime } from "./transform";
 import { drawWorld } from "./drawWorld";
 import { hitTestAtTime } from "./hitTest";
 import { convertClickToWorld } from "@/utils/battle/convertClickToWorld";
 import { focusCameraOn, prepareFrameState } from "./runtime";
+import {
+  getFittedMapScreenCenter,
+  getNextZoomScale,
+  getVisibleWorldBoundsCentered,
+} from "@/utils/battle/viewTransform";
 
 type Props = {
   battle: BattleData | null;
@@ -35,71 +40,94 @@ export const BattlePlayer: React.FC<Props> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const transformRef = useRef<RenderTransform | null>(null);
-
-  // ★ 追加：現在の描画スケールを保持して hitTest に渡す用
   const cameraScaleRef = useRef(1);
+  const bgImageRef = useRef<HTMLImageElement | null>(null);
+  const unitImagesRef = useRef<Record<string, HTMLImageElement>>({});
+  const charImagesRef = useRef<Record<string, HTMLImageElement>>({});
 
-  // ズーム関連
   const [userScale, setUserScale] = useState(1);
-
-  // 強制再描画用
-  const [, setTick] = useState(0);
-  const forceRender = () => setTick((v) => v + 1);
-
-  // ドラッグ移動
+  const cameraOverrideRef = useRef(false);
+  const [assetVersion, setAssetVersion] = useState(0);
+  const [resizeVersion, setResizeVersion] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
 
-  // 画像キャッシュ系 ------------------------------------------------
-  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
-  const [unitImages, setUnitImages] = useState<
-    Record<string, HTMLImageElement>
-  >({});
-  const [charImages, setCharImages] = useState<
-    Record<string, HTMLImageElement>
-  >({});
+  useEffect(() => {
+    cameraOverrideRef.current = false;
+  }, [battle, cameraTarget]);
 
   useEffect(() => {
-    let active = true;
-    if (!battle?.map?.image) {
-      setTimeout(() => active && setBgImage(null), 0);
-      return;
-    }
-    const img = new Image();
-    img.src = battle.map.image;
-    img.onload = () => active && setBgImage(img);
-    return () => {
-      active = false;
+    const canvas = canvasRef.current;
+    const parent = canvas?.parentElement;
+    if (!parent) return;
+
+    const observer = new ResizeObserver(() => {
+      setResizeVersion((value) => value + 1);
+    });
+
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    bgImageRef.current = null;
+    unitImagesRef.current = {};
+    charImagesRef.current = {};
+    if (!battle) return;
+
+    const loadImage = (
+      src: string | null | undefined,
+      onLoad: (image: HTMLImageElement) => void
+    ) => {
+      if (!src) return;
+      const image = new Image();
+      image.onload = () => {
+        if (cancelled) return;
+        onLoad(image);
+        setAssetVersion((value) => value + 1);
+      };
+      image.onerror = () => {
+        if (!cancelled) setAssetVersion((value) => value + 1);
+      };
+      image.src = src;
     };
-  }, [battle?.map?.image]);
+
+    loadImage(battle.map.image, (image) => {
+      bgImageRef.current = image;
+    });
+
+    battle.units.forEach((unit) => {
+      loadImage(unit.icon, (image) => {
+        unitImagesRef.current[unit.id] = image;
+      });
+    });
+
+    battle.characters.forEach((character) => {
+      loadImage(character.icon, (image) => {
+        charImagesRef.current[character.id] = image;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [battle]);
 
   useEffect(() => {
-    battle?.units?.forEach((u) => {
-      if (!u.icon) return;
-      const img = new Image();
-      img.src = u.icon;
-      img.onload = () =>
-        setUnitImages((prev) => ({
-          ...prev,
-          [u.id]: img,
-        }));
-    });
-  }, [battle?.units]);
+    const canvas = canvasRef.current;
+    if (!canvas || !battle) return;
 
-  useEffect(() => {
-    battle?.characters?.forEach((c) => {
-      const img = new Image();
-      img.src = c.icon;
-      img.onload = () =>
-        setCharImages((prev) => ({
-          ...prev,
-          [c.id]: img,
-        }));
-    });
-  }, [battle?.characters]);
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      setUserScale((previous) => getNextZoomScale(previous, event.deltaY));
+    };
 
-  // 描画本体 --------------------------------------------------------
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [battle]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !battle) return;
@@ -109,97 +137,53 @@ export const BattlePlayer: React.FC<Props> = ({
 
     const canvasWidth = parent.clientWidth;
     const canvasHeight = parent.clientHeight;
+    if (canvasWidth <= 0 || canvasHeight <= 0) return;
+
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const map = battle.map;
-    if (!map) return;
-
-    const mapWidth = map.width;
-    const mapHeight = map.height;
-
+    const { width: mapWidth, height: mapHeight } = battle.map;
     const baseScale = Math.min(
       canvasWidth / mapWidth,
       canvasHeight / mapHeight
     );
     const offsetX = (canvasWidth - mapWidth * baseScale) / 2;
     const offsetY = (canvasHeight - mapHeight * baseScale) / 2;
-
     const fadeDuration = 0.5;
-    const frameState = prepareFrameState(battle, currentTime, fadeDuration);
-    const resolvedTarget = cameraTarget ?? battle.cameraTarget ?? null;
+    const frameState = prepareFrameState(
+      battle,
+      currentTime,
+      fadeDuration,
+      cameraOverrideRef.current ? null : cameraTarget
+    );
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    ctx.fillStyle = "#020617";
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     if (viewMode === "camera") {
       const rawCam = getCameraAtTime(
-        battle.camera,
+        battle.timeline.camera ?? [],
         currentTime,
         mapWidth,
         mapHeight
       );
 
       const baseCam = {
-        t: 0,
+        t: currentTime,
         x: rawCam.x,
         y: rawCam.y,
         zoom: rawCam.zoom ?? 1,
       };
 
+      const resolvedTarget = cameraOverrideRef.current ? null : cameraTarget;
       const cam = focusCameraOn(battle, frameState, baseCam, resolvedTarget);
-      const cameraScale = cam.zoom * userScale;
-
-      // ★ 追加：現在のスケールを記録
-      cameraScaleRef.current = cameraScale;
+      const scaleFactor = baseScale * cam.zoom * userScale;
+      cameraScaleRef.current = scaleFactor;
 
       transformRef.current = {
         mode: "camera",
-        baseScale,
-        canvasWidth,
-        canvasHeight,
-        mapWidth,
-        mapHeight,
-        cam,
-        scaleFactor: cameraScale,
-      };
-
-      ctx.save();
-      ctx.translate(canvasWidth / 2, canvasHeight / 2);
-      ctx.translate(viewOffset.x, viewOffset.y);
-      ctx.scale(baseScale * cameraScale, baseScale * cameraScale);
-      ctx.translate(-cam.x, -cam.y);
-
-      drawWorld({
-        ctx,
-        battle,
-        currentTime,
-        showGrid,
-        bgImage,
-        unitImages,
-        charImages,
-        fadeDuration,
-        selectedUnitId: selectedUnitId ?? null,
-        selectedCharacterId: selectedCharacterId ?? null,
-        enableSelection,
-        cameraScale,
-        frameState,
-      });
-
-      ctx.restore();
-    } else {
-      // map モード
-      const cameraScale = userScale;
-
-      // ★ 追加：mapモード時も記録
-      cameraScaleRef.current = cameraScale;
-
-      transformRef.current = {
-        mode: "map",
         baseScale,
         offsetX,
         offsetY,
@@ -207,73 +191,157 @@ export const BattlePlayer: React.FC<Props> = ({
         canvasHeight,
         mapWidth,
         mapHeight,
-        scaleFactor: cameraScale,
+        cam,
+        viewOffsetX: viewOffset.x,
+        viewOffsetY: viewOffset.y,
+        scaleFactor,
       };
 
+      const screenCenter = getFittedMapScreenCenter({
+        offsetX,
+        offsetY,
+        baseScale,
+        mapWidth,
+        mapHeight,
+      });
+
       ctx.save();
+      ctx.translate(screenCenter.x, screenCenter.y);
       ctx.translate(viewOffset.x, viewOffset.y);
-      ctx.translate(offsetX, offsetY);
-      ctx.scale(baseScale * cameraScale, baseScale * cameraScale);
+      ctx.scale(scaleFactor, scaleFactor);
+      ctx.translate(-cam.x, -cam.y);
+
+      const gridBounds = getVisibleWorldBoundsCentered({
+        canvasWidth,
+        canvasHeight,
+        offsetX,
+        offsetY,
+        baseScale,
+        mapWidth,
+        mapHeight,
+        viewOffsetX: viewOffset.x,
+        viewOffsetY: viewOffset.y,
+        scaleFactor,
+        worldCenterX: cam.x,
+        worldCenterY: cam.y,
+      });
 
       drawWorld({
         ctx,
         battle,
         currentTime,
         showGrid,
-        bgImage,
-        unitImages,
-        charImages,
+        viewMode,
+        gridBounds,
         fadeDuration,
-        selectedUnitId: selectedUnitId ?? null,
-        selectedCharacterId: selectedCharacterId ?? null,
-        enableSelection,
-        cameraScale,
+        cameraScale: scaleFactor,
         frameState,
+        selectedUnitId,
+        selectedCharacterId,
+        enableSelection,
+        bgImage: bgImageRef.current,
+        unitImages: unitImagesRef.current,
+        charImages: charImagesRef.current,
       });
 
       ctx.restore();
+      return;
     }
+
+    const scaleFactor = baseScale * userScale;
+    cameraScaleRef.current = scaleFactor;
+
+    transformRef.current = {
+      mode: "map",
+      baseScale,
+      offsetX,
+      offsetY,
+      canvasWidth,
+      canvasHeight,
+      mapWidth,
+      mapHeight,
+      viewOffsetX: viewOffset.x,
+      viewOffsetY: viewOffset.y,
+      scaleFactor,
+    };
+
+    const mapCenter = { x: mapWidth / 2, y: mapHeight / 2 };
+    const screenCenter = getFittedMapScreenCenter({
+      offsetX,
+      offsetY,
+      baseScale,
+      mapWidth,
+      mapHeight,
+    });
+
+    ctx.save();
+    ctx.translate(screenCenter.x, screenCenter.y);
+    ctx.translate(viewOffset.x, viewOffset.y);
+    ctx.scale(scaleFactor, scaleFactor);
+    ctx.translate(-mapCenter.x, -mapCenter.y);
+
+    const gridBounds = getVisibleWorldBoundsCentered({
+      canvasWidth,
+      canvasHeight,
+      offsetX,
+      offsetY,
+      baseScale,
+      mapWidth,
+      mapHeight,
+      viewOffsetX: viewOffset.x,
+      viewOffsetY: viewOffset.y,
+      scaleFactor,
+      worldCenterX: mapCenter.x,
+      worldCenterY: mapCenter.y,
+    });
+
+    drawWorld({
+      ctx,
+      battle,
+      currentTime,
+      showGrid,
+      viewMode,
+      gridBounds,
+      fadeDuration,
+      cameraScale: scaleFactor,
+      frameState,
+      selectedUnitId,
+      selectedCharacterId,
+      enableSelection,
+      bgImage: bgImageRef.current,
+      unitImages: unitImagesRef.current,
+      charImages: charImagesRef.current,
+    });
+
+    ctx.restore();
   }, [
     battle,
     currentTime,
     viewMode,
     showGrid,
-    bgImage,
-    unitImages,
-    charImages,
+    userScale,
+    viewOffset.x,
+    viewOffset.y,
     selectedUnitId,
     selectedCharacterId,
     enableSelection,
     cameraTarget,
-    userScale,
-    viewOffset.x,
-    viewOffset.y,
+     assetVersion,
+    resizeVersion,
   ]);
 
-  // battle null ----------------------------------------------------
-  if (!battle) {
-    return (
-      <div className="w-full h-full bg-[#020617] flex items-center justify-center text-gray-400">
-        戦闘データがありません
-      </div>
-    );
-  }
+  const handleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!battle || !enableSelection || isDragging) return;
 
-  // クリック -------------------------------------------------------
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!battle || !enableSelection) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
+    const rect = event.currentTarget.getBoundingClientRect();
     const transform = transformRef.current;
     if (!transform) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    const { worldX, worldY } = convertClickToWorld(clickX, clickY, transform);
+    const { worldX, worldY } = convertClickToWorld(
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+      transform
+    );
 
     const hit = hitTestAtTime({
       battle,
@@ -281,54 +349,46 @@ export const BattlePlayer: React.FC<Props> = ({
       worldX,
       worldY,
       fadeDuration: 0.5,
-      cameraScale: cameraScaleRef.current ?? 1, // ← ここで参照
+      cameraScale: cameraScaleRef.current,
     });
 
-    if (hit.characterId) return onSelectCharacter?.(hit.characterId);
-    if (hit.unitId) return onSelectUnit?.(hit.unitId);
+    if (hit.unitId) {
+      onSelectUnit?.(hit.unitId);
+      return;
+    }
+
+    if (hit.characterId) {
+      onSelectCharacter?.(hit.characterId);
+      return;
+    }
 
     onSelectUnit?.(null);
     onSelectCharacter?.(null);
   };
 
-  // ホイールズーム ------------------------------------------------
-  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    if (!battle) return;
-
-    e.preventDefault();
-
-    setUserScale((prev) => {
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      let next = prev * zoomFactor;
-      if (next < 1) next = 1;
-      if (next > 6) next = 6;
-      return next;
-    });
-
-    forceRender();
+  const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    setIsDragging(false);
+    dragStart.current = { x: event.clientX, y: event.clientY };
   };
 
-  // ドラッグ移動 ---------------------------------------------------
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (event.buttons !== 1) return;
+
+    const dx = event.clientX - dragStart.current.x;
+    const dy = event.clientY - dragStart.current.y;
+    if (dx === 0 && dy === 0) return;
+
     setIsDragging(true);
-    dragStart.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging) return;
-    const dx = e.clientX - dragStart.current.x;
-    const dy = e.clientY - dragStart.current.y;
-
-    setViewOffset((prev) => ({
-      x: prev.x + dx,
-      y: prev.y + dy,
+    cameraOverrideRef.current = true;
+    setViewOffset((previous) => ({
+      x: previous.x + dx,
+      y: previous.y + dy,
     }));
-
-    dragStart.current = { x: e.clientX, y: e.clientY };
+    dragStart.current = { x: event.clientX, y: event.clientY };
   };
 
   const stopDrag = () => {
-    setIsDragging(false);
+    window.setTimeout(() => setIsDragging(false), 0);
   };
 
   return (
@@ -337,7 +397,6 @@ export const BattlePlayer: React.FC<Props> = ({
         ref={canvasRef}
         className="w-full h-full"
         onClick={handleClick}
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={stopDrag}
