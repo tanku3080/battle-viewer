@@ -20,26 +20,34 @@ export async function GET() {
     );
     const body = await response.text();
 
-    const next = new NextResponse(body, {
-      status: response.status,
-      headers: {
-        "Content-Type":
-          response.headers.get("content-type") ?? "application/json",
-      },
-    });
-
-    if (response.ok) {
-      next.cookies.set(COOKIE_NAME, token, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-        maxAge: 60 * 60,
+    if (!response.ok) {
+      const next = new NextResponse(body, {
+        status: response.status,
+        headers: {
+          "Content-Type":
+            response.headers.get("content-type") ?? "application/json",
+        },
       });
-    } else if (response.status === 401) {
-      next.cookies.delete(COOKIE_NAME);
+      if (response.status === 401) next.cookies.delete(COOKIE_NAME);
+      return next;
     }
 
+    const payload = JSON.parse(body) as {
+      username: string;
+      expiresAt: string;
+    };
+
+    const next = NextResponse.json({
+      username: payload.username,
+      expiresAt: payload.expiresAt,
+    });
+    next.cookies.set(COOKIE_NAME, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60,
+    });
     return next;
   } catch (error) {
     return NextResponse.json(
