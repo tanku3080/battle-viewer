@@ -101,7 +101,7 @@ export default function BattleCreator() {
     const unitTimeline=Object.fromEntries(items.filter((i)=>i.type==="unit"&&i.id.trim()&&i.timeline.length).map((i)=>[i.id.trim(),i.timeline]));
     const charTimeline=Object.fromEntries(items.filter((i)=>i.type==="character"&&i.id.trim()&&i.timeline.length).map((i)=>[i.id.trim(),i.timeline]));
     const camera=items.filter((i)=>i.type==="camera").flatMap((i)=>i.timeline.map((p)=>({t:p.t,x:p.x,y:p.y,zoom:i.zoom}))).sort((a,b)=>a.t-b.t);
-    const jsonEvents=events.flatMap((e)=>{
+    const jsonEvents=events.flatMap<Record<string, unknown>>((e)=>{
       if(e.type==="status"&&e.target&&e.status)return[{t:e.t,event:"status",target:e.target,status:e.status}];
       if(e.type==="reparent"&&e.target)return[{t:e.t,event:"reparent",target:e.target,parent:e.parent||null}];
       if(e.type==="merge"&&e.source&&e.target)return[{t:e.t,event:"merge",source:e.source,target:e.target}];
