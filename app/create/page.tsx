@@ -7,11 +7,9 @@ type SpatialType = "unit" | "character" | "legion" | "corps" | "division" | "reg
 type EventType = "status" | "reparent" | "merge" | "reform";
 type PaletteType = SpatialType | EventType;
 type Point = { t: number; x: number; y: number; dir?: number };
-type EditorItem = { key:string; type:SpatialType; id:string; name:string; force:string; color:string; icon:string; parentId:string; children:string; x:number; y:number; zoom:number; timeline:Point[] };
+type EditorItem = { key:string; type:SpatialType; id:string; name:string; force:string; color:string; icon:string; parentId:string; children:string; x:number; y:number; zoom:number; dir:number; timeline:Point[] };
 type EditorEvent = { key:string; type:EventType; t:number; target:string; source:string; parent:string; status:string; children:string };
 
-const MAP_WIDTH = 1200;
-const MAP_HEIGHT = 700;
 const PALETTE: Array<{type:PaletteType;label:string;mark:string;tooltip:string;draggable:boolean}> = [
   {type:"unit",label:"Unit",mark:"●",tooltip:"兵士・車両・航空機など、timelineで移動する最小戦闘単位を配置します。",draggable:true},
   {type:"character",label:"Character",mark:"◆",tooltip:"指揮官など、軍事階層に属さない独立キャラクターを配置します。",draggable:true},
@@ -28,7 +26,7 @@ const PALETTE: Array<{type:PaletteType;label:string;mark:string;tooltip:string;d
 
 function isEventType(type: PaletteType): type is EventType { return ["status","reparent","merge","reform"].includes(type); }
 function isHierarchy(type: SpatialType) { return ["legion","corps","division","regiment"].includes(type); }
-function emptyItem(type: SpatialType): EditorItem { return {key:crypto.randomUUID(),type,id:"",name:"",force:"",color:"",icon:"",parentId:"",children:"",x:Number.NaN,y:Number.NaN,zoom:Number.NaN,timeline:[]}; }
+function emptyItem(type: SpatialType): EditorItem { return {key:crypto.randomUUID(),type,id:"",name:"",force:"",color:"",icon:"",parentId:"",children:"",x:Number.NaN,y:Number.NaN,zoom:Number.NaN,dir:Number.NaN,timeline:[]}; }
 function emptyEvent(type: EventType, t:number): EditorEvent { return {key:crypto.randomUUID(),type,t,target:"",source:"",parent:"",status:"",children:""}; }
 
 export default function BattleCreator() {
@@ -37,6 +35,8 @@ export default function BattleCreator() {
   const [title,setTitle] = useState("");
   const [mapImage,setMapImage] = useState("");
   const [coordinateOrigin,setCoordinateOrigin] = useState<"center"|"top-left">("center");
+  const [mapWidth,setMapWidth] = useState(1200);
+  const [mapHeight,setMapHeight] = useState(700);
   const [duration,setDuration] = useState(60);
   const [currentTime,setCurrentTime] = useState(0);
   const [items,setItems] = useState<EditorItem[]>([]);
@@ -50,14 +50,14 @@ export default function BattleCreator() {
   const toLogical = (clientX:number,clientY:number) => {
     const rect = editorRef.current?.getBoundingClientRect();
     if (!rect) return {x:0,y:0};
-    const rx = ((clientX-rect.left)/rect.width)*MAP_WIDTH;
-    const ry = ((clientY-rect.top)/rect.height)*MAP_HEIGHT;
-    return coordinateOrigin==="center" ? {x:Math.round(rx-MAP_WIDTH/2),y:Math.round(ry-MAP_HEIGHT/2)} : {x:Math.round(rx),y:Math.round(ry)};
+    const rx = ((clientX-rect.left)/rect.width)*mapWidth;
+    const ry = ((clientY-rect.top)/rect.height)*mapHeight;
+    return coordinateOrigin==="center" ? {x:Math.round(rx-mapWidth/2),y:Math.round(ry-mapHeight/2)} : {x:Math.round(rx),y:Math.round(ry)};
   };
   const toPercent = (x:number,y:number) => {
-    const ix = coordinateOrigin==="center" ? x+MAP_WIDTH/2 : x;
-    const iy = coordinateOrigin==="center" ? y+MAP_HEIGHT/2 : y;
-    return {left:String((ix/MAP_WIDTH)*100)+"%",top:String((iy/MAP_HEIGHT)*100)+"%"};
+    const ix = coordinateOrigin==="center" ? x+mapWidth/2 : x;
+    const iy = coordinateOrigin==="center" ? y+mapHeight/2 : y;
+    return {left:String((ix/mapWidth)*100)+"%",top:String((iy/mapHeight)*100)+"%"};
   };
   const selectPalette = (type:PaletteType) => {
     setSelectedKey(null);
@@ -72,7 +72,8 @@ export default function BattleCreator() {
   };
   const record = (item:EditorItem,x:number,y:number) => {
     if (isHierarchy(item.type)) return {...item,x,y};
-    const timeline=[...item.timeline.filter((p)=>p.t!==currentTime),{t:currentTime,x,y}].sort((a,b)=>a.t-b.t);
+    const point: Point = {t:currentTime,x,y,...(Number.isFinite(item.dir)?{dir:item.dir}:{})};
+    const timeline=[...item.timeline.filter((p)=>p.t!==currentTime),point].sort((a,b)=>a.t-b.t);
     return {...item,x,y,zoom:item.type==="camera"&&!Number.isFinite(item.zoom)?1:item.zoom,timeline};
   };
   const drop = (event:DragEvent<HTMLDivElement>) => {
@@ -108,8 +109,8 @@ export default function BattleCreator() {
       if(e.type==="reform"&&e.target)return[{t:e.t,event:"reform",target:e.target,...(e.parent?{parent:e.parent}:{}),...(e.children?{children:e.children.split(",").map((v)=>v.trim()).filter(Boolean)}:{})}];
       return[];
     });
-    return {title,map:{...(mapImage.trim()?{image:mapImage.trim()}:{}),width:MAP_WIDTH,height:MAP_HEIGHT,coordinateOrigin},...(Object.keys(nodes).length?{hierarchy:{nodes}}:{}),units,...(characters.length?{characters}:{}),...(jsonEvents.length?{events:jsonEvents}:{}),timeline:{...(camera.length?{camera}:{}),units:unitTimeline,...(Object.keys(charTimeline).length?{characters:charTimeline}:{})}};
-  },[coordinateOrigin,events,items,mapImage,title]);
+    return {title,map:{...(mapImage.trim()?{image:mapImage.trim()}:{}),width:mapWidth,height:mapHeight,coordinateOrigin},...(Object.keys(nodes).length?{hierarchy:{nodes}}:{}),units,...(characters.length?{characters}:{}),...(jsonEvents.length?{events:jsonEvents}:{}),timeline:{...(camera.length?{camera}:{}),units:unitTimeline,...(Object.keys(charTimeline).length?{characters:charTimeline}:{})}};
+  },[coordinateOrigin,events,items,mapHeight,mapImage,mapWidth,title]);
 
   const saveJson=()=>{const blob=new Blob([JSON.stringify(battleJson,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(title.trim()||"battle")+".json";a.click();URL.revokeObjectURL(url);};
 
@@ -118,7 +119,7 @@ export default function BattleCreator() {
       <Link href="/home" className="px-3 py-2 rounded bg-gray-700">戻る</Link>
       <input value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="戦闘名" className="w-52 rounded border border-gray-600 bg-[#111827] px-3 py-2"/>
       <input value={mapImage} onChange={(e)=>setMapImage(e.target.value)} placeholder="map.image（任意）" className="w-56 rounded border border-gray-600 bg-[#111827] px-3 py-2"/>
-      <select value={coordinateOrigin} onChange={(e)=>setCoordinateOrigin(e.target.value as "center"|"top-left")} className="rounded border border-gray-600 bg-[#111827] px-3 py-2"><option value="center">原点: center</option><option value="top-left">原点: top-left</option></select>
+      <input type="number" min={1} value={mapWidth} onChange={(e)=>setMapWidth(Math.max(1,Number(e.target.value)))} title="map.width" className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"/><input type="number" min={1} value={mapHeight} onChange={(e)=>setMapHeight(Math.max(1,Number(e.target.value)))} title="map.height" className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"/><select value={coordinateOrigin} onChange={(e)=>setCoordinateOrigin(e.target.value as "center"|"top-left")} className="rounded border border-gray-600 bg-[#111827] px-3 py-2"><option value="center">原点: center</option><option value="top-left">原点: top-left</option></select>
       <button onClick={()=>setJsonOpen((v)=>!v)} className="ml-auto px-3 py-2 rounded bg-slate-600">JSON確認</button>
       <button onClick={saveJson} className="px-3 py-2 rounded bg-emerald-600">JSON保存</button>
     </header>
@@ -145,6 +146,6 @@ export default function BattleCreator() {
 
 function Field({label,value,onChange,type="text"}:{label:string;value:string|number;onChange:(value:string)=>void;type?:string}){return <label className="block mb-3"><span className="block text-xs text-gray-400 mb-1">{label}</span><input type={type} value={value} onChange={(e)=>onChange(e.target.value)} className="w-full rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm"/></label>;}
 
-function ItemProperties({item,placed,currentTime,onChange}:{item:EditorItem;placed:boolean;currentTime:number;onChange:(patch:Partial<EditorItem>)=>void}){return <div className="p-4"><h2 className="font-semibold mb-1">プロパティ</h2><p className="text-xs text-gray-500 mb-4">{item.type} / {placed?"配置済み":"未配置"}</p>{item.type!=="camera"&&<><Field label="id" value={item.id} onChange={(id)=>onChange({id})}/><Field label="name" value={item.name} onChange={(name)=>onChange({name})}/></>}{item.type==="unit"&&<><Field label="force" value={item.force} onChange={(force)=>onChange({force})}/><Field label="color" value={item.color} onChange={(color)=>onChange({color})}/><Field label="icon" value={item.icon} onChange={(icon)=>onChange({icon})}/></>}{item.type==="character"&&<Field label="icon" value={item.icon} onChange={(icon)=>onChange({icon})}/>} {isHierarchy(item.type)&&<><Field label="parentId" value={item.parentId} onChange={(parentId)=>onChange({parentId})}/><Field label={item.type==="regiment"?"unitIds（カンマ区切り）":"childrenIds（カンマ区切り）"} value={item.children} onChange={(children)=>onChange({children})}/></>}<Field label="x" type="number" value={Number.isFinite(item.x)?item.x:""} onChange={(x)=>onChange({x:x===""?Number.NaN:Number(x)})}/><Field label="y" type="number" value={Number.isFinite(item.y)?item.y:""} onChange={(y)=>onChange({y:y===""?Number.NaN:Number(y)})}/>{item.type==="camera"&&<Field label="zoom" type="number" value={Number.isFinite(item.zoom)?item.zoom:""} onChange={(zoom)=>onChange({zoom:zoom===""?Number.NaN:Number(zoom)})}/>}<div className="rounded border border-gray-700 bg-[#111827] p-3 text-xs">現在時刻: {currentTime.toFixed(1)}s<br/>記録済みkeyframe: {item.timeline.length}</div></div>;}
+function ItemProperties({item,placed,currentTime,onChange}:{item:EditorItem;placed:boolean;currentTime:number;onChange:(patch:Partial<EditorItem>)=>void}){return <div className="p-4"><h2 className="font-semibold mb-1">プロパティ</h2><p className="text-xs text-gray-500 mb-4">{item.type} / {placed?"配置済み":"未配置"}</p>{item.type!=="camera"&&<><Field label="id" value={item.id} onChange={(id)=>onChange({id})}/><Field label="name" value={item.name} onChange={(name)=>onChange({name})}/></>}{item.type==="unit"&&<><Field label="force" value={item.force} onChange={(force)=>onChange({force})}/><Field label="color" value={item.color} onChange={(color)=>onChange({color})}/><Field label="icon" value={item.icon} onChange={(icon)=>onChange({icon})}/></>}{item.type==="character"&&<Field label="icon" value={item.icon} onChange={(icon)=>onChange({icon})}/>} {(item.type==="unit"||item.type==="character")&&<Field label="dir（rad・任意）" type="number" value={Number.isFinite(item.dir)?item.dir:""} onChange={(dir)=>onChange({dir:dir===""?Number.NaN:Number(dir)})}/>} {isHierarchy(item.type)&&<><Field label="parentId" value={item.parentId} onChange={(parentId)=>onChange({parentId})}/><Field label={item.type==="regiment"?"unitIds（カンマ区切り）":"childrenIds（カンマ区切り）"} value={item.children} onChange={(children)=>onChange({children})}/></>}<Field label="x" type="number" value={Number.isFinite(item.x)?item.x:""} onChange={(x)=>onChange({x:x===""?Number.NaN:Number(x)})}/><Field label="y" type="number" value={Number.isFinite(item.y)?item.y:""} onChange={(y)=>onChange({y:y===""?Number.NaN:Number(y)})}/>{item.type==="camera"&&<Field label="zoom" type="number" value={Number.isFinite(item.zoom)?item.zoom:""} onChange={(zoom)=>onChange({zoom:zoom===""?Number.NaN:Number(zoom)})}/>}<div className="rounded border border-gray-700 bg-[#111827] p-3 text-xs">現在時刻: {currentTime.toFixed(1)}s<br/>記録済みkeyframe: {item.timeline.length}</div></div>;}
 
 function EventProperties({event,currentTime,onChange,onAdd}:{event:EditorEvent;currentTime:number;onChange:(patch:Partial<EditorEvent>)=>void;onAdd:()=>void}){return <div className="p-4"><h2 className="font-semibold mb-1">イベントプロパティ</h2><p className="text-xs text-gray-500 mb-4">{event.type} / {currentTime.toFixed(1)}s</p>{event.type!=="merge"&&<Field label="target" value={event.target} onChange={(target)=>onChange({target})}/>} {event.type==="merge"&&<><Field label="source" value={event.source} onChange={(source)=>onChange({source})}/><Field label="target" value={event.target} onChange={(target)=>onChange({target})}/></>} {event.type==="status"&&<label className="block mb-3"><span className="block text-xs text-gray-400 mb-1">status</span><select value={event.status} onChange={(e)=>onChange({status:e.target.value})} className="w-full rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm"><option value="">未選択</option><option value="active">active</option><option value="destroyed">destroyed</option></select></label>} {(event.type==="reparent"||event.type==="reform")&&<Field label="parent" value={event.parent} onChange={(parent)=>onChange({parent})}/>} {event.type==="reform"&&<Field label="children（カンマ区切り）" value={event.children} onChange={(children)=>onChange({children})}/>}<button onClick={onAdd} className="w-full rounded bg-violet-600 py-2">現在時刻にイベント追加</button></div>;}
