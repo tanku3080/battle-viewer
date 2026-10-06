@@ -12,6 +12,7 @@ import {
 import { PlaybackControls } from "@/components/battle/controls/PlaybackControls";
 import { ViewModeButtons } from "@/components/battle/controls/ViewModeButtons";
 import { ProductionButton } from "@/components/battle/controls/ProductionButton";
+import { BattleHubControls } from "@/components/battle/controls/BattleHubControls";
 import { TimelineBar } from "@/components/TimelineBar";
 import { BattlePlayer } from "@/components/battle/BattlePlayer/BattlePlayer";
 import { PanelContainer } from "@/components/battle/PanelContainer";
@@ -19,6 +20,9 @@ import { ProductionModal } from "@/components/ProductionModal/ProductionModal";
 
 export default function BattlePage() {
   const [battle, setBattle] = useState<BattleData | null>(null);
+  const [sourceBattleJson, setSourceBattleJson] = useState<RawBattleJson | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<"map" | "camera">("map");
   const [showGrid, setShowGrid] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -57,6 +61,7 @@ export default function BattlePage() {
       const parsed = loadBattleJson(raw);
 
       setBattle(parsed);
+      setSourceBattleJson(raw);
       setLoadError(null);
       seek(0);
       stop();
@@ -111,6 +116,8 @@ export default function BattlePage() {
         />
 
         <ProductionButton disabled={!battle} onStart={startProduction} />
+
+        <BattleHubControls battleJson={sourceBattleJson} />
       </div>
 
       {loadError && (

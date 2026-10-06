@@ -82,3 +82,33 @@ npm run lint
 npm test
 npm run build
 ```
+
+
+## Battle Hub連携
+
+Battle HubのSpring Boot APIを先に起動します。
+
+```bash
+# battle-hub
+mvn spring-boot:run
+```
+
+Battle Viewerはデフォルトで `http://localhost:8080` のBattle Hubへ接続します。
+接続先を変更する場合は `.env.local` に設定します。
+
+```bash
+BATTLE_HUB_API_BASE_URL=http://localhost:8080
+```
+
+Battle Viewer側はブラウザからSpring Bootへ直接アクセスせず、Next.jsのRoute Handlerを経由します。
+
+```text
+Browser
+  -> /api/battle-hub/*
+  -> Next.js Route Handler
+  -> Battle Hub Spring Boot /api/*
+```
+
+Battle画面でJSONを読み込むと「Battle Hubへ投稿」ボタンが有効になります。
+投稿者名と説明を入力して、読み込んだ元JSONをBattle Hubへ送信できます。
+画面上の `Hub接続中 / Hub未接続` で `GET /api/health` の疎通状態を確認できます。
