@@ -31,7 +31,7 @@ export default function LoginPage() {
         );
       }
 
-      sessionStorage.setItem(
+      localStorage.setItem(
         "battle-viewer:last-activity",
         String(Date.now())
       );
