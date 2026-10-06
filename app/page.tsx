@@ -1,46 +1,96 @@
-// app/page.tsx
-import Link from "next/link";
+"use client";
 
-export default function HomePage() {
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as
+          | { error?: string; details?: string[] }
+          | null;
+        throw new Error(
+          body?.details?.join(", ") ?? body?.error ?? "ログインに失敗しました"
+        );
+      }
+
+      sessionStorage.setItem(
+        "battle-viewer:last-activity",
+        String(Date.now())
+      );
+      router.replace("/home");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ログインに失敗しました");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "40px 16px",
-        background: "#0b1020",
-        color: "#f5f5f5",
-      }}
-    >
-      <header style={{ textAlign: "center", marginTop: 40 }}>
-        <h1 style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>
-          戦場タイムライン・ビューワ
-        </h1>
-        <p style={{ opacity: 0.7 }}>Battle Timeline Visualizer</p>
-      </header>
+    <main className="min-h-screen bg-[#050816] text-gray-100 flex items-center justify-center px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm rounded-xl border border-gray-700 bg-[#111827] p-6 shadow-2xl"
+      >
+        <h1 className="text-2xl font-semibold mb-2">Battle Viewer</h1>
+        <p className="text-sm text-gray-400 mb-6">
+          Battle Hubアカウントでログインしてください。
+        </p>
 
-      <section style={{ textAlign: "center" }}>
-        <Link
-          href="/battle"
-          style={{
-            padding: "12px 32px",
-            background: "#2f6bff",
-            borderRadius: 8,
-            textDecoration: "none",
-            color: "white",
-            fontWeight: 600,
-          }}
+        <label className="block mb-4">
+          <span className="block text-sm mb-1">ユーザー名</span>
+          <input
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            autoComplete="username"
+            required
+            className="w-full rounded-md border border-gray-600 bg-[#0b1020] px-3 py-2 outline-none focus:border-blue-400"
+          />
+        </label>
+
+        <label className="block mb-5">
+          <span className="block text-sm mb-1">パスワード</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            required
+            className="w-full rounded-md border border-gray-600 bg-[#0b1020] px-3 py-2 outline-none focus:border-blue-400"
+          />
+        </label>
+
+        {error && (
+          <div className="mb-4 rounded border border-red-800 bg-red-950 px-3 py-2 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full rounded-md bg-blue-600 py-2 font-semibold hover:bg-blue-700 disabled:opacity-50"
         >
-          戦場クリエイト
-        </Link>
-      </section>
-
-      <footer style={{ fontSize: 12, opacity: 0.6, marginBottom: 16 }}>
-        © {new Date().getFullYear()} 戦況オタク製作所
-      </footer>
+          {isSubmitting ? "ログイン中..." : "ログイン"}
+        </button>
+      </form>
     </main>
   );
 }
