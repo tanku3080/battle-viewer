@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { getCreatorPositionAt } from "@/utils/battleCreator/timeline";
+import { hasMissingRequiredFields } from "@/utils/battleCreator/validation";
 
 type SpatialType = "unit" | "character" | "legion" | "corps" | "division" | "regiment" | "camera";
 type EventType = "status" | "reparent" | "merge" | "reform";
@@ -46,6 +47,10 @@ export default function BattleCreator() {
   const [draftItem,setDraftItem] = useState<EditorItem|null>(null);
   const [draftEvent,setDraftEvent] = useState<EditorEvent|null>(null);
   const [jsonOpen,setJsonOpen] = useState(false);
+  const [validationDialog,setValidationDialog] = useState<"preview"|"save"|null>(null);
+  const [showValidationErrors,setShowValidationErrors] = useState(false);
+  const invalidItems = useMemo(() => items.filter((item)=>hasMissingRequiredFields(item)), [items]);
+  const hasInvalidItems = invalidItems.length > 0;
   const selectedSource = items.find((item)=>item.key===selectedKey) ?? draftItem ?? null;
   const selected = selectedSource && selectedKey && !isHierarchy(selectedSource.type)
     ? {
@@ -129,16 +134,22 @@ export default function BattleCreator() {
     if(selectedKey){setItems((old)=>old.map((item)=>item.key===selectedKey?{...item,...patch}:item));}
     else if(draftItem){setDraftItem({...draftItem,...patch});}
   };
+  const deleteSelected=()=>{
+    if(!selectedKey)return;
+    setItems((old)=>old.filter((item)=>item.key!==selectedKey));
+    setSelectedKey(null);
+    setDraftItem(null);
+  };
   const addEvent=()=>{if(!draftEvent)return;setEvents((old)=>[...old,{...draftEvent,key:crypto.randomUUID(),t:currentTime}]);setDraftEvent(emptyEvent(draftEvent.type,currentTime));};
 
   const battleJson=useMemo(()=>{
-    const units=items.filter((i)=>i.type==="unit"&&i.id.trim()).map((i)=>({id:i.id.trim(),...(i.force.trim()?{force:i.force.trim()}:{}),...(i.name.trim()?{name:i.name.trim()}:{}),...(i.color.trim()?{color:i.color.trim()}:{}),icon:i.icon.trim()||null}));
-    const characters=items.filter((i)=>i.type==="character"&&i.id.trim()).map((i)=>({id:i.id.trim(),...(i.name.trim()?{name:i.name.trim()}:{}),icon:i.icon.trim()||null}));
-    const h=items.filter((i)=>isHierarchy(i.type)&&i.id.trim());
+    const units=items.filter((i)=>i.type==="unit"&&!hasMissingRequiredFields(i)).map((i)=>({id:i.id.trim(),...(i.force.trim()?{force:i.force.trim()}:{}),...(i.name.trim()?{name:i.name.trim()}:{}),...(i.color.trim()?{color:i.color.trim()}:{}),icon:i.icon.trim()||null}));
+    const characters=items.filter((i)=>i.type==="character"&&!hasMissingRequiredFields(i)).map((i)=>({id:i.id.trim(),...(i.name.trim()?{name:i.name.trim()}:{}),icon:i.icon.trim()||null}));
+    const h=items.filter((i)=>isHierarchy(i.type)&&!hasMissingRequiredFields(i));
     const nodes=Object.fromEntries(h.map((i)=>[i.id.trim(),{level:i.type,name:i.name.trim()||i.id.trim(),parentId:i.parentId.trim()||null,childrenIds:i.type==="regiment"?[]:i.children.split(",").map((v)=>v.trim()).filter(Boolean),unitIds:i.type==="regiment"?i.children.split(",").map((v)=>v.trim()).filter(Boolean):[],pos:{x:i.x,y:i.y}}]));
-    const unitTimeline=Object.fromEntries(items.filter((i)=>i.type==="unit"&&i.id.trim()&&i.timeline.length).map((i)=>[i.id.trim(),i.timeline]));
-    const charTimeline=Object.fromEntries(items.filter((i)=>i.type==="character"&&i.id.trim()&&i.timeline.length).map((i)=>[i.id.trim(),i.timeline]));
-    const camera=items.filter((i)=>i.type==="camera").flatMap((i)=>i.timeline.map((p)=>({t:p.t,x:p.x,y:p.y,zoom:i.zoom}))).sort((a,b)=>a.t-b.t);
+    const unitTimeline=Object.fromEntries(items.filter((i)=>i.type==="unit"&&!hasMissingRequiredFields(i)&&i.timeline.length).map((i)=>[i.id.trim(),i.timeline]));
+    const charTimeline=Object.fromEntries(items.filter((i)=>i.type==="character"&&!hasMissingRequiredFields(i)&&i.timeline.length).map((i)=>[i.id.trim(),i.timeline]));
+    const camera=items.filter((i)=>i.type==="camera"&&!hasMissingRequiredFields(i)).flatMap((i)=>i.timeline.map((p)=>({t:p.t,x:p.x,y:p.y,zoom:i.zoom}))).sort((a,b)=>a.t-b.t);
     const jsonEvents=events.flatMap<Record<string, unknown>>((e)=>{
       if(e.type==="status"&&e.target&&e.status)return[{t:e.t,event:"status",target:e.target,status:e.status}];
       if(e.type==="reparent"&&e.target)return[{t:e.t,event:"reparent",target:e.target,parent:e.parent||null}];
@@ -150,6 +161,32 @@ export default function BattleCreator() {
   },[events,items,mapHeight,mapImage,mapWidth,title]);
 
   const saveJson=()=>{const blob=new Blob([JSON.stringify(battleJson,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(title.trim()||"battle")+".json";a.click();URL.revokeObjectURL(url);};
+  const requestJsonPreview=()=>{
+    if(hasInvalidItems){
+      setShowValidationErrors(true);
+      setValidationDialog("preview");
+      return;
+    }
+    setJsonOpen(true);
+  };
+  const requestJsonSave=()=>{
+    if(hasInvalidItems){
+      setValidationDialog("save");
+      return;
+    }
+    saveJson();
+  };
+  const confirmValidationDialog=()=>{
+    if(validationDialog==="preview"){
+      setValidationDialog(null);
+      setJsonOpen(true);
+      return;
+    }
+    if(validationDialog==="save"){
+      setShowValidationErrors(true);
+      setValidationDialog(null);
+    }
+  };
 
   return <main className="h-screen bg-[#050816] text-gray-100 flex flex-col overflow-hidden">
     <header className="h-16 shrink-0 border-b border-gray-700 bg-[#0b1020] flex items-center gap-3 px-4">
@@ -157,8 +194,8 @@ export default function BattleCreator() {
       <input value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="戦闘名" className="w-52 rounded border border-gray-600 bg-[#111827] px-3 py-2"/>
       <input value={mapImage} onChange={(e)=>setMapImage(e.target.value)} placeholder="map.image（任意）" className="w-56 rounded border border-gray-600 bg-[#111827] px-3 py-2"/>
       <input type="number" min={1} value={mapWidth} onChange={(e)=>setMapWidth(Math.max(1,Number(e.target.value)))} title="map.width" className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"/><input type="number" min={1} value={mapHeight} onChange={(e)=>setMapHeight(Math.max(1,Number(e.target.value)))} title="map.height" className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"/><span className="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-300">原点: center / 上方向 +Y</span>
-      <button onClick={()=>setJsonOpen((v)=>!v)} className="ml-auto px-3 py-2 rounded bg-slate-600">JSON確認</button>
-      <button onClick={saveJson} className="px-3 py-2 rounded bg-emerald-600">JSON保存</button>
+      <button onClick={requestJsonPreview} className="ml-auto px-3 py-2 rounded bg-slate-600">JSON確認</button>
+      <button onClick={requestJsonSave} className="px-3 py-2 rounded bg-emerald-600">JSON保存</button>
     </header>
     <div className="flex-1 min-h-0 flex">
       <aside className={"border-r border-gray-700 bg-[#0b1020] transition-all "+(paletteOpen?"w-64":"w-12")}>
@@ -168,21 +205,22 @@ export default function BattleCreator() {
       <section className="flex-1 min-w-0 flex flex-col">
         <div ref={editorRef} onDragOver={(e)=>e.preventDefault()} onDrop={drop} className="relative flex-1 m-4 overflow-hidden border border-gray-600 bg-[#0a1020]" style={{backgroundImage:"linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px)",backgroundSize:"50px 50px"}}>
           <div className="absolute left-1/2 top-0 bottom-0 w-px bg-yellow-400/80"/><div className="absolute top-1/2 left-0 right-0 h-px bg-yellow-400/80"/><div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-yellow-300 bg-black/60 px-1">(0,0)</div>
-          {items.map((item)=>{const current=isHierarchy(item.type)?{x:item.x,y:item.y}:getCreatorPositionAt(item.timeline,currentTime,{x:item.x,y:item.y});const pos=toPercent(current.x,current.y);const mark=PALETTE.find((p)=>p.type===item.type)?.mark??"?";return <button key={item.key} draggable onDragStart={(e)=>itemDrag(e,item.key)} onClick={()=>{setSelectedKey(item.key);setDraftItem(null);setDraftEvent(null);}} className={"absolute -translate-x-1/2 -translate-y-1/2 min-w-9 h-9 rounded-full border-2 font-bold "+(selectedKey===item.key?"border-yellow-300 bg-blue-600":"border-white/70 bg-slate-700")} style={pos} title={item.type+" "+(item.id||"(ID未設定)")+" @ "+current.x.toFixed(1)+","+current.y.toFixed(1)}>{mark}</button>;})}
+          {items.map((item)=>{const current=isHierarchy(item.type)?{x:item.x,y:item.y}:getCreatorPositionAt(item.timeline,currentTime,{x:item.x,y:item.y});const pos=toPercent(current.x,current.y);const mark=PALETTE.find((p)=>p.type===item.type)?.mark??"?";return <button key={item.key} draggable onDragStart={(e)=>itemDrag(e,item.key)} onClick={()=>{setSelectedKey(item.key);setDraftItem(null);setDraftEvent(null);}} className={"absolute -translate-x-1/2 -translate-y-1/2 min-w-9 h-9 rounded-full border-2 font-bold "+(showValidationErrors&&hasMissingRequiredFields(item)?"border-red-500 ring-2 ring-red-500/50 bg-slate-700":selectedKey===item.key?"border-yellow-300 bg-blue-600":"border-white/70 bg-slate-700")} style={pos} title={item.type+" "+(item.id||"(ID未設定)")+" @ "+current.x.toFixed(1)+","+current.y.toFixed(1)}>{mark}</button>;})}
         </div>
         <div className="shrink-0 border-t border-gray-700 bg-[#111827] px-5 py-3"><div className="flex items-center gap-3"><button type="button" onClick={()=>{if(currentTime>=duration)setCurrentTime(0);setIsPlaying(true);}} className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700">再生</button><button type="button" onClick={()=>setIsPlaying(false)} className="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500">ストップ</button><span className="w-20 text-sm">{currentTime.toFixed(1)}s</span><input type="range" min={0} max={duration} step={0.1} value={currentTime} onChange={(e)=>{setIsPlaying(false);setCurrentTime(Number(e.target.value));}} className="flex-1"/><label className="text-xs flex items-center gap-2">最大秒数<input type="number" min={1} value={duration} onChange={(e)=>setDuration(Math.max(1,Number(e.target.value)))} className="w-20 rounded border border-gray-600 bg-[#0b1020] px-2 py-1"/></label></div><p className="mt-1 text-xs text-gray-400">シーク後に配置済みUnit / Character / CameraをD&Dすると、その時刻の座標を記録します。シークを戻すと記録済みtimeline位置へ復元されます。</p></div>
       </section>
       <aside className="w-80 shrink-0 border-l border-gray-700 bg-[#0b1020] overflow-y-auto">
-        {draftEvent?<EventProperties event={draftEvent} currentTime={currentTime} onChange={(patch)=>setDraftEvent({...draftEvent,...patch})} onAdd={addEvent}/>:selected?<ItemProperties item={selected} placed={Boolean(selectedKey)} currentTime={currentTime} onChange={updateSelected}/>:null}
+        {draftEvent?<EventProperties event={draftEvent} currentTime={currentTime} onChange={(patch)=>setDraftEvent({...draftEvent,...patch})} onAdd={addEvent}/>:selected?<ItemProperties item={selected} placed={Boolean(selectedKey)} currentTime={currentTime} onChange={updateSelected} onDelete={deleteSelected}/>:null}
         {events.length>0&&<div className="border-t border-gray-700 p-4"><h3 className="font-semibold text-sm mb-2">登録イベント ({events.length})</h3>{events.map((e)=><div key={e.key} className="text-xs text-gray-400">{e.t.toFixed(1)}s : {e.type}</div>)}</div>}
       </aside>
     </div>
+    {validationDialog&&<div className="fixed inset-0 z-[60] bg-black/70 p-8 flex items-center justify-center"><div className="w-full max-w-xl rounded-xl border border-red-800 bg-[#111827] p-6 shadow-2xl"><h2 className="text-lg font-semibold mb-4">入力必須項目の確認</h2><p className="text-sm leading-7 text-gray-200">{validationDialog==="preview"?"現在画面上に配置された要素の内、赤いアウトラインが表示されている要素に入力必須のプロパティが空です。空の場合JSON確認の際、当該要素はJSONに表示されません。":"画面上に配置されている要素のプロパティに入力必須な入力欄が空の要素があります。要素を削除するか、入力必須欄に記入してください"}</p><div className="mt-6 flex justify-end gap-2"><button type="button" onClick={confirmValidationDialog} className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700">OK</button>{validationDialog==="preview"&&<button type="button" onClick={()=>setValidationDialog(null)} className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-500">NO</button>}</div></div></div>}
     {jsonOpen&&<div className="fixed inset-0 z-50 bg-black/70 p-8 flex items-center justify-center"><div className="w-full max-w-4xl max-h-full flex flex-col rounded-xl border border-gray-700 bg-[#0b1020]"><div className="flex items-center border-b border-gray-700 p-3"><strong>生成JSON</strong><button className="ml-auto px-3 py-1 rounded bg-gray-700" onClick={()=>setJsonOpen(false)}>閉じる</button></div><pre className="overflow-auto p-4 text-xs">{JSON.stringify(battleJson,null,2)}</pre></div></div>}
   </main>;
 }
 
-function Field({label,value,onChange,type="text"}:{label:string;value:string|number;onChange:(value:string)=>void;type?:string}){return <label className="block mb-3"><span className="block text-xs text-gray-400 mb-1">{label}</span><input type={type} value={value} onChange={(e)=>onChange(e.target.value)} className="w-full rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm"/></label>;}
+function Field({label,value,onChange,type="text",required=false,invalid=false}:{label:string;value:string|number;onChange:(value:string)=>void;type?:string;required?:boolean;invalid?:boolean}){return <label className="block mb-3"><span className="block text-xs text-gray-400 mb-1">{label}{required&&<span className="ml-1 text-red-400">*</span>}</span><input type={type} value={value} onChange={(e)=>onChange(e.target.value)} className={"w-full rounded border bg-[#111827] px-3 py-2 text-sm "+(required&&invalid?"border-red-500":"border-gray-600")}/>{required&&invalid&&<span className="block mt-1 text-xs text-red-400">必須入力フォームです</span>}</label>;}
 
-function ItemProperties({item,placed,currentTime,onChange}:{item:EditorItem;placed:boolean;currentTime:number;onChange:(patch:Partial<EditorItem>)=>void}){return <div className="p-4"><h2 className="font-semibold mb-1">プロパティ</h2><p className="text-xs text-gray-500 mb-4">{item.type} / {placed?"配置済み":"未配置"}</p>{item.type!=="camera"&&<><Field label="id" value={item.id} onChange={(id)=>onChange({id})}/><Field label="name" value={item.name} onChange={(name)=>onChange({name})}/></>}{item.type==="unit"&&<><Field label="force" value={item.force} onChange={(force)=>onChange({force})}/><Field label="color" value={item.color} onChange={(color)=>onChange({color})}/><Field label="icon" value={item.icon} onChange={(icon)=>onChange({icon})}/></>}{item.type==="character"&&<Field label="icon" value={item.icon} onChange={(icon)=>onChange({icon})}/>} {(item.type==="unit"||item.type==="character")&&<Field label="dir（rad・任意）" type="number" value={Number.isFinite(item.dir)?item.dir:""} onChange={(dir)=>onChange({dir:dir===""?Number.NaN:Number(dir)})}/>} {isHierarchy(item.type)&&<><Field label="parentId" value={item.parentId} onChange={(parentId)=>onChange({parentId})}/><Field label={item.type==="regiment"?"unitIds（カンマ区切り）":"childrenIds（カンマ区切り）"} value={item.children} onChange={(children)=>onChange({children})}/></>}<Field label="x" type="number" value={Number.isFinite(item.x)?item.x:""} onChange={(x)=>onChange({x:x===""?Number.NaN:Number(x)})}/><Field label="y" type="number" value={Number.isFinite(item.y)?item.y:""} onChange={(y)=>onChange({y:y===""?Number.NaN:Number(y)})}/>{item.type==="camera"&&<Field label="zoom" type="number" value={Number.isFinite(item.zoom)?item.zoom:""} onChange={(zoom)=>onChange({zoom:zoom===""?Number.NaN:Number(zoom)})}/>}<div className="rounded border border-gray-700 bg-[#111827] p-3 text-xs">現在時刻: {currentTime.toFixed(1)}s<br/>記録済みkeyframe: {item.timeline.length}</div></div>;}
+function ItemProperties({item,placed,currentTime,onChange,onDelete}:{item:EditorItem;placed:boolean;currentTime:number;onChange:(patch:Partial<EditorItem>)=>void;onDelete:()=>void}){return <div className="p-4"><h2 className="font-semibold mb-1">プロパティ</h2><p className="text-xs text-gray-500 mb-4">{item.type} / {placed?"配置済み":"未配置"}</p>{item.type!=="camera"&&<><Field label="id" value={item.id} onChange={(id)=>onChange({id})} required invalid={!item.id.trim()}/><Field label="name" value={item.name} onChange={(name)=>onChange({name})}/></>}{item.type==="unit"&&<><Field label="force" value={item.force} onChange={(force)=>onChange({force})}/><Field label="color" value={item.color} onChange={(color)=>onChange({color})}/><Field label="icon" value={item.icon} onChange={(icon)=>onChange({icon})}/></>}{item.type==="character"&&<Field label="icon" value={item.icon} onChange={(icon)=>onChange({icon})}/>} {(item.type==="unit"||item.type==="character")&&<Field label="dir（rad・任意）" type="number" value={Number.isFinite(item.dir)?item.dir:""} onChange={(dir)=>onChange({dir:dir===""?Number.NaN:Number(dir)})}/>} {isHierarchy(item.type)&&<><Field label="parentId" value={item.parentId} onChange={(parentId)=>onChange({parentId})}/><Field label={item.type==="regiment"?"unitIds（カンマ区切り）":"childrenIds（カンマ区切り）"} value={item.children} onChange={(children)=>onChange({children})}/></>}<Field label="x" type="number" value={Number.isFinite(item.x)?item.x:""} onChange={(x)=>onChange({x:x===""?Number.NaN:Number(x)})}/><Field label="y" type="number" value={Number.isFinite(item.y)?item.y:""} onChange={(y)=>onChange({y:y===""?Number.NaN:Number(y)})}/>{item.type==="camera"&&<Field label="zoom" type="number" value={Number.isFinite(item.zoom)?item.zoom:""} onChange={(zoom)=>onChange({zoom:zoom===""?Number.NaN:Number(zoom)})} required invalid={!Number.isFinite(item.zoom)}/>}<div className="rounded border border-gray-700 bg-[#111827] p-3 text-xs">現在時刻: {currentTime.toFixed(1)}s<br/>記録済みkeyframe: {item.timeline.length}</div>{placed&&<button type="button" onClick={onDelete} className="mt-4 w-full rounded bg-red-700 py-2 hover:bg-red-800">要素を削除</button>}</div>;}
 
 function EventProperties({event,currentTime,onChange,onAdd}:{event:EditorEvent;currentTime:number;onChange:(patch:Partial<EditorEvent>)=>void;onAdd:()=>void}){return <div className="p-4"><h2 className="font-semibold mb-1">イベントプロパティ</h2><p className="text-xs text-gray-500 mb-4">{event.type} / {currentTime.toFixed(1)}s</p>{event.type!=="merge"&&<Field label="target" value={event.target} onChange={(target)=>onChange({target})}/>} {event.type==="merge"&&<><Field label="source" value={event.source} onChange={(source)=>onChange({source})}/><Field label="target" value={event.target} onChange={(target)=>onChange({target})}/></>} {event.type==="status"&&<label className="block mb-3"><span className="block text-xs text-gray-400 mb-1">status</span><select value={event.status} onChange={(e)=>onChange({status:e.target.value})} className="w-full rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm"><option value="">未選択</option><option value="active">active</option><option value="destroyed">destroyed</option></select></label>} {(event.type==="reparent"||event.type==="reform")&&<Field label="parent" value={event.parent} onChange={(parent)=>onChange({parent})}/>} {event.type==="reform"&&<Field label="children（カンマ区切り）" value={event.children} onChange={(children)=>onChange({children})}/>}<button onClick={onAdd} className="w-full rounded bg-violet-600 py-2">現在時刻にイベント追加</button></div>;}
