@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const DEFAULT_BATTLE_HUB_API = "http://localhost:8080";
-
-function getBattleHubApiBaseUrl() {
-  return (process.env.BATTLE_HUB_API_BASE_URL ?? DEFAULT_BATTLE_HUB_API)
-    .replace(/\/$/, "");
-}
+import { getBattleHubApiBaseUrl } from "@/utils/battleHub/config";
 
 async function forward(response: Response) {
   const body = await response.text();
