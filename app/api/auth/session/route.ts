@@ -28,7 +28,15 @@ export async function GET() {
       },
     });
 
-    if (response.status === 401) {
+    if (response.ok) {
+      next.cookies.set(COOKIE_NAME, token, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60,
+      });
+    } else if (response.status === 401) {
       next.cookies.delete(COOKIE_NAME);
     }
 
