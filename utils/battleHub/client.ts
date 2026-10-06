@@ -4,6 +4,15 @@ export type BattleHubHealth = {
   status: string;
 };
 
+
+export type BattleHubBattleSummary = {
+  id: string;
+  title: string;
+  authorName: string;
+  description: string;
+  createdAt: string;
+};
+
 export type BattleHubPublishRequest = {
   authorName: string;
   description?: string;
@@ -66,4 +75,18 @@ export async function publishBattleToHub(
   }
 
   return response.json() as Promise<BattleHubBattleResponse>;
+}
+
+
+export async function getBattleHubBattles(): Promise<BattleHubBattleSummary[]> {
+  const response = await fetch("/api/battle-hub/battles", {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  return response.json() as Promise<BattleHubBattleSummary[]>;
 }
