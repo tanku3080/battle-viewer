@@ -42,20 +42,20 @@ export function AuthActivityGuard({
       const ok = await touchSession();
       if (!ok) return;
       const now = Date.now();
-      sessionStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
       lastTouchRef.current = now;
     };
 
     const onActivity = async () => {
       const now = Date.now();
-      const stored = Number(sessionStorage.getItem(LAST_ACTIVITY_KEY) ?? now);
+      const stored = Number(localStorage.getItem(LAST_ACTIVITY_KEY) ?? now);
 
       if (Number.isFinite(stored) && now - stored >= IDLE_LIMIT_MS) {
         await redirectToLogin();
         return;
       }
 
-      sessionStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
 
       if (now - lastTouchRef.current >= TOUCH_THROTTLE_MS) {
         lastTouchRef.current = now;
