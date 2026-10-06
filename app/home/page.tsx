@@ -1,13 +1,19 @@
 import Link from "next/link";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 
 export default function HomePage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-between px-4 py-10 bg-[#0b1020] text-[#f5f5f5]">
-      <header className="text-center mt-10">
+      <header className="w-full max-w-4xl mt-4">
+        <div className="flex justify-end mb-8">
+          <LogoutButton />
+        </div>
+        <div className="text-center">
         <h1 className="text-4xl font-semibold mb-2">
           戦場タイムライン・ビューワ
         </h1>
         <p className="opacity-70">Battle Timeline Visualizer</p>
+        </div>
       </header>
 
       <section className="flex flex-col gap-4 text-center">
