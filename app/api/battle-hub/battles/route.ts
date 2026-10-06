@@ -14,7 +14,7 @@ async function forward(response: Response) {
   });
 }
 
-async function authorizationHeader() {
+async function authorizationHeader(): Promise<Record<string, string>> {
   const token = (await cookies()).get("battle_hub_session")?.value;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
