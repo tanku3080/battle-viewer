@@ -154,6 +154,7 @@ The authenticated title screen now has:
 
 - `閲覧`: opens the existing Battle Viewer
 - `作成`: opens `/create`
+- `Battle Hubにアクセス`: Battle HubのHealth Check成功時のみ有効。投稿済みBattle一覧を表示する `/hub` を開く
 
 The creator provides:
 
@@ -165,7 +166,45 @@ The creator provides:
 - drag-and-drop placement
 - right-side property editor
 - bottom timeline seek bar
+- 再生 / ストップ
 - time-keyed position recording for Unit / Character / Camera
+- シーク時刻に応じたkeyframe位置の復元・補間
 - fixed `pos` editing for hierarchy nodes
 - generated JSON preview
 - JSON file export
+
+
+## Creator coordinate system
+
+新規作成画面は `coordinateOrigin: "center"` 固定です。ユーザーが原点方式を選択するUIはありません。
+
+```text
+          +Y
+           ↑
+           |
+-X  ←---- (0,0) ----→ +X
+           |
+           ↓
+          -Y
+```
+
+Canvas内部は左上原点・下方向が+Yですが、Battle JSONのcenter座標は上方向を+Yとして扱います。
+Viewer読み込み時に内部Canvas座標へ変換するため、作成画面と閲覧画面で上下方向が一致します。
+
+Unit / Character / Cameraは、配置または移動した時点のシーク時刻へkeyframeを記録します。
+
+例:
+
+```text
+0秒でA地点へ配置
+↓
+3秒へシーク
+↓
+B地点へ移動
+↓
+0秒へシーク
+↓
+A地点へ戻る
+```
+
+0〜3秒の間はA地点からB地点へ線形補間して表示されます。
