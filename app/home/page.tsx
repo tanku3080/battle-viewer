@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { BattleHubAccessButton } from "@/components/battleHub/BattleHubAccessButton";
 
 export default function HomePage() {
   return (
@@ -30,6 +31,8 @@ export default function HomePage() {
         >
           作成
         </Link>
+
+        <BattleHubAccessButton className="px-8 py-3 font-semibold" />
       </section>
 
       <footer className="text-xs opacity-60 mb-4">
