@@ -9,7 +9,7 @@ export function LogoutButton() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      sessionStorage.removeItem("battle-viewer:last-activity");
+      localStorage.removeItem("battle-viewer:last-activity");
       router.replace("/");
     }
   };
