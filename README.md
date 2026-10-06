@@ -94,11 +94,18 @@ mvn spring-boot:run
 ```
 
 Battle Viewerはデフォルトで `http://localhost:8080` のBattle Hubへ接続します。
-接続先を変更する場合は `.env.local` に設定します。
+
+ローカル開発では `.env.example` をコピーして `.env` を使います。
 
 ```bash
+cp .env.example .env
+```
+
+```dotenv
 BATTLE_HUB_API_BASE_URL=http://localhost:8080
 ```
+
+Next.jsはルートの `.env` を自動で読み込みます。`.env` はGit管理対象外です。
 
 Battle Viewer側はブラウザからSpring Bootへ直接アクセスせず、Next.jsのRoute Handlerを経由します。
 
@@ -118,11 +125,12 @@ Battle画面でJSONを読み込むと「Battle Hubへ投稿」ボタンが有効
 
 The initial route `/` is the login screen. Battle Hub owns the session state.
 
-Before starting Battle Hub, configure credentials:
+Before starting Battle Hub, configure its repository-root `.env`:
 
-```bash
-export BATTLE_HUB_USERNAME=admin
-export BATTLE_HUB_PASSWORD='change-me'
+```dotenv
+BATTLE_HUB_USERNAME=admin
+BATTLE_HUB_PASSWORD=your-local-password
+BATTLE_HUB_SESSION_TIMEOUT=PT1H
 ```
 
 Battle Viewer stores the backend session token only in an HttpOnly cookie through
