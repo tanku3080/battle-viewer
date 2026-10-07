@@ -44,6 +44,7 @@ export function getCreatorElementVisualState(args: {
   destroyAt: number;
   t: number;
   fadeDuration: number;
+  animateTransitions?: boolean;
 }) {
   const {
     timeline,
@@ -52,6 +53,7 @@ export function getCreatorElementVisualState(args: {
     destroyAt,
     t,
     fadeDuration,
+    animateTransitions = true,
   } = args;
 
   const spawnAt = timeline.length > 0
@@ -60,6 +62,17 @@ export function getCreatorElementVisualState(args: {
 
   if (!Number.isFinite(spawnAt) || t < spawnAt) {
     return { visible: false, alpha: 0, scale: 0 };
+  }
+
+  if (!animateTransitions) {
+    const destroyed =
+      destroyEnabled &&
+      Number.isFinite(destroyAt) &&
+      t > destroyAt;
+
+    return destroyed
+      ? { visible: false, alpha: 0, scale: 0 }
+      : { visible: true, alpha: 1, scale: 1 };
   }
 
   if (t < spawnAt + fadeDuration) {
@@ -99,6 +112,7 @@ export function isCreatorElementVisibleAt(args: {
   destroyEnabled: boolean;
   destroyAt: number;
   t: number;
+  animateTransitions?: boolean;
 }) {
   return getCreatorElementVisualState({
     ...args,
