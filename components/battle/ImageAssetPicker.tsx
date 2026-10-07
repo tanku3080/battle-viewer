@@ -1,6 +1,6 @@
 "use client";
 
-import { PointerEvent, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type PointerEvent } from "react";
 
 type Props = {
   label: string;
@@ -36,8 +36,24 @@ export default function ImageAssetPicker({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [error, setError] = useState("");
 
-  const previewWidth = mode === "icon" ? 360 : 520;
-  const previewHeight = previewWidth / Math.max(0.2, aspectRatio);
+  const safeAspect = Math.max(0.1, aspectRatio);
+  const maxPreviewWidth = mode === "icon" ? 360 : 520;
+  const maxPreviewHeight = 360;
+  const previewSize = useMemo(() => {
+    const boxAspect = maxPreviewWidth / maxPreviewHeight;
+    if (safeAspect >= boxAspect) {
+      return {
+        width: maxPreviewWidth,
+        height: maxPreviewWidth / safeAspect,
+      };
+    }
+    return {
+      width: maxPreviewHeight * safeAspect,
+      height: maxPreviewHeight,
+    };
+  }, [maxPreviewHeight, maxPreviewWidth, safeAspect]);
+  const previewWidth = previewSize.width;
+  const previewHeight = previewSize.height;
 
   const baseScale = useMemo(() => {
     if (!imageSize) return 1;
@@ -51,9 +67,11 @@ export default function ImageAssetPicker({
     if (!imageSize) return next;
     const renderedWidth = imageSize.width * baseScale * nextZoom;
     const renderedHeight = imageSize.height * baseScale * nextZoom;
+    const maxX = Math.max(0, (renderedWidth - previewWidth) / 2);
+    const maxY = Math.max(0, (renderedHeight - previewHeight) / 2);
     return {
-      x: clamp(next.x, -(renderedWidth - previewWidth) / 2, (renderedWidth - previewWidth) / 2),
-      y: clamp(next.y, -(renderedHeight - previewHeight) / 2, (renderedHeight - previewHeight) / 2),
+      x: clamp(next.x, -maxX, maxX),
+      y: clamp(next.y, -maxY, maxY),
     };
   };
 
