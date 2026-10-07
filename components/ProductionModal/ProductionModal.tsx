@@ -21,13 +21,18 @@ export const ProductionModal: React.FC<Props> = ({
   onClose,
 }) => {
   useProductionInput(isOpen, onClose);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);\n  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     const previousFocus = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
     closeButtonRef.current?.focus();
-    return () => previousFocus?.focus();
+    return () => {
+      if (dialog?.open) dialog.close();
+      previousFocus?.focus();
+    };
   }, [isOpen]);
 
   if (!isOpen || !battle) return null;
