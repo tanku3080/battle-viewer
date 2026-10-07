@@ -155,6 +155,41 @@ function getParentItem(items: EditorItem[], item: EditorItem) {
   return items.find((candidate) => isCreatorParentOf(candidate, item)) ?? null;
 }
 
+function getCreatorOutlineColor(
+  items: EditorItem[],
+  item: EditorItem,
+  forces: ForceDefinition[]
+) {
+  if (item.type === "unit") {
+    return getForceColor(forces, item.force) || item.color.trim() || "#cbd5f5";
+  }
+
+  if (item.color.trim()) return item.color.trim();
+
+  const visited = new Set<string>();
+  const findDescendantUnitColor = (parent: EditorItem): string | null => {
+    if (visited.has(parent.key)) return null;
+    visited.add(parent.key);
+
+    const children = items.filter((candidate) => isCreatorParentOf(parent, candidate));
+    for (const child of children) {
+      if (child.type === "unit") {
+        return getForceColor(forces, child.force) || child.color.trim() || null;
+      }
+      const nested = findDescendantUnitColor(child);
+      if (nested) return nested;
+    }
+    return null;
+  };
+
+  if (isHierarchy(item.type)) {
+    return findDescendantUnitColor(item) || "#cbd5f5";
+  }
+
+  if (item.type === "character") return "#f97316";
+  return "#cbd5f5";
+}
+
 export default function BattleCreator() {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -863,6 +898,7 @@ export default function BattleCreator() {
                     )
                   : null;
               const zoom = currentCameraPoint?.zoom ?? 1;
+              const iconOutlineColor = getCreatorOutlineColor(items, item, forces);
 
               return (
                 <div key={item.key}>
@@ -936,11 +972,16 @@ export default function BattleCreator() {
                     }
                   >
                     {item.icon ? (
-                      <img
-                        src={item.icon}
-                        alt=""
-                        className="h-7 w-7 rounded object-cover"
-                      />
+                      <span
+                        className="flex h-8 w-8 overflow-hidden rounded-full border-[3px] bg-black"
+                        style={{ borderColor: iconOutlineColor }}
+                      >
+                        <img
+                          src={item.icon}
+                          alt=""
+                          className="h-full w-full rounded-full object-cover"
+                        />
+                      </span>
                     ) : (
                       mark
                     )}

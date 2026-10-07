@@ -477,3 +477,25 @@ ViewerはこれらのData URLを `HTMLImageElement.src` へ設定します。
 ブラウザがBase64部分をデコードし、Map / Unit / Character / HierarchyのCanvas描画へ反映します。
 
 Creator上でも、設定済みMapはエディター背景へ、設定済みアイコンは配置要素へ反映されます。
+
+
+## Circular icon presentation
+
+Icon編集はSNSプロフィール画像と同様の円形表示領域を基準にします。
+
+- プレビューダイアログでは円内が実表示領域
+- 円外は暗く表示し、実際には要素へ表示されない領域として示す
+- ドラッグとzoomで円内へ収まる位置を調整
+- JSONには調整後の正方形Data URLを保持
+- Creator / Viewer描画時に円形maskでclip
+
+画像そのものを円形PNGへ加工するのではなく、元の正方形クロップを保持したまま表示時に円形化します。
+
+外周色:
+
+- Unit: forceに登録された色を優先。無ければunit.color
+- Legion / Corps / Division / Regiment: 配下Unitを再帰的に探索し、最初に見つかるUnitのforce/colorを使用
+- Character: 現在のCharacter既定色
+- 色を決定できないHierarchy: fallback色
+
+これによりアイコン画像を使用しても、外周色から所属forceを判別できます。

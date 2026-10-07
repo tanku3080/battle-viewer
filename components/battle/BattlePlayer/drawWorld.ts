@@ -30,11 +30,29 @@ const LEVELS = {
 };
 
 function nodeColor(node: NodeWithPosition, battle: BattleData) {
-  for (const uid of node.unitIds) {
-    const unit = battle.unitIndex[uid];
-    if (unit) return unit.color;
-  }
-  return "#cbd5f5";
+  const visited = new Set<string>();
+
+  const find = (nodeId: string): string | null => {
+    if (visited.has(nodeId)) return null;
+    visited.add(nodeId);
+
+    const current = battle.hierarchy.nodes[nodeId];
+    if (!current) return null;
+
+    for (const uid of current.unitIds) {
+      const unit = battle.unitIndex[uid];
+      if (unit?.color) return unit.color;
+    }
+
+    for (const childId of current.childrenIds) {
+      const nested = find(childId);
+      if (nested) return nested;
+    }
+
+    return null;
+  };
+
+  return find(node.id) ?? "#cbd5f5";
 }
 
 function drawHierarchyNodes(params: {
@@ -66,10 +84,19 @@ function drawHierarchyNodes(params: {
     const icon = hierarchyImages[node.id];
     if (icon) {
       const size = style.radius * 2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.clip();
       ctx.drawImage(icon, -size / 2, -size / 2, size, size);
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
-      ctx.strokeRect(-size / 2, -size / 2, size, size);
+      ctx.stroke();
     } else {
       ctx.beginPath();
       ctx.arc(0, 0, style.radius, 0, Math.PI * 2);
@@ -135,7 +162,18 @@ function drawUnits(params: {
 
     const cached = unitImages[unit.id];
     if (cached) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, iconSize / 2, 0, Math.PI * 2);
+      ctx.clip();
       ctx.drawImage(cached, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, iconSize / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = unit.color || "#cbd5f5";
+      ctx.lineWidth = 3;
+      ctx.stroke();
     } else {
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
@@ -190,10 +228,23 @@ function drawCharacters(params: {
 
     const cached = charImages[ch.id];
     if (cached) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.clip();
       ctx.drawImage(cached, -size / 2, -size / 2, size, size);
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = "#f97316";
+      ctx.lineWidth = 3;
+      ctx.stroke();
     } else {
       ctx.fillStyle = "#f97316";
-      ctx.fillRect(-size / 2, -size / 2, size, size);
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     if (enableSelection && selectedCharacterId === ch.id) {
