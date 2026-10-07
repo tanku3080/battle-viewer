@@ -50,11 +50,21 @@ where
   T: Serialize,
 {
   fn success(status: u16, data: T) -> Self {
-    Self { ok: true, status, data: Some(data), error: None }
+    Self {
+      ok: true,
+      status,
+      data: Some(data),
+      error: None,
+    }
   }
 
   fn failure(status: u16, error: impl Into<String>) -> Self {
-    Self { ok: false, status, data: None, error: Some(error.into()) }
+    Self {
+      ok: false,
+      status,
+      data: None,
+      error: Some(error.into()),
+    }
   }
 }
 
@@ -72,18 +82,31 @@ async fn parse_error(response: reqwest::Response) -> CommandResponse<Value> {
   let message = serde_json::from_str::<Value>(&body)
     .ok()
     .and_then(|value| {
-      value.get("details")
+      value
+        .get("details")
         .and_then(Value::as_array)
         .map(|items| {
-          items.iter()
+          items
+            .iter()
             .filter_map(Value::as_str)
             .collect::<Vec<_>>()
             .join(", ")
         })
         .filter(|text| !text.is_empty())
-        .or_else(|| value.get("error").and_then(Value::as_str).map(str::to_string))
+        .or_else(|| {
+          value
+            .get("error")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        })
     })
-    .unwrap_or_else(|| if body.is_empty() { format!("HTTP {status}") } else { body });
+    .unwrap_or_else(|| {
+      if body.is_empty() {
+        format!("HTTP {status}")
+      } else {
+        body
+      }
+    });
 
   CommandResponse::failure(status, message)
 }
@@ -92,7 +115,9 @@ async fn refresh_access_token(
   client: &reqwest::Client,
   state: &AuthState,
 ) -> Result<String, String> {
-  let refresh_token = state.refresh_token.lock()
+  let refresh_token = state
+    .refresh_token
+    .lock()
     .map_err(|_| "認証状態のロックに失敗しました")?
     .clone()
     .ok_or_else(|| "Refresh Tokenがありません".to_string())?;
@@ -105,19 +130,27 @@ async fn refresh_access_token(
     .map_err(|error| format!("Battle Hubに接続できません: {error}"))?;
 
   if !response.status().is_success() {
-    return Err(format!("Refresh Tokenの更新に失敗しました: HTTP {}", response.status().as_u16()));
+    return Err(format!(
+      "Refresh Tokenの更新に失敗しました: HTTP {}",
+      response.status().as_u16()
+    ));
   }
 
-  let payload = response.json::<HubAuthResponse>()
+  let payload = response
+    .json::<HubAuthResponse>()
     .await
     .map_err(|error| format!("認証レスポンスを読み込めません: {error}"))?;
 
-  *state.access_token.lock().map_err(|_| "認証状態のロックに失敗しました")? =
-    Some(payload.token.clone());
+  *state
+    .access_token
+    .lock()
+    .map_err(|_| "認証状態のロックに失敗しました")? = Some(payload.token.clone());
 
   if let Some(rotated) = payload.refresh_token {
-    *state.refresh_token.lock().map_err(|_| "認証状態のロックに失敗しました")? =
-      Some(rotated);
+    *state
+      .refresh_token
+      .lock()
+      .map_err(|_| "認証状態のロックに失敗しました")? = Some(rotated);
   }
 
   Ok(payload.token)
@@ -130,7 +163,9 @@ async fn authenticated_request(
   path: &str,
   body: Option<&str>,
 ) -> Result<reqwest::Response, String> {
-  let token = state.access_token.lock()
+  let token = state
+    .access_token
+    .lock()
     .map_err(|_| "認証状態のロックに失敗しました")?
     .clone()
     .ok_or_else(|| "ログインしていません".to_string())?;
@@ -145,6 +180,7 @@ async fn authenticated_request(
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(body.to_owned());
     }
+
     request
   };
 
@@ -168,8 +204,9 @@ async fn authenticated_request(
 async fn auth_login(
   request: LoginRequest,
   state: State<'_, AuthState>,
-) -> CommandResponse<SessionView> {
+) -> Result<CommandResponse<SessionView>, String> {
   let client = reqwest::Client::new();
+
   let response = match client
     .post(format!("{}/api/auth/login", hub_base_url()))
     .json(&serde_json::json!({
@@ -181,72 +218,111 @@ async fn auth_login(
   {
     Ok(response) => response,
     Err(error) => {
-      return CommandResponse::failure(
+      return Ok(CommandResponse::failure(
         502,
-        format!("Battle Hubに接続できません: {error}")
-      );
+        format!("Battle Hubに接続できません: {error}"),
+      ));
     }
   };
 
   if !response.status().is_success() {
     let error = parse_error(response).await;
-    return CommandResponse::failure(error.status, error.error.unwrap_or_else(|| "ログインに失敗しました".to_string()));
+    return Ok(CommandResponse::failure(
+      error.status,
+      error
+        .error
+        .unwrap_or_else(|| "ログインに失敗しました".to_string()),
+    ));
   }
 
   let payload = match response.json::<HubAuthResponse>().await {
     Ok(payload) => payload,
-    Err(error) => return CommandResponse::failure(
-      502,
-      format!("認証レスポンスを読み込めません: {error}")
-    ),
+    Err(error) => {
+      return Ok(CommandResponse::failure(
+        502,
+        format!("認証レスポンスを読み込めません: {error}"),
+      ));
+    }
   };
 
-  *state.access_token.lock().expect("auth state poisoned") = Some(payload.token);
-  *state.refresh_token.lock().expect("auth state poisoned") = payload.refresh_token;
+  *state
+    .access_token
+    .lock()
+    .map_err(|_| "認証状態のロックに失敗しました".to_string())? =
+    Some(payload.token);
 
-  CommandResponse::success(
+  *state
+    .refresh_token
+    .lock()
+    .map_err(|_| "認証状態のロックに失敗しました".to_string())? =
+    payload.refresh_token;
+
+  Ok(CommandResponse::success(
     200,
-    SessionView { username: payload.username, expires_at: payload.expires_at }
-  )
+    SessionView {
+      username: payload.username,
+      expires_at: payload.expires_at,
+    },
+  ))
 }
 
 #[tauri::command]
 async fn auth_session(
   state: State<'_, AuthState>,
-) -> CommandResponse<SessionView> {
+) -> Result<CommandResponse<SessionView>, String> {
   let client = reqwest::Client::new();
+
   let response = match authenticated_request(
     &client,
     &state,
     reqwest::Method::GET,
     "/api/auth/session",
     None,
-  ).await {
+  )
+  .await
+  {
     Ok(response) => response,
-    Err(error) => return CommandResponse::failure(401, error),
+    Err(error) => return Ok(CommandResponse::failure(401, error)),
   };
 
   if !response.status().is_success() {
     let error = parse_error(response).await;
-    return CommandResponse::failure(error.status, error.error.unwrap_or_else(|| "Unauthorized".to_string()));
+    return Ok(CommandResponse::failure(
+      error.status,
+      error.error.unwrap_or_else(|| "Unauthorized".to_string()),
+    ));
   }
 
   match response.json::<HubAuthResponse>().await {
-    Ok(payload) => CommandResponse::success(
+    Ok(payload) => Ok(CommandResponse::success(
       200,
-      SessionView { username: payload.username, expires_at: payload.expires_at }
-    ),
-    Err(error) => CommandResponse::failure(
+      SessionView {
+        username: payload.username,
+        expires_at: payload.expires_at,
+      },
+    )),
+    Err(error) => Ok(CommandResponse::failure(
       502,
-      format!("Sessionレスポンスを読み込めません: {error}")
-    ),
+      format!("Sessionレスポンスを読み込めません: {error}"),
+    )),
   }
 }
 
 #[tauri::command]
-async fn auth_logout(state: State<'_, AuthState>) -> CommandResponse<Value> {
-  let access = state.access_token.lock().ok().and_then(|value| value.clone());
-  let refresh = state.refresh_token.lock().ok().and_then(|value| value.clone());
+async fn auth_logout(
+  state: State<'_, AuthState>,
+) -> Result<CommandResponse<Value>, String> {
+  let access = state
+    .access_token
+    .lock()
+    .ok()
+    .and_then(|value| value.clone());
+
+  let refresh = state
+    .refresh_token
+    .lock()
+    .ok()
+    .and_then(|value| value.clone());
 
   if let Some(token) = access {
     let client = reqwest::Client::new();
@@ -255,7 +331,9 @@ async fn auth_logout(state: State<'_, AuthState>) -> CommandResponse<Value> {
       .bearer_auth(token);
 
     if let Some(refresh_token) = refresh {
-      request = request.json(&serde_json::json!({ "refreshToken": refresh_token }));
+      request = request.json(&serde_json::json!({
+        "refreshToken": refresh_token
+      }));
     }
 
     let _ = request.send().await;
@@ -264,11 +342,12 @@ async fn auth_logout(state: State<'_, AuthState>) -> CommandResponse<Value> {
   if let Ok(mut value) = state.access_token.lock() {
     *value = None;
   }
+
   if let Ok(mut value) = state.refresh_token.lock() {
     *value = None;
   }
 
-  CommandResponse::success(204, Value::Null)
+  Ok(CommandResponse::success(204, Value::Null))
 }
 
 fn resource_path(resource: &str) -> Option<(&'static str, bool)> {
@@ -284,32 +363,54 @@ fn resource_path(resource: &str) -> Option<(&'static str, bool)> {
 async fn hub_get(
   resource: String,
   state: State<'_, AuthState>,
-) -> CommandResponse<Value> {
+) -> Result<CommandResponse<Value>, String> {
   let Some((path, authenticated)) = resource_path(&resource) else {
-    return CommandResponse::failure(400, "Unsupported resource");
+    return Ok(CommandResponse::failure(400, "Unsupported resource"));
   };
 
   let client = reqwest::Client::new();
+
   let response = if authenticated {
-    match authenticated_request(&client, &state, reqwest::Method::GET, path, None).await {
+    match authenticated_request(
+      &client,
+      &state,
+      reqwest::Method::GET,
+      path,
+      None,
+    )
+    .await
+    {
       Ok(response) => response,
-      Err(error) => return CommandResponse::failure(401, error),
+      Err(error) => return Ok(CommandResponse::failure(401, error)),
     }
   } else {
-    match client.get(format!("{}{}", hub_base_url(), path)).send().await {
+    match client
+      .get(format!("{}{}", hub_base_url(), path))
+      .send()
+      .await
+    {
       Ok(response) => response,
-      Err(error) => return CommandResponse::failure(502, format!("Battle Hubに接続できません: {error}")),
+      Err(error) => {
+        return Ok(CommandResponse::failure(
+          502,
+          format!("Battle Hubに接続できません: {error}"),
+        ));
+      }
     }
   };
 
   if !response.status().is_success() {
-    return parse_error(response).await;
+    return Ok(parse_error(response).await);
   }
 
   let status = response.status().as_u16();
+
   match response.json::<Value>().await {
-    Ok(value) => CommandResponse::success(status, value),
-    Err(error) => CommandResponse::failure(502, format!("レスポンスを読み込めません: {error}")),
+    Ok(value) => Ok(CommandResponse::success(status, value)),
+    Err(error) => Ok(CommandResponse::failure(
+      502,
+      format!("レスポンスを読み込めません: {error}"),
+    )),
   }
 }
 
@@ -318,33 +419,40 @@ async fn hub_post(
   resource: String,
   body: String,
   state: State<'_, AuthState>,
-) -> CommandResponse<Value> {
+) -> Result<CommandResponse<Value>, String> {
   let path = match resource.as_str() {
     "forces" => "/api/forces",
     "battles" => "/api/battles",
-    _ => return CommandResponse::failure(400, "Unsupported resource"),
+    _ => return Ok(CommandResponse::failure(400, "Unsupported resource")),
   };
 
   let client = reqwest::Client::new();
+
   let response = match authenticated_request(
     &client,
     &state,
     reqwest::Method::POST,
     path,
     Some(&body),
-  ).await {
+  )
+  .await
+  {
     Ok(response) => response,
-    Err(error) => return CommandResponse::failure(401, error),
+    Err(error) => return Ok(CommandResponse::failure(401, error)),
   };
 
   if !response.status().is_success() {
-    return parse_error(response).await;
+    return Ok(parse_error(response).await);
   }
 
   let status = response.status().as_u16();
+
   match response.json::<Value>().await {
-    Ok(value) => CommandResponse::success(status, value),
-    Err(error) => CommandResponse::failure(502, format!("レスポンスを読み込めません: {error}")),
+    Ok(value) => Ok(CommandResponse::success(status, value)),
+    Err(error) => Ok(CommandResponse::failure(
+      502,
+      format!("レスポンスを読み込めません: {error}"),
+    )),
   }
 }
 
@@ -367,6 +475,7 @@ pub fn run() {
             .build(),
         )?;
       }
+
       Ok(())
     })
     .run(tauri::generate_context!())
