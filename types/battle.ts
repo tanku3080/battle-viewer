@@ -36,6 +36,8 @@ export type Character = {
 export type HierarchyLevel = "legion" | "corps" | "division" | "regiment";
 export type LodLevel = HierarchyLevel | "unit";
 
+export type GroupMoveKeyframe = { t: number; enabled: boolean };
+
 export type HierarchyNode = {
   id: string;
   level: HierarchyLevel;
@@ -51,6 +53,7 @@ export type HierarchyNode = {
   }>;
   pos?: { x: number; y: number };
   groupMove?: boolean;
+  groupMoveTimeline?: GroupMoveKeyframe[];
   timeline?: TimelinePoint[];
   appearAt?: number;
   destroyAt?: number;

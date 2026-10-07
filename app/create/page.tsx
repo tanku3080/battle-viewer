@@ -8,11 +8,14 @@ import { getForceColor, type ForceDefinition } from "@/utils/battle/forces";
 import {
   buildCreatorWorldTimeline,
   getCreatorItemPositionAt,
+  getCreatorGroupMoveAt,
   initializeCreatorGroupOrigin,
   recordCreatorPosition,
+  setCreatorGroupMove,
   stepCreatorCoordinate,
   syncCreatorGroupOrigins,
   type CreatorMovementPoint,
+  type CreatorGroupMovePoint,
 } from "@/utils/battleCreator/movement";
 import {
   getCreatorCameraAt,
@@ -52,6 +55,7 @@ type EditorItem = {
   icon: string;
   parentId: string;
   groupMove: boolean;
+  groupMoveTimeline?: CreatorGroupMovePoint[];
   groupOrigin?: { key: string; x: number; y: number };
   x: number;
   y: number;
@@ -207,6 +211,7 @@ export default function BattleCreator() {
       ? {
           ...selectedSource,
           ...getCreatorItemPositionAt(items, selectedSource, currentTime),
+          groupMove: getCreatorGroupMoveAt(selectedSource, currentTime),
         }
       : selectedSource;
 
@@ -345,6 +350,9 @@ export default function BattleCreator() {
   const updateSelected = (patch: Partial<EditorItem>) => {
     if (selectedKey) {
       setItems((old) => {
+        if (patch.groupMove !== undefined) {
+          return setCreatorGroupMove(old, selectedKey, patch.groupMove, currentTime);
+        }
         const next = old.map((item) => {
           if (item.key !== selectedKey) return item;
           const updated = { ...item, ...patch };
@@ -524,7 +532,8 @@ export default function BattleCreator() {
             childrenIds,
             unitIds,
             pos: getCreatorItemPositionAt(items, item, item.appearAt),
-            groupMove: item.groupMove,
+            groupMove: getCreatorGroupMoveAt(item, item.appearAt),
+            ...(item.groupMoveTimeline?.length ? { groupMoveTimeline: item.groupMoveTimeline } : {}),
             ...(Number.isFinite(item.appearAt) &&
             item.appearAt > 0
               ? { appearAt: item.appearAt }
@@ -1424,6 +1433,7 @@ function ItemProperties({
             グループ移動
           </label>
           <p className="mt-2 text-[11px] leading-5 text-gray-500">
+            オン・オフは現在時刻に記録され、切り替え前の移動経路は保持されます。
             最上位の有効な親の移動に配下が追従します。個別に記録した位置・経路が優先され、最後の個別指定以降は親の移動分に追従します。
           </p>
         </div>
