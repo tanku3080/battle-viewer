@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { logout as logoutSession } from "@/utils/auth/client";
 
 export function LogoutButton() {
   const router = useRouter();
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await logoutSession();
     } finally {
       localStorage.removeItem("battle-viewer:last-activity");
       router.replace("/");
