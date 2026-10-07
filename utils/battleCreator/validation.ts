@@ -22,7 +22,9 @@ export function getMissingRequiredFields(
   const missing: string[] = [];
 
   if (item.type === "camera") {
-    if (!Number.isFinite(item.zoom)) missing.push("zoom");
+    if (!Number.isFinite(item.zoom) || item.zoom <= 0) {
+      missing.push("zoom");
+    }
     return missing;
   }
 
