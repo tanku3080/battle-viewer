@@ -24,6 +24,31 @@ export function canCreatorParent(
   return expectedCreatorParentType(child) === parent;
 }
 
+type CreatorHierarchyRelationItem = {
+  type: CreatorHierarchyType;
+  id: string;
+  parentId: string;
+};
+
+/**
+ * Creator上の親子関係を判定する。
+ * 未入力ID（空文字・空白）同士を同一IDとして扱ってはいけない。
+ */
+export function isCreatorParentOf(
+  parent: CreatorHierarchyRelationItem,
+  child: CreatorHierarchyRelationItem
+) {
+  const parentId = parent.id.trim();
+  const childParentId = child.parentId.trim();
+
+  return (
+    parentId.length > 0 &&
+    childParentId.length > 0 &&
+    childParentId === parentId &&
+    canCreatorParent(child.type, parent.type)
+  );
+}
+
 export function canCreatorHaveManualParent(
   type: CreatorHierarchyType
 ) {

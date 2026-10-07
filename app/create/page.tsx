@@ -13,7 +13,12 @@ import {
   canCreatorParent,
   expectedCreatorParentType,
   isCreatorBattleRootOnly,
+  isCreatorParentOf,
 } from "@/utils/battleCreator/hierarchy";
+import {
+  getCreatorDefaultName,
+  getCreatorDisplayName,
+} from "@/utils/battleCreator/items";
 
 type SpatialType =
   | "unit"
@@ -292,7 +297,13 @@ export default function BattleCreator() {
         ? draftItem
         : emptyItem(type);
     const created = record(
-      { ...base, key: crypto.randomUUID() },
+      {
+        ...base,
+        key: crypto.randomUUID(),
+        name:
+          base.name.trim() ||
+          getCreatorDefaultName(type, items),
+      },
       p.x,
       p.y
     );
@@ -353,13 +364,14 @@ export default function BattleCreator() {
   const deleteSelected = () => {
     if (!selectedKey) return;
     const deleting = items.find((item) => item.key === selectedKey);
+    const deletingId = deleting?.id.trim() ?? "";
 
     setItems((old) =>
       old
         .filter((item) => item.key !== selectedKey)
         .map((item) =>
-          deleting?.id &&
-          item.parentId === deleting.id
+          deletingId &&
+          item.parentId.trim() === deletingId
             ? { ...item, parentId: "" }
             : item
         )
@@ -405,12 +417,9 @@ export default function BattleCreator() {
   const getParentItem = (item: EditorItem) => {
     if (!item.parentId.trim()) return null;
     const parent = items.find(
-      (candidate) =>
-        candidate.id.trim() === item.parentId.trim()
+      (candidate) => isCreatorParentOf(candidate, item)
     );
-    return parent && canCreatorParent(item.type, parent.type)
-      ? parent
-      : null;
+    return parent ?? null;
   };
 
   const hierarchyItems = items.filter(
@@ -471,9 +480,7 @@ export default function BattleCreator() {
             ? []
             : hierarchy
                 .filter(
-                  (child) =>
-                    child.parentId.trim() === item.id.trim() &&
-                    canCreatorParent(child.type, item.type)
+                  (child) => isCreatorParentOf(item, child)
                 )
                 .map((child) => child.id.trim());
 
@@ -483,7 +490,7 @@ export default function BattleCreator() {
                 .filter(
                   (child) =>
                     child.type === "unit" &&
-                    child.parentId.trim() === item.id.trim()
+                    isCreatorParentOf(item, child)
                 )
                 .map((child) => child.id.trim())
             : [];
@@ -678,7 +685,7 @@ export default function BattleCreator() {
       <div className="flex-1 min-h-0 flex">
         <aside
           className={
-            "border-r border-gray-700 bg-[#0b1020] transition-all " +
+            "h-full min-h-0 shrink-0 border-r border-gray-700 bg-[#0b1020] transition-all flex flex-col overflow-hidden " +
             (sidebarOpen ? "w-80" : "w-12")
           }
         >
@@ -690,8 +697,8 @@ export default function BattleCreator() {
           </button>
 
           {sidebarOpen && (
-            <>
-              <div className="grid grid-cols-2 border-b border-gray-700">
+            <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+              <div className="shrink-0 grid grid-cols-2 border-b border-gray-700">
                 <button
                   type="button"
                   onClick={() => setSidebarTab("elements")}
@@ -719,28 +726,30 @@ export default function BattleCreator() {
               </div>
 
               {sidebarTab === "elements" ? (
-                <div className="p-3 grid grid-cols-2 gap-2 overflow-y-auto max-h-[calc(100vh-11rem)]">
-                  {PALETTE.map((palette) => (
-                    <button
-                      key={palette.type}
-                      draggable
-                      onDragStart={(e) =>
-                        paletteDrag(e, palette.type)
-                      }
-                      onClick={() =>
-                        selectPalette(palette.type)
-                      }
-                      title={palette.tooltip}
-                      className="min-h-20 rounded-lg border border-gray-700 bg-[#111827] hover:border-blue-400 p-2 text-left"
-                    >
-                      <span className="block text-2xl font-bold">
-                        {palette.mark}
-                      </span>
-                      <span className="text-xs">
-                        {palette.label}
-                      </span>
-                    </button>
-                  ))}
+                <div className="flex-1 min-h-0 min-w-0 overflow-auto p-3">
+                  <div className="grid w-full grid-cols-2 gap-2">
+                    {PALETTE.map((palette) => (
+                      <button
+                        key={palette.type}
+                        draggable
+                        onDragStart={(e) =>
+                          paletteDrag(e, palette.type)
+                        }
+                        onClick={() =>
+                          selectPalette(palette.type)
+                        }
+                        title={palette.tooltip}
+                        className="min-h-20 rounded-lg border border-gray-700 bg-[#111827] hover:border-blue-400 p-2 text-left"
+                      >
+                        <span className="block text-2xl font-bold">
+                          {palette.mark}
+                        </span>
+                        <span className="text-xs">
+                          {palette.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <HierarchyPanel
@@ -755,7 +764,7 @@ export default function BattleCreator() {
                   onParent={setHierarchyParent}
                 />
               )}
-            </>
+            </div>
           )}
         </aside>
 
@@ -787,6 +796,7 @@ export default function BattleCreator() {
                 destroyAt: item.destroyAt,
                 t: currentTime,
                 fadeDuration: 0.5,
+                animateTransitions: isPlaying,
               });
 
               if (!visual.visible) return null;
@@ -877,9 +887,12 @@ export default function BattleCreator() {
                         ")",
                     }}
                     title={
-                      item.type +
-                      " " +
-                      (item.id || "(ID未設定)") +
+                      getCreatorDisplayName(item) +
+                      (item.type === "camera"
+                        ? ""
+                        : item.id.trim()
+                          ? " / ID: " + item.id.trim()
+                          : " / ID未設定") +
                       " @ " +
                       current.x.toFixed(1) +
                       "," +
@@ -1040,48 +1053,46 @@ function HierarchyPanel({
   ) => void;
 }) {
   const childrenOf = (parent: EditorItem) =>
-    items.filter(
-      (item) =>
-        item.parentId.trim() === parent.id.trim() &&
-        canCreatorParent(item.type, parent.type)
-    );
+    items.filter((item) => isCreatorParentOf(parent, item));
 
   return (
-    <div className="p-3 overflow-y-auto max-h-[calc(100vh-11rem)]">
-      <div
-        className="rounded-lg border border-blue-700 bg-blue-950/40 p-3"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const key = e.dataTransfer.getData(
-            "application/x-battle-hierarchy"
-          );
-          if (key) onParent(key, null);
-        }}
-      >
-        <div className="font-semibold text-sm">
-          {title}
+    <div className="flex-1 min-h-0 min-w-0 overflow-auto p-3">
+      <div className="inline-block min-w-full align-top">
+        <div
+          className="min-w-full rounded-lg border border-blue-700 bg-blue-950/40 p-3"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const key = e.dataTransfer.getData(
+              "application/x-battle-hierarchy"
+            );
+            if (key) onParent(key, null);
+          }}
+        >
+          <div className="font-semibold text-sm">
+            {title}
+          </div>
+          <div className="mt-2 space-y-1">
+            {roots.map((item) => (
+              <HierarchyNodeRow
+                key={item.key}
+                item={item}
+                depth={0}
+                selectedKey={selectedKey}
+                childrenOf={childrenOf}
+                onSelect={onSelect}
+                onParent={onParent}
+              />
+            ))}
+          </div>
         </div>
-        <div className="mt-2 space-y-1">
-          {roots.map((item) => (
-            <HierarchyNodeRow
-              key={item.key}
-              item={item}
-              depth={0}
-              selectedKey={selectedKey}
-              childrenOf={childrenOf}
-              onSelect={onSelect}
-              onParent={onParent}
-            />
-          ))}
-        </div>
-      </div>
 
-      <p className="mt-3 text-[11px] leading-5 text-gray-500">
-        D&amp;Dで Legion → Corps → Division → Regiment → Unit
-        の順に親子関係を設定できます。Characterは戦闘名直下固定です。
-        戦闘名へドロップすると親子関係を解除します。
-      </p>
+        <p className="mt-3 text-[11px] leading-5 text-gray-500">
+          D&amp;Dで Legion → Corps → Division → Regiment → Unit
+          の順に親子関係を設定できます。Characterは戦闘名直下固定です。
+          戦闘名へドロップすると親子関係を解除します。
+        </p>
+      </div>
     </div>
   );
 }
@@ -1137,22 +1148,33 @@ function HierarchyNodeRow({
         }}
         onClick={() => onSelect(item.key)}
         className={
-          "rounded px-2 py-1 text-xs cursor-pointer border " +
+          "w-max min-w-full whitespace-nowrap rounded px-2 py-1 text-xs cursor-pointer border " +
           (selectedKey === item.key
             ? "border-yellow-400 bg-yellow-950/30"
             : "border-transparent hover:border-gray-600 hover:bg-[#111827]")
         }
         style={{ marginLeft: depth * 14 }}
         title={
-          item.id
-            ? item.type + ": " + item.id
-            : item.type + ": ID未設定"
+          getCreatorDisplayName(item) +
+          " [" +
+          item.type +
+          "] / " +
+          (item.id.trim()
+            ? "ID: " + item.id.trim()
+            : "ID未設定")
         }
       >
-        <span className="mr-2 text-gray-500">
-          {item.type}
+        <span className="font-medium text-gray-100">
+          {getCreatorDisplayName(item)}
         </span>
-        <span>{item.name || item.id || "(ID未設定)"}</span>
+        <span className="ml-2 text-gray-500">
+          [{item.type}]
+        </span>
+        <span className="ml-2 text-gray-500">
+          {item.id.trim()
+            ? "ID: " + item.id.trim()
+            : "ID未設定"}
+        </span>
         {item.destroyEnabled && (
           <span className="ml-2 text-red-400">
             [破壊]
@@ -1266,21 +1288,20 @@ function ItemProperties({
       </p>
 
       {item.type !== "camera" && (
-        <>
-          <Field
-            label="id"
-            value={item.id}
-            onChange={(id) => onChange({ id })}
-            required
-            invalid={!item.id.trim()}
-          />
-          <Field
-            label="name"
-            value={item.name}
-            onChange={(name) => onChange({ name })}
-          />
-        </>
+        <Field
+          label="id"
+          value={item.id}
+          onChange={(id) => onChange({ id })}
+          required
+          invalid={!item.id.trim()}
+        />
       )}
+
+      <Field
+        label={item.type === "camera" ? "name（表示用）" : "name"}
+        value={item.name}
+        onChange={(name) => onChange({ name })}
+      />
 
       {item.type === "unit" && (
         <>

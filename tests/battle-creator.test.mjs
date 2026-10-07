@@ -154,6 +154,68 @@ test("creator visibility: destruction fades out over 0.5 seconds", () => {
   assert.equal(completed.scale, 0);
 });
 
+test("creator editing: placed element is full-size at its appearance time", () => {
+  const points = [{ t: 3, x: 10, y: 20 }];
+
+  assert.deepEqual(
+    timeline.getCreatorElementVisualState({
+      timeline: points,
+      appearAt: 3,
+      destroyEnabled: false,
+      destroyAt: Number.NaN,
+      t: 3,
+      fadeDuration: 0.5,
+      animateTransitions: false,
+    }),
+    { visible: true, alpha: 1, scale: 1 }
+  );
+
+  assert.deepEqual(
+    timeline.getCreatorElementVisualState({
+      timeline: points,
+      appearAt: 3,
+      destroyEnabled: false,
+      destroyAt: Number.NaN,
+      t: 0,
+      fadeDuration: 0.5,
+      animateTransitions: false,
+    }),
+    { visible: false, alpha: 0, scale: 0 }
+  );
+});
+
+test("creator playback: appearance keeps the fade-in animation", () => {
+  const points = [{ t: 3, x: 10, y: 20 }];
+
+  assert.deepEqual(
+    timeline.getCreatorElementVisualState({
+      timeline: points,
+      appearAt: 3,
+      destroyEnabled: false,
+      destroyAt: Number.NaN,
+      t: 3,
+      fadeDuration: 0.5,
+      animateTransitions: true,
+    }),
+    { visible: true, alpha: 0, scale: 0.2 }
+  );
+});
+
+test("creator editing: destroyed element hides without a partial fade state", () => {
+  assert.deepEqual(
+    timeline.getCreatorElementVisualState({
+      timeline: [{ t: 0, x: 0, y: 0 }],
+      appearAt: 0,
+      destroyEnabled: true,
+      destroyAt: 4,
+      t: 4.25,
+      fadeDuration: 0.5,
+      animateTransitions: false,
+    }),
+    { visible: false, alpha: 0, scale: 0 }
+  );
+});
+
 test("creator visibility: hierarchy can use explicit appearance time without timeline", () => {
   assert.equal(
     timeline.isCreatorElementVisibleAt({
