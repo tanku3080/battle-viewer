@@ -165,9 +165,9 @@ The authenticated title screen now has:
 
 The creator provides:
 
-- collapsible element palette
+- collapsible side panel
+- `要素パネル` / `階層` の2タブ
 - Unit / Character / Legion / Corps / Division / Regiment / Camera marks
-- Reparent / Merge / Reform event panels
 - tooltip guidance for every palette item
 - grid and center axes visible from the initial state
 - drag-and-drop placement
@@ -285,8 +285,9 @@ Unit / Character / Legion / Corps / Division / Regimentのプロパティには
 破壊フラグをONにすると `破壊秒数` を設定できます。
 
 ```text
-destroyAt未満  -> 表示
-destroyAt以降  -> 非表示
+destroyAt到達時      -> 通常表示
+destroyAt + 0.0〜0.5s -> alpha 1→0 / scale 1→0.2
+destroyAt + 0.5s以降  -> 非表示
 ```
 
 生成JSON例:
@@ -300,6 +301,62 @@ destroyAt以降  -> 非表示
 ```
 
 `public/sample-battle.json` の `blue2` は `destroyAt: 18` のサンプルとして、
-18秒以降に表示されなくなります。
+18秒から0.5秒かけてフェードアウトし、その後表示されなくなります。
 
 以前Creatorに存在した `Status` パレットは削除し、破壊表現は破壊フラグへ統一しています。
+
+
+## Creator side panel / hierarchy
+
+左サイドパネルは以下の2タブです。
+
+- `要素パネル`
+- `階層`
+
+`要素パネル`には配置対象だけを表示します。
+
+- Unit
+- Character
+- Legion
+- Corps
+- Division
+- Regiment
+- Camera
+
+Creator上では `Merge / Reparent / Reform` を直接操作させません。
+
+`階層`タブでは、Cameraを除く配置済み要素を戦闘名の配下にツリー表示します。
+戦闘名の初期値は `バトル` です。
+
+許可される軍事階層は以下だけです。
+
+```text
+戦闘名
+├─ Legion
+│  └─ Corps
+│     └─ Division
+│        └─ Regiment
+│           └─ Unit
+└─ Character
+```
+
+Characterは戦闘名直下固定です。
+Unit配下へUnitを置くなど、階層順序に反するD&Dは受け付けません。
+
+階層タブでD&Dすると、子要素の `parentId` を親要素のIDへ自動更新します。
+戦闘名へ戻すと `parentId` を空にします。
+右側プロパティで `parentId` を手入力した場合も階層表示へ反映します。
+
+破壊フラグが設定された要素も、Canvas上でフェードアウトした後も階層タブには残ります。
+
+## Creator camera preview
+
+Cameraを作成画面へ配置すると、Camera中心を基準とした赤い四角の描画範囲を表示します。
+
+- Camera移動 → 赤枠も移動
+- zoom増加 → 赤枠縮小
+- zoom減少 → 赤枠拡大
+- シーク時刻ごとのCamera位置・zoomをtimelineへ保存
+- 再生・シーク中もCamera timelineを補間して赤枠へ反映
+
+Cameraは戦場上の実体ではないため階層タブには表示せず、破壊フラグも持ちません。

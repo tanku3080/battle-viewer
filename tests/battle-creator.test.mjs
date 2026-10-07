@@ -111,42 +111,47 @@ test("creator visibility: element placed at 3s does not exist before 3s", () => 
   );
 });
 
-test("creator visibility: destruction hides element at and after destroyAt", () => {
+test("creator visibility: destruction fades out over 0.5 seconds", () => {
   const points = [
     { t: 0, x: 0, y: 0 },
     { t: 5, x: 50, y: 50 },
   ];
 
-  assert.equal(
-    timeline.isCreatorElementVisibleAt({
-      timeline: points,
-      appearAt: 0,
-      destroyEnabled: true,
-      destroyAt: 4,
-      t: 3.9,
-    }),
-    true
-  );
-  assert.equal(
-    timeline.isCreatorElementVisibleAt({
-      timeline: points,
-      appearAt: 0,
-      destroyEnabled: true,
-      destroyAt: 4,
-      t: 4,
-    }),
-    false
-  );
-  assert.equal(
-    timeline.isCreatorElementVisibleAt({
-      timeline: points,
-      appearAt: 0,
-      destroyEnabled: true,
-      destroyAt: 4,
-      t: 10,
-    }),
-    false
-  );
+  const atDestroy = timeline.getCreatorElementVisualState({
+    timeline: points,
+    appearAt: 0,
+    destroyEnabled: true,
+    destroyAt: 4,
+    t: 4,
+    fadeDuration: 0.5,
+  });
+  assert.equal(atDestroy.visible, true);
+  assert.equal(atDestroy.alpha, 1);
+  assert.equal(atDestroy.scale, 1);
+
+  const halfway = timeline.getCreatorElementVisualState({
+    timeline: points,
+    appearAt: 0,
+    destroyEnabled: true,
+    destroyAt: 4,
+    t: 4.25,
+    fadeDuration: 0.5,
+  });
+  assert.equal(halfway.visible, true);
+  assert.ok(Math.abs(halfway.alpha - 0.5) < 1e-9);
+  assert.ok(Math.abs(halfway.scale - 0.6) < 1e-9);
+
+  const completed = timeline.getCreatorElementVisualState({
+    timeline: points,
+    appearAt: 0,
+    destroyEnabled: true,
+    destroyAt: 4,
+    t: 4.5,
+    fadeDuration: 0.5,
+  });
+  assert.equal(completed.visible, false);
+  assert.equal(completed.alpha, 0);
+  assert.equal(completed.scale, 0);
 });
 
 test("creator visibility: hierarchy can use explicit appearance time without timeline", () => {
@@ -170,4 +175,22 @@ test("creator visibility: hierarchy can use explicit appearance time without tim
     }),
     true
   );
+});
+
+
+test("creator camera: position and zoom interpolate together", () => {
+  const camera = timeline.getCreatorCameraAt(
+    [
+      { t: 0, x: 0, y: 0, zoom: 1 },
+      { t: 4, x: 40, y: 80, zoom: 2 },
+    ],
+    2,
+    { x: 0, y: 0, zoom: 1 }
+  );
+
+  assert.deepEqual(camera, {
+    x: 20,
+    y: 40,
+    zoom: 1.5,
+  });
 });

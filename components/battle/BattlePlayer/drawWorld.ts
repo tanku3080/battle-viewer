@@ -49,9 +49,9 @@ function drawHierarchyNodes(params: {
   const style = LEVELS[sizeKey];
 
   nodes.forEach((node) => {
-    if (!node.position) return;
+    if (!node.position || !node.lifecycleVisible) return;
     const baseAlpha = node.status === "destroyed" ? 0.35 : 1;
-    const nodeAlpha = alpha * baseAlpha;
+    const nodeAlpha = alpha * baseAlpha * node.lifecycleAlpha;
     if (nodeAlpha <= 0) return;
 
     const color = nodeColor(node, battle);
@@ -59,6 +59,7 @@ function drawHierarchyNodes(params: {
     ctx.save();
     ctx.translate(node.position.x, node.position.y);
     ctx.globalAlpha *= nodeAlpha;
+    ctx.scale(node.lifecycleScale, node.lifecycleScale);
 
     ctx.beginPath();
     ctx.arc(0, 0, style.radius, 0, Math.PI * 2);
