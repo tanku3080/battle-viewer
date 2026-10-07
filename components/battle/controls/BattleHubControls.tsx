@@ -20,7 +20,8 @@ export function BattleHubControls({ battleJson }: Props) {
   const [authorName, setAuthorName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);\n  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
