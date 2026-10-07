@@ -13,6 +13,7 @@ type DrawArgs = {
   bgImage: HTMLImageElement | null;
   unitImages: Record<string, HTMLImageElement>;
   charImages: Record<string, HTMLImageElement>;
+  hierarchyImages: Record<string, HTMLImageElement>;
   fadeDuration: number;
   cameraScale?: number;
   frameState?: FrameState;
@@ -41,9 +42,10 @@ function drawHierarchyNodes(params: {
   nodes: NodeWithPosition[];
   alpha: number;
   battle: BattleData;
+  hierarchyImages: Record<string, HTMLImageElement>;
   sizeKey: "legion" | "corps" | "division" | "regiment";
 }) {
-  const { ctx, nodes, alpha, battle, sizeKey } = params;
+  const { ctx, nodes, alpha, battle, hierarchyImages, sizeKey } = params;
   if (alpha <= 0) return;
 
   const style = LEVELS[sizeKey];
@@ -61,13 +63,22 @@ function drawHierarchyNodes(params: {
     ctx.globalAlpha *= nodeAlpha;
     ctx.scale(node.lifecycleScale, node.lifecycleScale);
 
-    ctx.beginPath();
-    ctx.arc(0, 0, style.radius, 0, Math.PI * 2);
-    ctx.fillStyle = color + "33";
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.fill();
-    ctx.stroke();
+    const icon = hierarchyImages[node.id];
+    if (icon) {
+      const size = style.radius * 2;
+      ctx.drawImage(icon, -size / 2, -size / 2, size, size);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(-size / 2, -size / 2, size, size);
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, style.radius, 0, Math.PI * 2);
+      ctx.fillStyle = color + "33";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.fill();
+      ctx.stroke();
+    }
 
     ctx.fillStyle = "#e2e8f0";
     ctx.font = style.font;
@@ -214,6 +225,7 @@ export function drawWorld(args: DrawArgs) {
     bgImage,
     unitImages,
     charImages,
+    hierarchyImages,
     fadeDuration,
     cameraScale = 1,
     frameState,
@@ -326,6 +338,7 @@ export function drawWorld(args: DrawArgs) {
       .filter(Boolean),
     alpha: alphaLegion,
     battle,
+    hierarchyImages,
     sizeKey: "legion",
   });
 
@@ -336,6 +349,7 @@ export function drawWorld(args: DrawArgs) {
       .filter(Boolean),
     alpha: alphaCorps,
     battle,
+    hierarchyImages,
     sizeKey: "corps",
   });
 
@@ -346,6 +360,7 @@ export function drawWorld(args: DrawArgs) {
       .filter(Boolean),
     alpha: alphaDivision,
     battle,
+    hierarchyImages,
     sizeKey: "division",
   });
 
@@ -356,6 +371,7 @@ export function drawWorld(args: DrawArgs) {
       .filter(Boolean),
     alpha: alphaRegiment,
     battle,
+    hierarchyImages,
     sizeKey: "regiment",
   });
 
