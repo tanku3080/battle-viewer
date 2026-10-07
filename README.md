@@ -174,9 +174,10 @@ The creator provides:
 - right-side property editor
 - bottom timeline seek bar
 - 再生 / ストップ
-- time-keyed position recording for Unit / Character / Camera
+- time-keyed position recording for Unit / Character / Camera / hierarchy nodes
 - シーク時刻に応じたkeyframe位置の復元・補間
-- fixed `pos` editing for hierarchy nodes
+- hierarchy group movement with individual-position precedence
+- authenticated force selection and color registration through Battle Hub
 - generated JSON preview
 - JSON file export
 
@@ -348,6 +349,41 @@ Unit配下へUnitを置くなど、階層順序に反するD&Dは受け付けま
 右側プロパティで `parentId` を手入力した場合も階層表示へ反映します。
 
 破壊フラグが設定された要素も、Canvas上でフェードアウトした後も階層タブには残ります。
+
+## Creator group movement / coordinates
+
+Legion / Corps / Division / Regimentのプロパティに `グループ移動` を追加しました。
+有効な親が複数ある場合、最上位の有効な祖先の移動差分を一度だけ配下へ加算します。
+IDが未入力の親、空のparentId、不正な階層関係では追従しません。
+
+配下へ直接指定したキーフレームの座標と、その間の経路は絶対座標として優先します。
+最後の個別指定以降は、その時刻からの親の移動差分に追従します。
+後から出現する要素は配置座標から追従を開始します。
+親変更やグループフラグの切り替えでは現在の表示位置を保ちます。
+
+D&DとX/Y入力は、どちらも現在時刻の移動キーフレームを更新します。
+X/Y入力欄にフォーカスした状態で、↑は+1、↓は-1です。
+小数・負数にも対応し、グループ移動中の親の入力でも配下へ反映します。
+
+JSONには `hierarchy.nodes.<id>.groupMove` と、実際の絶対座標へ変換した
+`timeline.hierarchy` / `timeline.units` を保存します。Viewerはこの座標を再生し、
+グループ移動を重ねて加算しません。旧JSONの固定 `pos` も引き続き読み込めます。
+
+## Creator forces
+
+Unitのforceは登録済み一覧から選択します。`＋ 新しいforceを作成` で管理ダイアログを開き、
+登録済みforceの名前と色を確認し、新規作成から名前とカラーパレットを指定できます。
+空名・64文字超・大文字小文字を区別しない重複・不正な色は拒否します。
+登録失敗時は入力を保持し、BE成功後に一覧と選択値を更新します。
+
+FEの `/api/battle-hub/forces` はsession cookieをBearerへ変換して、battle-hubの
+`GET /api/forces` / `POST /api/forces` へ転送します。
+一覧取得失敗時は再取得でき、登録の失敗もダイアログへ表示します。
+
+JSONには `forces: [{"name":"青チーム","color":"#2563eb"}]` を保存し、
+Unitの色は選択したforceから決まります。Viewerもforceの色を優先して読み込みます。
+forcesのない旧JSONは、従来のUnitのcolorをそのまま利用します。
+現在のBEのforce一覧はBattle・Sessionと同じくインメモリ保存です。
 
 ## Creator camera preview
 

@@ -3,12 +3,15 @@ import type {
   HierarchyLevel,
   HierarchyNode,
   Unit,
+  TimelinePoint,
 } from "@/types/battle";
 
 export type HierarchySourceNode = {
   id: string;
   name?: string;
   pos?: { x: number; y: number };
+  groupMove?: boolean;
+  timeline?: TimelinePoint[];
   appearAt?: number;
   destroyAt?: number;
   children?: HierarchySourceNode[];
@@ -34,6 +37,7 @@ export function cloneHierarchyNodes(
         unitIds: [...node.unitIds],
         history: [...node.history],
         pos: node.pos ? { ...node.pos } : undefined,
+        timeline: node.timeline?.map((point) => ({ ...point })),
       },
     ])
   );
@@ -62,6 +66,8 @@ export function buildHierarchyNodesFromJson(
       status: "active",
       history: [],
       pos: src.pos,
+      groupMove: src.groupMove,
+      timeline: src.timeline,
       appearAt: src.appearAt,
       destroyAt: src.destroyAt,
     };

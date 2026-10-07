@@ -1,4 +1,19 @@
 import type { RawBattleJson } from "@/utils/battle/loadBattleJson";
+import type { ForceDefinition } from "@/utils/battle/forces";
+
+export async function getBattleHubForces(signal?: AbortSignal): Promise<ForceDefinition[]> {
+  const response = await fetch("/api/battle-hub/forces", { cache: "no-store", signal });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<ForceDefinition[]>;
+}
+
+export async function createBattleHubForce(force: ForceDefinition): Promise<ForceDefinition> {
+  const response = await fetch("/api/battle-hub/forces", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(force),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<ForceDefinition>;
+}
 
 export type BattleHubHealth = {
   status: string;
