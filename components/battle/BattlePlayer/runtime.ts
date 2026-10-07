@@ -292,6 +292,13 @@ function computeHierarchyPositions(
     const node = nodes[nodeId];
     if (!node) return null;
 
+    if (node.timeline?.length) {
+      const transform = getSmoothTransform(node.timeline, currentTime);
+      const position = transform ? { x: transform.x, y: transform.y } : null;
+      cache.set(node.id, position);
+      return position;
+    }
+
     if (node.pos) {
       const fixed = { ...node.pos };
       cache.set(node.id, fixed);

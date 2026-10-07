@@ -1,4 +1,5 @@
 // types/battle.ts
+import type { ForceDefinition } from "@/utils/battle/forces";
 
 export type TimelinePoint = {
   t: number;
@@ -49,6 +50,8 @@ export type HierarchyNode = {
     detail?: unknown;
   }>;
   pos?: { x: number; y: number };
+  groupMove?: boolean;
+  timeline?: TimelinePoint[];
   appearAt?: number;
   destroyAt?: number;
 };
@@ -118,6 +121,7 @@ export type BattleTimeline = {
   camera?: CameraKeyframe[];
   units: Record<string, TimelinePoint[]>;
   characters?: Record<string, TimelinePoint[]>;
+  hierarchy?: Record<string, TimelinePoint[]>;
 };
 
 export type CoordinateOrigin = "top-left" | "center";
@@ -138,6 +142,7 @@ export type BattleMap = {
 
 export type BattleData = {
   title: string;
+  forces?: ForceDefinition[];
   map: BattleMap;
   lod: LODConfig;
   camera: CameraKeyframe[];

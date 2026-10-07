@@ -2,6 +2,18 @@
 
 import Link from "next/link";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import ForcePicker from "@/components/battle/ForcePicker";
+import { createBattleHubForce, getBattleHubForces } from "@/utils/battleHub/client";
+import { getForceColor, type ForceDefinition } from "@/utils/battle/forces";
+import {
+  buildCreatorWorldTimeline,
+  getCreatorItemPositionAt,
+  initializeCreatorGroupOrigin,
+  recordCreatorPosition,
+  stepCreatorCoordinate,
+  syncCreatorGroupOrigins,
+  type CreatorMovementPoint,
+} from "@/utils/battleCreator/movement";
 import {
   getCreatorCameraAt,
   getCreatorElementVisualState,
@@ -29,7 +41,7 @@ type SpatialType =
   | "regiment"
   | "camera";
 type SidebarTab = "elements" | "hierarchy";
-type Point = { t: number; x: number; y: number; dir?: number; zoom?: number };
+type Point = CreatorMovementPoint;
 type EditorItem = {
   key: string;
   type: SpatialType;
@@ -39,6 +51,8 @@ type EditorItem = {
   color: string;
   icon: string;
   parentId: string;
+  groupMove: boolean;
+  groupOrigin?: { key: string; x: number; y: number };
   x: number;
   y: number;
   zoom: number;
@@ -120,6 +134,7 @@ function emptyItem(type: SpatialType): EditorItem {
     color: "",
     icon: "",
     parentId: "",
+    groupMove: false,
     x: Number.NaN,
     y: Number.NaN,
     zoom: Number.NaN,
@@ -129,6 +144,10 @@ function emptyItem(type: SpatialType): EditorItem {
     destroyAt: Number.NaN,
     timeline: [],
   };
+}
+
+function getParentItem(items: EditorItem[], item: EditorItem) {
+  return items.find((candidate) => isCreatorParentOf(candidate, item)) ?? null;
 }
 
 export default function BattleCreator() {
@@ -150,6 +169,29 @@ export default function BattleCreator() {
     "preview" | "save" | null
   >(null);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [forces, setForces] = useState<ForceDefinition[]>([]);
+  const [forcesLoading, setForcesLoading] = useState(true);
+  const [forcesError, setForcesError] = useState("");
+  const [forceLoadVersion, setForceLoadVersion] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getBattleHubForces(controller.signal).then((registered) => {
+      setForces(registered); setForcesError("");
+    }).catch((error) => {
+      if (!controller.signal.aborted) setForcesError(error instanceof Error ? error.message : "force一覧を取得できません");
+    }).finally(() => {
+      if (!controller.signal.aborted) setForcesLoading(false);
+    });
+    return () => controller.abort();
+  }, [forceLoadVersion]);
+
+  const retryForces = () => { setForcesLoading(true); setForceLoadVersion((version) => version + 1); };
+  const createForce = async (force: ForceDefinition) => {
+    const registered = await createBattleHubForce(force);
+    setForces((old) => [...old.filter((entry) => entry.name !== registered.name), registered]);
+    return registered;
+  };
 
   const invalidItems = useMemo(
     () => items.filter((item) => hasMissingRequiredFields(item)),
@@ -161,14 +203,10 @@ export default function BattleCreator() {
     items.find((item) => item.key === selectedKey) ?? draftItem ?? null;
 
   const selected =
-    selectedSource && selectedKey && !isHierarchy(selectedSource.type)
+    selectedSource && selectedKey
       ? {
           ...selectedSource,
-          ...getCreatorPositionAt(
-            selectedSource.timeline,
-            currentTime,
-            { x: selectedSource.x, y: selectedSource.y }
-          ),
+          ...getCreatorItemPositionAt(items, selectedSource, currentTime),
         }
       : selectedSource;
 
@@ -234,39 +272,19 @@ export default function BattleCreator() {
     }
   };
 
-  const record = (item: EditorItem, x: number, y: number) => {
-    const appearAt = Number.isFinite(item.appearAt)
-      ? item.appearAt
-      : currentTime;
-
-    if (isHierarchy(item.type)) {
-      return { ...item, x, y, appearAt };
-    }
-
-    const point: Point = {
-      t: currentTime,
-      x,
-      y,
+  const record = (item: EditorItem, x: number, y: number, explicit = true) => {
+    const updated = recordCreatorPosition(item, x, y, currentTime, {
       ...(Number.isFinite(item.dir) ? { dir: item.dir } : {}),
       ...(item.type === "camera" && Number.isFinite(item.zoom)
         ? { zoom: item.zoom }
         : {}),
-    };
-    const timeline = [
-      ...item.timeline.filter((p) => p.t !== currentTime),
-      point,
-    ].sort((a, b) => a.t - b.t);
-
+    }, explicit);
     return {
-      ...item,
-      x,
-      y,
-      appearAt,
+      ...updated,
       zoom:
         item.type === "camera" && !Number.isFinite(item.zoom)
           ? 1
           : item.zoom,
-      timeline,
     };
   };
 
@@ -305,10 +323,11 @@ export default function BattleCreator() {
           getCreatorDefaultName(type, items),
       },
       p.x,
-      p.y
+      p.y,
+      false
     );
 
-    setItems((old) => [...old, created]);
+    setItems((old) => [...old, initializeCreatorGroupOrigin(old, created)]);
     setSelectedKey(created.key);
     setDraftItem(null);
   };
@@ -325,9 +344,15 @@ export default function BattleCreator() {
 
   const updateSelected = (patch: Partial<EditorItem>) => {
     if (selectedKey) {
-      setItems((old) =>
-        old.map((item) => {
+      setItems((old) => {
+        const next = old.map((item) => {
           if (item.key !== selectedKey) return item;
+          const updated = { ...item, ...patch };
+          if ((patch.x !== undefined && Number.isFinite(patch.x)) ||
+              (patch.y !== undefined && Number.isFinite(patch.y))) {
+            const current = getCreatorItemPositionAt(old, item, currentTime);
+            return record(updated, patch.x ?? current.x, patch.y ?? current.y);
+          }
 
           if (
             item.type === "camera" &&
@@ -353,9 +378,10 @@ export default function BattleCreator() {
             return { ...item, ...patch, timeline };
           }
 
-          return { ...item, ...patch };
-        })
-      );
+          return updated;
+        });
+        return syncCreatorGroupOrigins(old, next, currentTime);
+      });
     } else if (draftItem) {
       setDraftItem({ ...draftItem, ...patch });
     }
@@ -366,7 +392,7 @@ export default function BattleCreator() {
     const deleting = items.find((item) => item.key === selectedKey);
     const deletingId = deleting?.id.trim() ?? "";
 
-    setItems((old) =>
+    setItems((old) => syncCreatorGroupOrigins(old,
       old
         .filter((item) => item.key !== selectedKey)
         .map((item) =>
@@ -374,8 +400,7 @@ export default function BattleCreator() {
           item.parentId.trim() === deletingId
             ? { ...item, parentId: "" }
             : item
-        )
-    );
+        ), currentTime));
     setSelectedKey(null);
     setDraftItem(null);
   };
@@ -388,11 +413,10 @@ export default function BattleCreator() {
     if (!child || child.type === "camera") return;
 
     if (parentKey === null) {
-      setItems((old) =>
+      setItems((old) => syncCreatorGroupOrigins(old,
         old.map((item) =>
           item.key === childKey ? { ...item, parentId: "" } : item
-        )
-      );
+        ), currentTime));
       return;
     }
 
@@ -405,21 +429,12 @@ export default function BattleCreator() {
       return;
     }
 
-    setItems((old) =>
+    setItems((old) => syncCreatorGroupOrigins(old,
       old.map((item) =>
         item.key === childKey
           ? { ...item, parentId: parent.id.trim() }
           : item
-      )
-    );
-  };
-
-  const getParentItem = (item: EditorItem) => {
-    if (!item.parentId.trim()) return null;
-    const parent = items.find(
-      (candidate) => isCreatorParentOf(candidate, item)
-    );
-    return parent ?? null;
+      ), currentTime));
   };
 
   const hierarchyItems = items.filter(
@@ -427,10 +442,10 @@ export default function BattleCreator() {
   );
 
   const rootHierarchyItems = hierarchyItems.filter(
-    (item) => !getParentItem(item)
+    (item) => !getParentItem(items, item)
   );
 
-  const battleJson = (() => {
+  const battleJson = useMemo(() => {
     const validItems = items.filter(
       (item) => !hasMissingRequiredFields(item)
     );
@@ -445,8 +460,8 @@ export default function BattleCreator() {
         ...(item.name.trim()
           ? { name: item.name.trim() }
           : {}),
-        ...(item.color.trim()
-          ? { color: item.color.trim() }
+        ...(getForceColor(forces, item.force) || item.color.trim()
+          ? { color: getForceColor(forces, item.force) || item.color.trim() }
           : {}),
         icon: item.icon.trim() || null,
         ...(item.destroyEnabled &&
@@ -495,7 +510,7 @@ export default function BattleCreator() {
                 .map((child) => child.id.trim())
             : [];
 
-        const parent = getParentItem(item);
+        const parent = getParentItem(items, item);
 
         return [
           item.id.trim(),
@@ -508,7 +523,8 @@ export default function BattleCreator() {
                 : parent?.id.trim() || null,
             childrenIds,
             unitIds,
-            pos: { x: item.x, y: item.y },
+            pos: getCreatorItemPositionAt(items, item, item.appearAt),
+            groupMove: item.groupMove,
             ...(Number.isFinite(item.appearAt) &&
             item.appearAt > 0
               ? { appearAt: item.appearAt }
@@ -529,7 +545,7 @@ export default function BattleCreator() {
             item.type === "unit" &&
             item.timeline.length > 0
         )
-        .map((item) => [item.id.trim(), item.timeline])
+        .map((item) => [item.id.trim(), buildCreatorWorldTimeline(items, item)])
     );
 
     const charTimeline = Object.fromEntries(
@@ -539,7 +555,11 @@ export default function BattleCreator() {
             item.type === "character" &&
             item.timeline.length > 0
         )
-        .map((item) => [item.id.trim(), item.timeline])
+        .map((item) => [item.id.trim(), buildCreatorWorldTimeline(items, item)])
+    );
+
+    const hierarchyTimeline = Object.fromEntries(
+      hierarchy.map((item) => [item.id.trim(), buildCreatorWorldTimeline(items, item)])
     );
 
     const camera = validItems
@@ -571,16 +591,18 @@ export default function BattleCreator() {
         ? { hierarchy: { nodes } }
         : {}),
       units,
+      ...(forces.length ? { forces: forces.map(({ name, color }) => ({ name, color })) } : {}),
       ...(characters.length ? { characters } : {}),
       timeline: {
         ...(camera.length ? { camera } : {}),
         units: unitTimeline,
+        ...(hierarchy.length ? { hierarchy: hierarchyTimeline } : {}),
         ...(Object.keys(charTimeline).length
           ? { characters: charTimeline }
           : {}),
       },
     };
-  })();
+  }, [items, forces, title, mapImage, mapWidth, mapHeight]);
 
   const saveJson = () => {
     const blob = new Blob(
@@ -801,13 +823,7 @@ export default function BattleCreator() {
 
               if (!visual.visible) return null;
 
-              const current = isHierarchy(item.type)
-                ? { x: item.x, y: item.y }
-                : getCreatorPositionAt(
-                    item.timeline,
-                    currentTime,
-                    { x: item.x, y: item.y }
-                  );
+              const current = getCreatorItemPositionAt(items, item, currentTime);
               const pos = toPercent(current.x, current.y);
               const mark =
                 PALETTE.find(
@@ -880,6 +896,9 @@ export default function BattleCreator() {
                     style={{
                       left: pos.left,
                       top: pos.top,
+                      ...(item.type === "unit" && getForceColor(forces, item.force)
+                        ? { backgroundColor: getForceColor(forces, item.force) }
+                        : {}),
                       opacity: visual.alpha,
                       transform:
                         "translate(-50%, -50%) scale(" +
@@ -966,8 +985,14 @@ export default function BattleCreator() {
         <aside className="w-80 shrink-0 border-l border-gray-700 bg-[#0b1020] overflow-y-auto">
           {selected ? (
             <ItemProperties
+              key={selected.key}
               item={selected}
               placed={Boolean(selectedKey)}
+              forces={forces}
+              forcesLoading={forcesLoading}
+              forcesError={forcesError}
+              onRetryForces={retryForces}
+              onCreateForce={createForce}
               currentTime={currentTime}
               items={items}
               onChange={updateSelected}
@@ -1205,6 +1230,7 @@ function Field({
   required = false,
   invalid = false,
   help,
+  coordinate = false,
 }: {
   label: string;
   value: string | number;
@@ -1213,6 +1239,7 @@ function Field({
   required?: boolean;
   invalid?: boolean;
   help?: string;
+  coordinate?: boolean;
 }) {
   return (
     <label className="block mb-3">
@@ -1226,6 +1253,13 @@ function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(event) => {
+          if (!coordinate) return;
+          const next = stepCreatorCoordinate(event.currentTarget.value, event.key);
+          if (next === null) return;
+          event.preventDefault();
+          onChange(String(next));
+        }}
         className={
           "w-full rounded border bg-[#111827] px-3 py-2 text-sm " +
           (invalid
@@ -1254,6 +1288,11 @@ function ItemProperties({
   items,
   onChange,
   onDelete,
+  forces,
+  forcesLoading,
+  forcesError,
+  onRetryForces,
+  onCreateForce,
 }: {
   item: EditorItem;
   placed: boolean;
@@ -1261,6 +1300,11 @@ function ItemProperties({
   items: EditorItem[];
   onChange: (patch: Partial<EditorItem>) => void;
   onDelete: () => void;
+  forces: ForceDefinition[];
+  forcesLoading: boolean;
+  forcesError: string;
+  onRetryForces: () => void;
+  onCreateForce: (force: ForceDefinition) => Promise<ForceDefinition>;
 }) {
   const expected = expectedCreatorParentType(item.type);
   const parent =
@@ -1305,15 +1349,14 @@ function ItemProperties({
 
       {item.type === "unit" && (
         <>
-          <Field
-            label="force"
+          <ForcePicker
             value={item.force}
             onChange={(force) => onChange({ force })}
-          />
-          <Field
-            label="color"
-            value={item.color}
-            onChange={(color) => onChange({ color })}
+            forces={forces}
+            loading={forcesLoading}
+            loadError={forcesError}
+            onRetry={onRetryForces}
+            onCreate={onCreateForce}
           />
           <Field
             label="icon"
@@ -1374,9 +1417,22 @@ function ItemProperties({
         </div>
       )}
 
+      {isHierarchy(item.type) && (
+        <div className="mb-3 rounded border border-gray-700 bg-[#111827] p-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={item.groupMove} onChange={(event) => onChange({ groupMove: event.target.checked })} />
+            グループ移動
+          </label>
+          <p className="mt-2 text-[11px] leading-5 text-gray-500">
+            最上位の有効な親の移動に配下が追従します。個別に記録した位置・経路が優先され、最後の個別指定以降は親の移動分に追従します。
+          </p>
+        </div>
+      )}
+
       <Field
         label="x"
         type="number"
+        coordinate
         value={Number.isFinite(item.x) ? item.x : ""}
         onChange={(x) =>
           onChange({
@@ -1390,6 +1446,7 @@ function ItemProperties({
       <Field
         label="y"
         type="number"
+        coordinate
         value={Number.isFinite(item.y) ? item.y : ""}
         onChange={(y) =>
           onChange({
