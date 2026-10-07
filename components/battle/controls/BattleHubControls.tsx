@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import type { RawBattleJson } from "@/utils/battle/loadBattleJson";
 import {
   getBattleHubHealth,
@@ -20,7 +20,7 @@ export function BattleHubControls({ battleJson }: Props) {
   const [authorName, setAuthorName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);\n  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -35,6 +35,17 @@ export function BattleHubControls({ battleJson }: Props) {
 
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => {
+      if (dialog?.open) dialog.close();
+      previousFocus?.focus();
+    };
+  }, [isOpen]);
 
   const handlePublish = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -73,6 +84,9 @@ export function BattleHubControls({ battleJson }: Props) {
     <>
       <div className="flex items-center gap-2">
         <span
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
           className={
             health === "online"
               ? "text-xs text-emerald-300"
@@ -100,17 +114,20 @@ export function BattleHubControls({ battleJson }: Props) {
       </div>
 
       {isOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Battle Hubへ投稿"
+        <dialog
+          ref={dialogRef}
+          aria-labelledby="battle-hub-publish-title"
+          onCancel={(event) => {
+            event.preventDefault();
+            if (!isPublishing) setIsOpen(false);
+          }}
+          className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-gray-700 bg-[#111827] p-0 text-gray-100 shadow-xl backdrop:bg-black/70"
         >
           <form
             onSubmit={handlePublish}
-            className="w-full max-w-md rounded-lg border border-gray-700 bg-[#111827] p-5 shadow-xl"
+            className="w-full p-5"
           >
-            <h2 className="text-lg font-semibold mb-4">Battle Hubへ投稿</h2>
+            <h2 id="battle-hub-publish-title" className="text-lg font-semibold mb-4">Battle Hubへ投稿</h2>
 
             <label className="block text-sm mb-3">
               <span className="block mb-1 text-gray-300">投稿者名</span>
@@ -137,7 +154,7 @@ export function BattleHubControls({ battleJson }: Props) {
             </label>
 
             {message && (
-              <div className="mb-4 rounded border border-gray-700 bg-[#0b1020] p-3 text-xs break-all">
+              <div role="status" aria-live="polite" aria-atomic="true" className="mb-4 rounded border border-gray-700 bg-[#0b1020] p-3 text-xs break-all">
                 {message}
               </div>
             )}
@@ -160,7 +177,7 @@ export function BattleHubControls({ battleJson }: Props) {
               </button>
             </div>
           </form>
-        </div>
+        </dialog>
       )}
     </>
   );
