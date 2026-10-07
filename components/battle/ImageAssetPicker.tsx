@@ -54,21 +54,26 @@ export default function ImageAssetPicker({
   }, [maxPreviewHeight, maxPreviewWidth, safeAspect]);
   const previewWidth = previewSize.width;
   const previewHeight = previewSize.height;
+  const iconCropSize = mode === "icon"
+    ? Math.min(previewWidth, previewHeight) * 0.82
+    : null;
+  const cropWidth = iconCropSize ?? previewWidth;
+  const cropHeight = iconCropSize ?? previewHeight;
 
   const baseScale = useMemo(() => {
     if (!imageSize) return 1;
     return Math.max(
-      previewWidth / imageSize.width,
-      previewHeight / imageSize.height
+      cropWidth / imageSize.width,
+      cropHeight / imageSize.height
     );
-  }, [imageSize, previewHeight, previewWidth]);
+  }, [cropHeight, cropWidth, imageSize]);
 
   const clampOffset = (next: { x: number; y: number }, nextZoom = zoom) => {
     if (!imageSize) return next;
     const renderedWidth = imageSize.width * baseScale * nextZoom;
     const renderedHeight = imageSize.height * baseScale * nextZoom;
-    const maxX = Math.max(0, (renderedWidth - previewWidth) / 2);
-    const maxY = Math.max(0, (renderedHeight - previewHeight) / 2);
+    const maxX = Math.max(0, (renderedWidth - cropWidth) / 2);
+    const maxY = Math.max(0, (renderedHeight - cropHeight) / 2);
     return {
       x: clamp(next.x, -maxX, maxX),
       y: clamp(next.y, -maxY, maxY),
@@ -106,8 +111,8 @@ export default function ImageAssetPicker({
     if (!image || !imageSize) return;
 
     const scale = baseScale * zoom;
-    const sourceWidth = previewWidth / scale;
-    const sourceHeight = previewHeight / scale;
+    const sourceWidth = cropWidth / scale;
+    const sourceHeight = cropHeight / scale;
     const sourceX = imageSize.width / 2 - sourceWidth / 2 - offset.x / scale;
     const sourceY = imageSize.height / 2 - sourceHeight / 2 - offset.y / scale;
 
@@ -178,7 +183,14 @@ export default function ImageAssetPicker({
             className="flex w-full items-center gap-3 rounded border border-gray-600 bg-[#111827] p-2 text-left hover:border-blue-400"
           >
             {value ? (
-              <img src={value} alt="" className="h-16 w-16 shrink-0 rounded object-cover" />
+              <img
+                src={value}
+                alt=""
+                className={
+                  "h-16 w-16 shrink-0 object-cover " +
+                  (mode === "icon" ? "rounded-full" : "rounded")
+                }
+              />
             ) : (
               <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-dashed border-gray-600 text-2xl text-gray-500">
                 +
@@ -209,7 +221,9 @@ export default function ImageAssetPicker({
           <div className="max-h-full max-w-3xl overflow-auto rounded-xl border border-gray-700 bg-[#0b1020] p-5 shadow-2xl">
             <h2 className="text-lg font-semibold">{label}プレビュー</h2>
             <p className="mt-1 text-xs text-gray-400">
-              画像をドラッグして位置を調整し、ズームで表示範囲を決めてください。
+              {mode === "icon"
+                ? "明るい円の内側が実際に表示される範囲です。画像をドラッグし、ズームして位置を調整してください。"
+                : "画像をドラッグして位置を調整し、ズームで表示範囲を決めてください。"}
             </p>
 
             <div className="mt-4 flex justify-center">
@@ -262,7 +276,19 @@ export default function ImageAssetPicker({
                       : undefined
                   }
                 />
-                <div className="pointer-events-none absolute inset-0 border border-white/40" />
+                {mode === "icon" ? (
+                  <div
+                    className="pointer-events-none absolute left-1/2 top-1/2 rounded-full border-2 border-white/90"
+                    style={{
+                      width: iconCropSize ?? undefined,
+                      height: iconCropSize ?? undefined,
+                      transform: "translate(-50%, -50%)",
+                      boxShadow: "0 0 0 9999px rgba(0,0,0,0.6)",
+                    }}
+                  />
+                ) : (
+                  <div className="pointer-events-none absolute inset-0 border border-white/40" />
+                )}
               </div>
             </div>
 
