@@ -1360,7 +1360,7 @@ function Field({
         {required && (
           <span className="ml-1 text-red-300" aria-hidden="true">*</span>
         )}
-      </span>
+      </label>
       <div className={coordinate ? "flex items-center gap-2" : undefined}>
         {coordinate && (
           <button
@@ -1418,7 +1418,7 @@ function Field({
           {required && invalid ? "必須入力フォームです" : help}
         </span>
       ) : null}
-    </label>
+    </div>
   );
 }
 
