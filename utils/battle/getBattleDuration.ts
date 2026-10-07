@@ -11,14 +11,20 @@ export function getBattleDuration(battle: BattleData | null): number {
     if (Number.isFinite(value) && value > maxTime) maxTime = value;
   };
 
-  battle.units.forEach((unit) =>
-    unit.timeline.forEach((point) => include(point.t))
-  );
-  battle.characters.forEach((character) =>
-    character.timeline.forEach((point) => include(point.t))
-  );
+  battle.units.forEach((unit) => {
+    unit.timeline.forEach((point) => include(point.t));
+    if (unit.destroyAt !== undefined) include(unit.destroyAt);
+  });
+  battle.characters.forEach((character) => {
+    character.timeline.forEach((point) => include(point.t));
+    if (character.destroyAt !== undefined) include(character.destroyAt);
+  });
   battle.camera.forEach((camera) => include(camera.t));
   battle.events.forEach((event) => include(event.t));
+  Object.values(battle.hierarchy?.nodes ?? {}).forEach((node) => {
+    if (node.appearAt !== undefined) include(node.appearAt);
+    if (node.destroyAt !== undefined) include(node.destroyAt);
+  });
 
   return maxTime;
 }

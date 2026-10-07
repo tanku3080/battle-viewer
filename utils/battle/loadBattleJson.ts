@@ -37,6 +37,7 @@ type RawCharacter = {
   id: string;
   name?: string;
   icon?: string | null;
+  destroyAt?: number;
   timeline?: TimelinePoint[];
 };
 
@@ -108,6 +109,10 @@ function buildUnitDefinitions(units: RawUnit[]) {
       name: unit.name ?? unit.id,
       color: unit.color ?? fallbackColor(unit.id),
       icon: unit.icon ?? null,
+      destroyAt:
+        typeof unit.destroyAt === "number" && Number.isFinite(unit.destroyAt)
+          ? unit.destroyAt
+          : undefined,
     };
     return acc;
   }, {});
@@ -161,7 +166,7 @@ function buildUnits(
       ...def,
       timeline: tl,
       appearAt: tl.length ? tl[0].t : Number.POSITIVE_INFINITY,
-      disappearAt: tl.length ? tl[tl.length - 1].t : Number.NEGATIVE_INFINITY,
+      disappearAt: Number.POSITIVE_INFINITY,
     };
   });
 
@@ -187,9 +192,13 @@ function buildCharacters(
       id,
       name: def?.name ?? id,
       icon: def?.icon ?? null,
+      destroyAt:
+        typeof def?.destroyAt === "number" && Number.isFinite(def.destroyAt)
+          ? def.destroyAt
+          : undefined,
       timeline: tl,
       appearAt: tl.length ? tl[0].t : Number.POSITIVE_INFINITY,
-      disappearAt: tl.length ? tl[tl.length - 1].t : Number.NEGATIVE_INFINITY,
+      disappearAt: Number.POSITIVE_INFINITY,
     };
   });
 
@@ -225,6 +234,14 @@ function normalizeHierarchy(
       status: value.status ?? "active",
       history: [...(value.history ?? [])],
       pos: value.pos,
+      appearAt:
+        typeof value.appearAt === "number" && Number.isFinite(value.appearAt)
+          ? value.appearAt
+          : undefined,
+      destroyAt:
+        typeof value.destroyAt === "number" && Number.isFinite(value.destroyAt)
+          ? value.destroyAt
+          : undefined,
     };
   });
 

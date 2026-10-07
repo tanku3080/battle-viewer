@@ -45,6 +45,9 @@ function item(type, overrides = {}) {
     type,
     id: "",
     zoom: Number.NaN,
+    appearAt: 0,
+    destroyEnabled: false,
+    destroyAt: Number.NaN,
     ...overrides,
   };
 }
@@ -91,6 +94,45 @@ test("creator validation: camera requires a finite zoom", () => {
   );
   assert.equal(
     validation.hasMissingRequiredFields(item("camera", { zoom: 1 })),
+    false
+  );
+});
+
+
+test("creator validation: enabled destroy flag requires valid destroyAt", () => {
+  assert.deepEqual(
+    validation.getMissingRequiredFields(
+      item("unit", {
+        id: "unit_1",
+        appearAt: 3,
+        destroyEnabled: true,
+        destroyAt: Number.NaN,
+      })
+    ),
+    ["destroyAt"]
+  );
+
+  assert.deepEqual(
+    validation.getMissingRequiredFields(
+      item("unit", {
+        id: "unit_1",
+        appearAt: 3,
+        destroyEnabled: true,
+        destroyAt: 2,
+      })
+    ),
+    ["destroyAt"]
+  );
+
+  assert.equal(
+    validation.hasMissingRequiredFields(
+      item("unit", {
+        id: "unit_1",
+        appearAt: 3,
+        destroyEnabled: true,
+        destroyAt: 5,
+      })
+    ),
     false
   );
 });

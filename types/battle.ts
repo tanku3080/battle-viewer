@@ -13,6 +13,7 @@ export type UnitDefinition = {
   name: string;
   color: string;
   icon: string | null;
+  destroyAt?: number;
 };
 
 export type Unit = UnitDefinition & {
@@ -25,6 +26,7 @@ export type Character = {
   id: string;
   name: string;
   icon?: string | null;
+  destroyAt?: number;
   timeline: TimelinePoint[];
   appearAt: number;
   disappearAt: number;
@@ -47,6 +49,8 @@ export type HierarchyNode = {
     detail?: unknown;
   }>;
   pos?: { x: number; y: number };
+  appearAt?: number;
+  destroyAt?: number;
 };
 
 export type LODBand = { min: number; max: number };

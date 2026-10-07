@@ -84,3 +84,90 @@ test("creator timeline: clamps before first and after last keyframe", () => {
     { x: 30, y: 40 }
   );
 });
+
+
+test("creator visibility: element placed at 3s does not exist before 3s", () => {
+  const points = [{ t: 3, x: 10, y: 20 }];
+
+  assert.equal(
+    timeline.isCreatorElementVisibleAt({
+      timeline: points,
+      appearAt: 3,
+      destroyEnabled: false,
+      destroyAt: Number.NaN,
+      t: 0,
+    }),
+    false
+  );
+  assert.equal(
+    timeline.isCreatorElementVisibleAt({
+      timeline: points,
+      appearAt: 3,
+      destroyEnabled: false,
+      destroyAt: Number.NaN,
+      t: 3,
+    }),
+    true
+  );
+});
+
+test("creator visibility: destruction hides element at and after destroyAt", () => {
+  const points = [
+    { t: 0, x: 0, y: 0 },
+    { t: 5, x: 50, y: 50 },
+  ];
+
+  assert.equal(
+    timeline.isCreatorElementVisibleAt({
+      timeline: points,
+      appearAt: 0,
+      destroyEnabled: true,
+      destroyAt: 4,
+      t: 3.9,
+    }),
+    true
+  );
+  assert.equal(
+    timeline.isCreatorElementVisibleAt({
+      timeline: points,
+      appearAt: 0,
+      destroyEnabled: true,
+      destroyAt: 4,
+      t: 4,
+    }),
+    false
+  );
+  assert.equal(
+    timeline.isCreatorElementVisibleAt({
+      timeline: points,
+      appearAt: 0,
+      destroyEnabled: true,
+      destroyAt: 4,
+      t: 10,
+    }),
+    false
+  );
+});
+
+test("creator visibility: hierarchy can use explicit appearance time without timeline", () => {
+  assert.equal(
+    timeline.isCreatorElementVisibleAt({
+      timeline: [],
+      appearAt: 5,
+      destroyEnabled: false,
+      destroyAt: Number.NaN,
+      t: 4.9,
+    }),
+    false
+  );
+  assert.equal(
+    timeline.isCreatorElementVisibleAt({
+      timeline: [],
+      appearAt: 5,
+      destroyEnabled: false,
+      destroyAt: Number.NaN,
+      t: 5,
+    }),
+    true
+  );
+});

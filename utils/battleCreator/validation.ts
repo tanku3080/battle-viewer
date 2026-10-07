@@ -11,16 +11,34 @@ export type CreatorValidatableItem = {
   type: CreatorElementType;
   id: string;
   zoom: number;
+  appearAt?: number;
+  destroyEnabled?: boolean;
+  destroyAt?: number;
 };
 
 export function getMissingRequiredFields(
   item: CreatorValidatableItem
 ): string[] {
+  const missing: string[] = [];
+
   if (item.type === "camera") {
-    return Number.isFinite(item.zoom) ? [] : ["zoom"];
+    if (!Number.isFinite(item.zoom)) missing.push("zoom");
+    return missing;
   }
 
-  return item.id.trim() ? [] : ["id"];
+  if (!item.id.trim()) missing.push("id");
+
+  if (item.destroyEnabled) {
+    const appearAt = Number.isFinite(item.appearAt) ? item.appearAt! : 0;
+    if (
+      !Number.isFinite(item.destroyAt) ||
+      (item.destroyAt as number) < appearAt
+    ) {
+      missing.push("destroyAt");
+    }
+  }
+
+  return missing;
 }
 
 export function hasMissingRequiredFields(
