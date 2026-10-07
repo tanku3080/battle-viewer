@@ -237,6 +237,7 @@ function normalizeHierarchy(
       history: [...(value.history ?? [])],
       pos: value.pos,
       groupMove: value.groupMove === true,
+      groupMoveTimeline: value.groupMoveTimeline?.map((point) => ({ ...point })),
       timeline: value.timeline,
       appearAt:
         typeof value.appearAt === "number" && Number.isFinite(value.appearAt)

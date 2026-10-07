@@ -4,6 +4,7 @@ import type {
   HierarchyNode,
   Unit,
   TimelinePoint,
+  GroupMoveKeyframe,
 } from "@/types/battle";
 
 export type HierarchySourceNode = {
@@ -11,6 +12,7 @@ export type HierarchySourceNode = {
   name?: string;
   pos?: { x: number; y: number };
   groupMove?: boolean;
+  groupMoveTimeline?: GroupMoveKeyframe[];
   timeline?: TimelinePoint[];
   appearAt?: number;
   destroyAt?: number;
@@ -38,6 +40,7 @@ export function cloneHierarchyNodes(
         history: [...node.history],
         pos: node.pos ? { ...node.pos } : undefined,
         timeline: node.timeline?.map((point) => ({ ...point })),
+        groupMoveTimeline: node.groupMoveTimeline?.map((point) => ({ ...point })),
       },
     ])
   );
@@ -67,6 +70,7 @@ export function buildHierarchyNodesFromJson(
       history: [],
       pos: src.pos,
       groupMove: src.groupMove,
+      groupMoveTimeline: src.groupMoveTimeline,
       timeline: src.timeline,
       appearAt: src.appearAt,
       destroyAt: src.destroyAt,
