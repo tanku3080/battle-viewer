@@ -13,14 +13,21 @@ export const TimelineBar: React.FC<Props> = ({
   onChange,
 }) => {
   const safeMax = maxTime > 0 ? maxTime : 1;
+  const safeValue = Math.min(currentTime, safeMax);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <label htmlFor="battle-timeline" className="sr-only">
+        再生位置
+      </label>
       <input
+        id="battle-timeline"
         type="range"
         min={0}
         max={safeMax}
         step={0.1}
-        value={Math.min(currentTime, safeMax)}
+        value={safeValue}
+        aria-valuetext={`${safeValue.toFixed(1)} 秒 / ${safeMax.toFixed(1)} 秒`}
         onChange={(e) => onChange(Number(e.target.value))}
       />
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
