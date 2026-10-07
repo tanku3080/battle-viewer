@@ -121,7 +121,7 @@ export default function BattlePage() {
       </div>
 
       {loadError && (
-        <div className="px-4 py-2 bg-red-950 text-red-200 border-b border-red-800 text-sm">
+        <div role="alert" className="px-4 py-2 bg-red-950 text-red-200 border-b border-red-800 text-sm">
           JSON読込エラー: {loadError}
         </div>
       )}
