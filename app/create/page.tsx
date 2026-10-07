@@ -1185,7 +1185,7 @@ function HierarchyPanel({
     items.filter((item) => isCreatorParentOf(parent, item));
 
   return (
-    <div className="flex-1 min-h-0 min-w-0 overflow-auto p-3">
+    <div id="creator-hierarchy-panel" role="tabpanel" className="flex-1 min-h-0 min-w-0 overflow-auto p-3">
       <div className="inline-block min-w-full align-top">
         <div
           className="min-w-full rounded-lg border border-blue-700 bg-blue-950/40 p-3"
@@ -1348,38 +1348,73 @@ function Field({
   const inputId = useId();
   const helpId = useId();
   const describedBy = invalid || help ? helpId : undefined;
+  const step = (delta: number) => {
+    const numeric = Number(value);
+    onChange(String((Number.isFinite(numeric) ? numeric : 0) + delta));
+  };
 
   return (
     <label className="block mb-3" htmlFor={inputId}>
       <span className="block text-xs text-gray-300 mb-1">
         {label}
         {required && (
-          <span className="ml-1 text-red-400">*</span>
+          <span className="ml-1 text-red-300" aria-hidden="true">*</span>
         )}
       </span>
-      <input
-        id={inputId}
-        type={type}
-        aria-invalid={invalid || undefined}
-        aria-describedby={describedBy}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(event) => {
-          if (!coordinate) return;
-          const next = stepCreatorCoordinate(event.currentTarget.value, event.key);
-          if (next === null) return;
-          event.preventDefault();
-          onChange(String(next));
-        }}
-        className={
-          "w-full rounded border bg-[#111827] px-3 py-2 text-sm " +
-          (invalid
-            ? "border-red-500"
-            : "border-gray-600")
-        }
-      />
+      <div className={coordinate ? "flex items-center gap-2" : undefined}>
+        {coordinate && (
+          <button
+            type="button"
+            onClick={() => step(-1)}
+            className="min-h-9 min-w-9 rounded border border-gray-600 bg-gray-700 px-2 hover:bg-gray-600"
+            aria-label={label + "を1減らす"}
+          >
+            −
+          </button>
+        )}
+        <input
+          id={inputId}
+          type={type}
+          value={value}
+          aria-required={required || undefined}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(event) => {
+            if (!coordinate) return;
+            const next = stepCreatorCoordinate(
+              event.currentTarget.value,
+              event.key
+            );
+            if (next === null) return;
+            event.preventDefault();
+            onChange(String(next));
+          }}
+          className={
+            "w-full rounded border bg-[#111827] px-3 py-2 text-sm " +
+            (invalid ? "border-red-500" : "border-gray-600")
+          }
+        />
+        {coordinate && (
+          <button
+            type="button"
+            onClick={() => step(1)}
+            className="min-h-9 min-w-9 rounded border border-gray-600 bg-gray-700 px-2 hover:bg-gray-600"
+            aria-label={label + "を1増やす"}
+          >
+            ＋
+          </button>
+        )}
+      </div>
       {(required && invalid) || help ? (
-        <span id={helpId} className="block mt-1 text-xs text-gray-300">
+        <span
+          id={helpId}
+          role={required && invalid ? "alert" : undefined}
+          className={
+            "block mt-1 text-xs " +
+            (required && invalid ? "text-red-300" : "text-gray-300")
+          }
+        >
           {required && invalid ? "必須入力フォームです" : help}
         </span>
       ) : null}
@@ -1427,6 +1462,21 @@ function ItemProperties({
     (!parent ||
       !expected ||
       parent.type !== expected);
+  const parentOptions = expected
+    ? items.filter(
+        (candidate) =>
+          candidate.key !== item.key &&
+          candidate.type === expected &&
+          Boolean(candidate.id.trim())
+      )
+    : [];
+  const selectedParentValue = parentOptions.some(
+    (candidate) => candidate.id.trim() === item.parentId.trim()
+  )
+    ? item.parentId.trim()
+    : item.parentId.trim()
+      ? "__manual__"
+      : "";
 
   return (
     <div className="p-4">
@@ -1495,21 +1545,43 @@ function ItemProperties({
       )}
 
       {canCreatorHaveManualParent(item.type) && (
-        <Field
-          label="parentId"
-          value={item.parentId}
-          onChange={(parentId) =>
-            onChange({ parentId })
-          }
-          invalid={parentInvalid}
-          help={
-            parentInvalid
-              ? "指定できる親は " +
-                String(expected) +
-                " のIDです。"
-              : "階層タブのD&Dと双方向で同期します。"
-          }
-        />
+        <>
+          <label className="block mb-3 text-xs text-gray-300">
+            親を選択
+            <select
+              value={selectedParentValue}
+              onChange={(event) => {
+                if (event.target.value !== "__manual__") {
+                  onChange({ parentId: event.target.value });
+                }
+              }}
+              className="mt-1 w-full rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm"
+            >
+              <option value="">親なし</option>
+              {parentOptions.map((candidate) => (
+                <option key={candidate.key} value={candidate.id.trim()}>
+                  {getCreatorDisplayName(candidate)} ({candidate.id.trim()})
+                </option>
+              ))}
+              {selectedParentValue === "__manual__" && (
+                <option value="__manual__" disabled>
+                  現在の入力: {item.parentId}
+                </option>
+              )}
+            </select>
+          </label>
+          <Field
+            label="parentId"
+            value={item.parentId}
+            onChange={(parentId) => onChange({ parentId })}
+            invalid={parentInvalid}
+            help={
+              parentInvalid
+                ? "指定できる親は " + String(expected) + " のIDです。"
+                : "親選択、階層タブのD&D、手入力は双方向で同期します。"
+            }
+          />
+        </>
       )}
 
       {isCreatorBattleRootOnly(item.type) && (
