@@ -1,22 +1,24 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "battle-viewer",
+  "productName": "Battle Viewer",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.tankuorganic.battleviewer",
   "build": {
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build:tauri"
   },
   "app": {
     "windows": [
       {
-        "title": "battle-viewer",
-        "width": 800,
-        "height": 600,
+        "title": "Battle Viewer",
+        "width": 1280,
+        "height": 800,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "minWidth": 960,
+        "minHeight": 640
       }
     ],
     "security": {
