@@ -42,7 +42,8 @@ JSONでユニット・部隊階層・カメラの時間変化を定義し、Canv
 ### 自動算出・省略可能
 
 - `duration`: units / characters / camera / events の最大 `t` から自動算出
-- `appearAt` / `disappearAt`: 各timelineの先頭・末尾から自動算出
+- `appearAt`: Unit / Characterはtimelineの先頭から自動算出
+- `destroyAt`: 破壊フラグを使用した場合のみJSONへ保存
 - `lod`: 未指定時は既定値を使用
 - `hierarchy.roots`: `parentId == null` から自動算出
 - `HierarchyNode.status`: 未指定時は `active`
@@ -52,16 +53,22 @@ JSONでユニット・部隊階層・カメラの時間変化を定義し、Canv
 
 | event | 意味 |
 | --- | --- |
-| `status` | `active / destroyed` の状態変更 |
 | `reparent` | 親部隊の変更。親を `null` にすると離脱 |
 | `merge` | 同階層のsourceをtargetへ吸収。sourceは消える |
 | `reform` | parentやchildren/unit構成をまとめて再編 |
 
-例:
+破壊はeventではなく、対象要素の `destroyAt` へ統一します。
 
 ```json
-{ "t": 5, "event": "status", "target": "reg_a", "status": "destroyed" }
+{
+  "id": "unit_a",
+  "destroyAt": 12
+}
 ```
+
+旧 `status / destroyed` eventは既存JSON読込互換のためReader側では引き続き受理しますが、新規Creatorからは生成しません。
+
+例:
 
 ```json
 { "t": 10, "event": "reparent", "target": "reg_a", "parent": "div_b" }
@@ -160,7 +167,7 @@ The creator provides:
 
 - collapsible element palette
 - Unit / Character / Legion / Corps / Division / Regiment / Camera marks
-- Status / Reparent / Merge / Reform event panels
+- Reparent / Merge / Reform event panels
 - tooltip guidance for every palette item
 - grid and center axes visible from the initial state
 - drag-and-drop placement
@@ -247,3 +254,52 @@ A地点へ戻る
 `必須入力フォームです` と表示します。
 
 配置済み要素は右側プロパティの `要素を削除` から削除できます。
+
+
+## Creator appearance / destruction
+
+作成画面で要素をD&D配置した時刻が、その要素の出現時刻になります。
+
+例:
+
+```text
+3秒へシーク
+↓
+Unitを配置
+↓
+0秒へ戻す
+↓
+Unitは存在しない
+↓
+3秒になると出現
+```
+
+Unit / Characterはtimelineの最初のkeyframeを出現時刻として扱います。
+Hierarchy要素はCreatorが `appearAt` をJSONへ保存します。
+
+Cameraは戦場上の実体ではなくカメラキーフレームのため、破壊フラグ対象外です。
+
+Unit / Character / Legion / Corps / Division / Regimentのプロパティには
+`破壊フラグ`があります。
+
+破壊フラグをONにすると `破壊秒数` を設定できます。
+
+```text
+destroyAt未満  -> 表示
+destroyAt以降  -> 非表示
+```
+
+生成JSON例:
+
+```json
+{
+  "id": "blue2",
+  "name": "青軍2",
+  "destroyAt": 18
+}
+```
+
+`public/sample-battle.json` の `blue2` は `destroyAt: 18` のサンプルとして、
+18秒以降に表示されなくなります。
+
+以前Creatorに存在した `Status` パレットは削除し、破壊表現は破壊フラグへ統一しています。
