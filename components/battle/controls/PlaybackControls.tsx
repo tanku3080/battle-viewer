@@ -30,7 +30,7 @@ export function PlaybackControls({
         STOP
       </button>
 
-      <span className="opacity-80 text-sm">
+      <span className="opacity-80 text-sm" role="status" aria-live="polite" aria-atomic="true">
         現在：{currentTime.toFixed(1)} s
       </span>
     </div>
