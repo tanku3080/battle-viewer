@@ -421,7 +421,7 @@ export default function BattleCreator() {
     (item) => !getParentItem(item)
   );
 
-  const battleJson = useMemo(() => {
+  const battleJson = (() => {
     const validItems = items.filter(
       (item) => !hasMissingRequiredFields(item)
     );
@@ -573,13 +573,7 @@ export default function BattleCreator() {
           : {}),
       },
     };
-  }, [
-    items,
-    mapHeight,
-    mapImage,
-    mapWidth,
-    title,
-  ]);
+  })();
 
   const saveJson = () => {
     const blob = new Blob(
