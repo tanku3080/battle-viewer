@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import ForcePicker from "@/components/battle/ForcePicker";
+import ImageAssetPicker from "@/components/battle/ImageAssetPicker";
 import { createBattleHubForce, getBattleHubForces } from "@/utils/battleHub/client";
 import { getForceColor, type ForceDefinition } from "@/utils/battle/forces";
 import {
@@ -525,6 +526,7 @@ export default function BattleCreator() {
           {
             level: item.type,
             name: item.name.trim() || item.id.trim(),
+            ...(item.icon.trim() ? { icon: item.icon.trim() } : {}),
             parentId:
               item.type === "legion"
                 ? null
@@ -670,11 +672,13 @@ export default function BattleCreator() {
           placeholder="戦闘名"
           className="w-52 rounded border border-gray-600 bg-[#111827] px-3 py-2"
         />
-        <input
+        <ImageAssetPicker
+          label="Map画像"
           value={mapImage}
-          onChange={(e) => setMapImage(e.target.value)}
-          placeholder="map.image（任意）"
-          className="w-56 rounded border border-gray-600 bg-[#111827] px-3 py-2"
+          aspectRatio={mapWidth / mapHeight}
+          mode="map"
+          onChange={setMapImage}
+          compact
         />
         <input
           type="number"
@@ -806,9 +810,13 @@ export default function BattleCreator() {
             onDrop={drop}
             className="relative flex-1 m-4 overflow-hidden border border-gray-600 bg-[#0a1020]"
             style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px)",
-              backgroundSize: "50px 50px",
+              backgroundImage: mapImage
+                ? `linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px), url("${mapImage}")`
+                : "linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px)",
+              backgroundSize: mapImage
+                ? "50px 50px, 50px 50px, 100% 100%"
+                : "50px 50px",
+              backgroundRepeat: mapImage ? "repeat, repeat, no-repeat" : "repeat",
             }}
           >
             <div className="absolute left-1/2 top-0 bottom-0 w-px bg-yellow-400/80" />
@@ -927,7 +935,15 @@ export default function BattleCreator() {
                       current.y.toFixed(1)
                     }
                   >
-                    {mark}
+                    {item.icon ? (
+                      <img
+                        src={item.icon}
+                        alt=""
+                        className="h-7 w-7 rounded object-cover"
+                      />
+                    ) : (
+                      mark
+                    )}
                   </button>
                 </div>
               );
@@ -1357,28 +1373,23 @@ function ItemProperties({
       />
 
       {item.type === "unit" && (
-        <>
-          <ForcePicker
-            value={item.force}
-            onChange={(force) => onChange({ force })}
-            forces={forces}
-            loading={forcesLoading}
-            loadError={forcesError}
-            onRetry={onRetryForces}
-            onCreate={onCreateForce}
-          />
-          <Field
-            label="icon"
-            value={item.icon}
-            onChange={(icon) => onChange({ icon })}
-          />
-        </>
+        <ForcePicker
+          value={item.force}
+          onChange={(force) => onChange({ force })}
+          forces={forces}
+          loading={forcesLoading}
+          loadError={forcesError}
+          onRetry={onRetryForces}
+          onCreate={onCreateForce}
+        />
       )}
 
-      {item.type === "character" && (
-        <Field
+      {item.type !== "camera" && (
+        <ImageAssetPicker
           label="icon"
           value={item.icon}
+          aspectRatio={1}
+          mode="icon"
           onChange={(icon) => onChange({ icon })}
         />
       )}

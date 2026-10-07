@@ -404,3 +404,76 @@ Cameraを作成画面へ配置すると、Camera中心を基準とした赤い�
 - 再生・シーク中もCamera timelineを補間して赤枠へ反映
 
 Cameraは戦場上の実体ではないため階層タブには表示せず、破壊フラグも持ちません。
+
+
+## Embedded images in Creator
+
+Creatorではローカル画像をBattle JSONへ埋め込めます。
+
+対象:
+
+- Map
+- Unit
+- Character
+- Legion
+- Corps
+- Division
+- Regiment
+
+Cameraは画像対象外です。
+
+画像欄を押すとOSのファイル選択を開きます。対応形式はPNG / JPEG / WebP、1ファイル10MB以下です。
+
+選択後はプレビューダイアログで:
+
+- ドラッグによる位置調整
+- ズーム
+- 決定
+- キャンセル
+
+を行えます。
+
+決定時にCanvasで表示範囲をクロップし、Data URLへ変換してJSONへ保存します。
+
+アイコン例:
+
+```json
+{
+  "id": "unit_a",
+  "icon": "data:image/png;base64,..."
+}
+```
+
+Hierarchy例:
+
+```json
+{
+  "hierarchy": {
+    "nodes": {
+      "division_a": {
+        "level": "division",
+        "name": "division1",
+        "icon": "data:image/png;base64,..."
+      }
+    }
+  }
+}
+```
+
+Map例:
+
+```json
+{
+  "map": {
+    "width": 1200,
+    "height": 700,
+    "coordinateOrigin": "center",
+    "image": "data:image/jpeg;base64,..."
+  }
+}
+```
+
+ViewerはこれらのData URLを `HTMLImageElement.src` へ設定します。
+ブラウザがBase64部分をデコードし、Map / Unit / Character / HierarchyのCanvas描画へ反映します。
+
+Creator上でも、設定済みMapはエディター背景へ、設定済みアイコンは配置要素へ反映されます。

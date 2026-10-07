@@ -42,6 +42,7 @@ export type HierarchyNode = {
   id: string;
   level: HierarchyLevel;
   name: string;
+  icon?: string | null;
   parentId: string | null;
   childrenIds: string[];
   unitIds: string[];
