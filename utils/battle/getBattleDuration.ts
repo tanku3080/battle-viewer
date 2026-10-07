@@ -21,7 +21,7 @@ export function getBattleDuration(battle: BattleData | null): number {
   });
   battle.camera.forEach((camera) => include(camera.t));
   battle.events.forEach((event) => include(event.t));
-  Object.values(battle.hierarchy.nodes).forEach((node) => {
+  Object.values(battle.hierarchy?.nodes ?? {}).forEach((node) => {
     if (node.appearAt !== undefined) include(node.appearAt);
     if (node.destroyAt !== undefined) include(node.destroyAt);
   });
