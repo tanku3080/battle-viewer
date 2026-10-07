@@ -499,3 +499,107 @@ Icon編集はSNSプロフィール画像と同様の円形表示領域を基準�
 - 色を決定できないHierarchy: fallback色
 
 これによりアイコン画像を使用しても、外周色から所属forceを判別できます。
+
+
+## Tauri desktop build
+
+Battle Viewer can be built as a Tauri desktop application while keeping the existing Next.js web development flow.
+
+### Development
+
+The normal web development command remains:
+
+```bash
+npm run dev
+```
+
+Tauri development:
+
+```bash
+npm run tauri dev
+```
+
+In Tauri runtime, authentication and Battle Hub calls are routed through Rust commands instead of Next.js Route Handlers.
+
+### Linux / WSL production build
+
+Required Ubuntu/WSL packages:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  libwebkit2gtk-4.1-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  patchelf
+```
+
+Build a distributable package:
+
+```bash
+npm ci
+npm run tauri build
+```
+
+For a Debian package only:
+
+```bash
+npm run tauri build -- --bundles deb
+```
+
+Output is generated under:
+
+```text
+src-tauri/target/release/bundle/
+```
+
+The Linux executable itself is generated under:
+
+```text
+src-tauri/target/release/
+```
+
+### Static frontend packaging
+
+Tauri production does not run a Next.js server.
+
+During `build:tauri`:
+
+1. `app/api` is temporarily moved out of the Next.js app tree.
+2. Next.js runs with `output: "export"`.
+3. Static files are written to `out/`.
+4. `app/api` is restored even if the build fails.
+5. Tauri embeds `out/` into the native application.
+
+The normal web build still includes the existing Next.js Route Handlers.
+
+### Battle Hub URL
+
+Rust uses:
+
+```text
+http://localhost:8080
+```
+
+by default.
+
+It can be overridden when launching/building with:
+
+```bash
+export BATTLE_HUB_API_BASE_URL="https://your-battle-hub.example"
+```
+
+For packaged production releases, configure this to the deployed Battle Hub endpoint.
+
+### Authentication behavior
+
+The Tauri process keeps the access token and refresh token in native Rust state.
+
+If an authenticated Battle Hub request returns HTTP 401:
+
+1. Rust calls `POST /api/auth/refresh`.
+2. Access/refresh tokens are rotated.
+3. The original request is retried once.
+
+At this stage tokens are process-memory only. Closing the application requires login again on the next launch.
+Persistent OS-protected credential storage is a separate hardening step.
