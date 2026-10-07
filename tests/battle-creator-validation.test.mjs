@@ -87,9 +87,13 @@ test("creator validation: character id is required", () => {
   );
 });
 
-test("creator validation: camera requires a finite zoom", () => {
+test("creator validation: camera requires a positive finite zoom", () => {
   assert.deepEqual(
     validation.getMissingRequiredFields(item("camera")),
+    ["zoom"]
+  );
+  assert.deepEqual(
+    validation.getMissingRequiredFields(item("camera", { zoom: 0 })),
     ["zoom"]
   );
   assert.equal(
