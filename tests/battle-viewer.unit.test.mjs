@@ -129,9 +129,13 @@ test("coordinate normal: center origin maps JSON (0,0) to map center", () => {
     x: 525,
     y: 340,
   });
-  assert.deepEqual(coordinates.toInternalPoint({ x: -525, y: -340 }, map), {
+  assert.deepEqual(coordinates.toInternalPoint({ x: -525, y: 340 }, map), {
     x: 0,
     y: 0,
+  });
+  assert.deepEqual(coordinates.toInternalPoint({ x: 525, y: -340 }, map), {
+    x: 1050,
+    y: 680,
   });
 });
 
@@ -273,12 +277,13 @@ test("event normalization: legacy military events collapse into canonical events
 
 test("duration normal: playback duration is derived from the latest actual timestamp", () => {
   const battle = {
-    units: [{ timeline: [{ t: 0 }, { t: 12 }] }],
+    units: [{ timeline: [{ t: 0 }, { t: 12 }], destroyAt: 25 }],
     characters: [{ timeline: [{ t: 2 }, { t: 18 }] }],
     camera: [{ t: 0 }, { t: 15 }],
     events: [{ t: 20 }],
+    hierarchy: { nodes: {} },
   };
-  assert.equal(duration.getBattleDuration(battle), 20);
+  assert.equal(duration.getBattleDuration(battle), 25);
 });
 
 test("duration boundary: empty battle data resolves to zero", () => {
@@ -288,6 +293,7 @@ test("duration boundary: empty battle data resolves to zero", () => {
       characters: [],
       camera: [],
       events: [],
+      hierarchy: { nodes: {} },
     }),
     0
   );
@@ -346,4 +352,20 @@ test("canonical samples do not duplicate derived or timeline fields", () => {
       }
     }
   }
+});
+
+
+test("sample battle: destroyAt demonstrates mid-battle disappearance", () => {
+  const data = JSON.parse(
+    fs.readFileSync(
+      path.join(process.cwd(), "public/sample-battle.json"),
+      "utf8"
+    )
+  );
+  const blue2 = data.units.find((unit) => unit.id === "blue2");
+  assert.equal(blue2.destroyAt, 18);
+  assert.equal(
+    data.events.some((event) => event.event === "status"),
+    false
+  );
 });

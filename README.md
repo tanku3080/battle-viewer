@@ -42,7 +42,8 @@ JSONでユニット・部隊階層・カメラの時間変化を定義し、Canv
 ### 自動算出・省略可能
 
 - `duration`: units / characters / camera / events の最大 `t` から自動算出
-- `appearAt` / `disappearAt`: 各timelineの先頭・末尾から自動算出
+- `appearAt`: Unit / Characterはtimelineの先頭から自動算出
+- `destroyAt`: 破壊フラグを使用した場合のみJSONへ保存
 - `lod`: 未指定時は既定値を使用
 - `hierarchy.roots`: `parentId == null` から自動算出
 - `HierarchyNode.status`: 未指定時は `active`
@@ -52,16 +53,22 @@ JSONでユニット・部隊階層・カメラの時間変化を定義し、Canv
 
 | event | 意味 |
 | --- | --- |
-| `status` | `active / destroyed` の状態変更 |
 | `reparent` | 親部隊の変更。親を `null` にすると離脱 |
 | `merge` | 同階層のsourceをtargetへ吸収。sourceは消える |
 | `reform` | parentやchildren/unit構成をまとめて再編 |
 
-例:
+破壊はeventではなく、対象要素の `destroyAt` へ統一します。
 
 ```json
-{ "t": 5, "event": "status", "target": "reg_a", "status": "destroyed" }
+{
+  "id": "unit_a",
+  "destroyAt": 12
+}
 ```
+
+旧 `status / destroyed` eventは既存JSON読込互換のためReader側では引き続き受理しますが、新規Creatorからは生成しません。
+
+例:
 
 ```json
 { "t": 10, "event": "reparent", "target": "reg_a", "parent": "div_b" }
@@ -94,11 +101,18 @@ mvn spring-boot:run
 ```
 
 Battle Viewerはデフォルトで `http://localhost:8080` のBattle Hubへ接続します。
-接続先を変更する場合は `.env.local` に設定します。
+
+ローカル開発では `.env.example` をコピーして `.env` を使います。
 
 ```bash
+cp .env.example .env
+```
+
+```dotenv
 BATTLE_HUB_API_BASE_URL=http://localhost:8080
 ```
+
+Next.jsはルートの `.env` を自動で読み込みます。`.env` はGit管理対象外です。
 
 Battle Viewer側はブラウザからSpring Bootへ直接アクセスせず、Next.jsのRoute Handlerを経由します。
 
@@ -112,3 +126,480 @@ Browser
 Battle画面でJSONを読み込むと「Battle Hubへ投稿」ボタンが有効になります。
 投稿者名と説明を入力して、読み込んだ元JSONをBattle Hubへ送信できます。
 画面上の `Hub接続中 / Hub未接続` で `GET /api/health` の疎通状態を確認できます。
+
+
+## Login
+
+The initial route `/` is the login screen. Battle Hub owns the session state.
+
+Before starting Battle Hub, configure its repository-root `.env`:
+
+```dotenv
+BATTLE_HUB_USERNAME=admin
+BATTLE_HUB_PASSWORD=your-local-password
+BATTLE_HUB_SESSION_TIMEOUT=PT1H
+```
+
+Battle Viewer stores the backend session token only in an HttpOnly cookie through
+the Next.js auth proxy.
+
+Protected routes:
+
+- `/home`
+- `/battle`
+- `/create`
+
+User activity is shared through `localStorage`. If no operation occurs for one
+hour, the next pointer / keyboard / wheel / touch operation logs the user out and
+returns to `/`. While the user is active, the FE touches the backend session at
+most once per minute so the backend idle timeout and browser idle timeout stay
+aligned.
+
+## Battle JSON Creator
+
+The authenticated title screen now has:
+
+- `閲覧`: opens the existing Battle Viewer
+- `作成`: opens `/create`
+- `Battle Hubにアクセス`: Battle HubのHealth Check成功時のみ有効。投稿済みBattle一覧を表示する `/hub` を開く
+
+The creator provides:
+
+- collapsible side panel
+- `要素パネル` / `階層` の2タブ
+- Unit / Character / Legion / Corps / Division / Regiment / Camera marks
+- tooltip guidance for every palette item
+- grid and center axes visible from the initial state
+- drag-and-drop placement
+- right-side property editor
+- bottom timeline seek bar
+- 再生 / ストップ
+- time-keyed position recording for Unit / Character / Camera / hierarchy nodes
+- シーク時刻に応じたkeyframe位置の復元・補間
+- hierarchy group movement with individual-position precedence
+- authenticated force selection and color registration through Battle Hub
+- generated JSON preview
+- JSON file export
+
+
+## Creator coordinate system
+
+新規作成画面は `coordinateOrigin: "center"` 固定です。ユーザーが原点方式を選択するUIはありません。
+
+```text
+          +Y
+           ↑
+           |
+-X  ←---- (0,0) ----→ +X
+           |
+           ↓
+          -Y
+```
+
+Canvas内部は左上原点・下方向が+Yですが、Battle JSONのcenter座標は上方向を+Yとして扱います。
+Viewer読み込み時に内部Canvas座標へ変換するため、作成画面と閲覧画面で上下方向が一致します。
+
+Unit / Character / Cameraは、配置または移動した時点のシーク時刻へkeyframeを記録します。
+
+例:
+
+```text
+0秒でA地点へ配置
+↓
+3秒へシーク
+↓
+B地点へ移動
+↓
+0秒へシーク
+↓
+A地点へ戻る
+```
+
+0〜3秒の間はA地点からB地点へ線形補間して表示されます。
+
+
+## Creator required properties
+
+作成画面では、配置済み要素の一部プロパティを必須入力として扱います。
+
+- Unit / Character / Legion / Corps / Division / Regiment: `id`
+- Camera: `zoom`
+
+必須値が未入力の配置要素がある場合:
+
+### JSON確認
+
+警告ダイアログを表示します。
+
+```text
+現在画面上に配置された要素の内、赤いアウトラインが表示されている要素に入力必須のプロパティが空です。空の場合JSON確認の際、当該要素はJSONに表示されません。
+```
+
+- OK: 未完成要素を除外したJSONを表示
+- NO: JSON確認をキャンセル
+- 未完成要素は赤いアウトラインで表示
+
+### JSON保存
+
+警告ダイアログを表示します。
+
+```text
+画面上に配置されている要素のプロパティに入力必須な入力欄が空の要素があります。要素を削除するか、入力必須欄に記入してください
+```
+
+- OKのみ表示
+- JSONファイルは保存しない
+- OK押下後、未完成要素を赤いアウトラインで表示
+
+右側プロパティの必須欄には `*` を表示し、未入力時は
+`必須入力フォームです` と表示します。
+
+配置済み要素は右側プロパティの `要素を削除` から削除できます。
+
+
+## Creator appearance / destruction
+
+作成画面で要素をD&D配置した時刻が、その要素の出現時刻になります。
+
+例:
+
+```text
+3秒へシーク
+↓
+Unitを配置
+↓
+0秒へ戻す
+↓
+Unitは存在しない
+↓
+3秒になると出現
+```
+
+Unit / Characterはtimelineの最初のkeyframeを出現時刻として扱います。
+Hierarchy要素はCreatorが `appearAt` をJSONへ保存します。
+
+Cameraは戦場上の実体ではなくカメラキーフレームのため、破壊フラグ対象外です。
+
+Unit / Character / Legion / Corps / Division / Regimentのプロパティには
+`破壊フラグ`があります。
+
+破壊フラグをONにすると `破壊秒数` を設定できます。
+
+```text
+destroyAt到達時      -> 通常表示
+destroyAt + 0.0〜0.5s -> alpha 1→0 / scale 1→0.2
+destroyAt + 0.5s以降  -> 非表示
+```
+
+生成JSON例:
+
+```json
+{
+  "id": "blue2",
+  "name": "青軍2",
+  "destroyAt": 18
+}
+```
+
+`public/sample-battle.json` の `blue2` は `destroyAt: 18` のサンプルとして、
+18秒から0.5秒かけてフェードアウトし、その後表示されなくなります。
+
+以前Creatorに存在した `Status` パレットは削除し、破壊表現は破壊フラグへ統一しています。
+
+
+## Creator side panel / hierarchy
+
+左サイドパネルは以下の2タブです。
+
+- `要素パネル`
+- `階層`
+
+`要素パネル`には配置対象だけを表示します。
+
+- Unit
+- Character
+- Legion
+- Corps
+- Division
+- Regiment
+- Camera
+
+Creator上では `Merge / Reparent / Reform` を直接操作させません。
+
+`階層`タブでは、Cameraを除く配置済み要素を戦闘名の配下にツリー表示します。
+戦闘名の初期値は `バトル` です。
+
+許可される軍事階層は以下だけです。
+
+```text
+戦闘名
+├─ Legion
+│  └─ Corps
+│     └─ Division
+│        └─ Regiment
+│           └─ Unit
+└─ Character
+```
+
+Characterは戦闘名直下固定です。
+Unit配下へUnitを置くなど、階層順序に反するD&Dは受け付けません。
+
+階層タブでD&Dすると、子要素の `parentId` を親要素のIDへ自動更新します。
+戦闘名へ戻すと `parentId` を空にします。
+右側プロパティで `parentId` を手入力した場合も階層表示へ反映します。
+
+破壊フラグが設定された要素も、Canvas上でフェードアウトした後も階層タブには残ります。
+
+## Creator group movement / coordinates
+
+Legion / Corps / Division / Regimentのプロパティに `グループ移動` を追加しました。
+有効な親が複数ある場合、最上位の有効な祖先の移動差分を一度だけ配下へ加算します。
+IDが未入力の親、空のparentId、不正な階層関係では追従しません。
+
+配下へ直接指定したキーフレームの座標と、その間の経路は絶対座標として優先します。
+最後の個別指定以降は、その時刻からの親の移動差分に追従します。
+後から出現する要素は配置座標から追従を開始します。
+親変更やグループフラグの切り替えでは現在の表示位置を保ちます。
+
+グループ移動のオン・オフは現在のシーク時刻に記録します。チェックボックスも
+その時刻の状態を表示し、過去へシークしても解除前の隊形と移動経路を保ちます。
+例: 0秒に配置、3秒にグループ移動、6秒に解除してUnitの座標を指定すると、
+0〜3秒は集団移動、3〜6秒はそれぞれの指定位置へ移動します。
+解除したままの区間では親が移動しても追従せず、再度オンにした時刻から追従を再開します。
+
+D&DとX/Y入力は、どちらも現在時刻の移動キーフレームを更新します。
+X/Y入力欄にフォーカスした状態で、↑は+1、↓は-1です。
+小数・負数にも対応し、グループ移動中の親の入力でも配下へ反映します。
+
+JSONには初期状態の `hierarchy.nodes.<id>.groupMove`、切り替え履歴の
+`groupMoveTimeline: [{"t":6,"enabled":false}]` と、実際の絶対座標へ変換した
+`timeline.hierarchy` / `timeline.units` を保存します。解除前の親のキーフレームと
+切り替え時刻も含めるため、ViewerでもCreatorと同じ経路を再生します。Viewerはこの座標を再生し、
+グループ移動を重ねて加算しません。旧JSONの固定 `pos` も引き続き読み込めます。
+
+## Creator forces
+
+Unitのforceは登録済み一覧から選択します。`＋ 新しいforceを作成` で管理ダイアログを開き、
+登録済みforceの名前と色を確認し、新規作成から名前とカラーパレットを指定できます。
+空名・64文字超・大文字小文字を区別しない重複・不正な色は拒否します。
+登録失敗時は入力を保持し、BE成功後に一覧と選択値を更新します。
+
+FEの `/api/battle-hub/forces` はsession cookieをBearerへ変換して、battle-hubの
+`GET /api/forces` / `POST /api/forces` へ転送します。
+一覧取得失敗時は再取得でき、登録の失敗もダイアログへ表示します。
+
+JSONには `forces: [{"name":"青チーム","color":"#2563eb"}]` を保存し、
+Unitの色は選択したforceから決まります。Viewerもforceの色を優先して読み込みます。
+forcesのない旧JSONは、従来のUnitのcolorをそのまま利用します。
+現在のBEのforce一覧はBattle・Sessionと同じくインメモリ保存です。
+
+## Creator camera preview
+
+Cameraを作成画面へ配置すると、Camera中心を基準とした赤い四角の描画範囲を表示します。
+
+- Camera移動 → 赤枠も移動
+- zoom増加 → 赤枠縮小
+- zoom減少 → 赤枠拡大
+- シーク時刻ごとのCamera位置・zoomをtimelineへ保存
+- 再生・シーク中もCamera timelineを補間して赤枠へ反映
+
+Cameraは戦場上の実体ではないため階層タブには表示せず、破壊フラグも持ちません。
+
+
+## Embedded images in Creator
+
+Creatorではローカル画像をBattle JSONへ埋め込めます。
+
+対象:
+
+- Map
+- Unit
+- Character
+- Legion
+- Corps
+- Division
+- Regiment
+
+Cameraは画像対象外です。
+
+画像欄を押すとOSのファイル選択を開きます。対応形式はPNG / JPEG / WebP、1ファイル10MB以下です。
+
+選択後はプレビューダイアログで:
+
+- ドラッグによる位置調整
+- ズーム
+- 決定
+- キャンセル
+
+を行えます。
+
+決定時にCanvasで表示範囲をクロップし、Data URLへ変換してJSONへ保存します。
+
+アイコン例:
+
+```json
+{
+  "id": "unit_a",
+  "icon": "data:image/png;base64,..."
+}
+```
+
+Hierarchy例:
+
+```json
+{
+  "hierarchy": {
+    "nodes": {
+      "division_a": {
+        "level": "division",
+        "name": "division1",
+        "icon": "data:image/png;base64,..."
+      }
+    }
+  }
+}
+```
+
+Map例:
+
+```json
+{
+  "map": {
+    "width": 1200,
+    "height": 700,
+    "coordinateOrigin": "center",
+    "image": "data:image/jpeg;base64,..."
+  }
+}
+```
+
+ViewerはこれらのData URLを `HTMLImageElement.src` へ設定します。
+ブラウザがBase64部分をデコードし、Map / Unit / Character / HierarchyのCanvas描画へ反映します。
+
+Creator上でも、設定済みMapはエディター背景へ、設定済みアイコンは配置要素へ反映されます。
+
+
+## Circular icon presentation
+
+Icon編集はSNSプロフィール画像と同様の円形表示領域を基準にします。
+
+- プレビューダイアログでは円内が実表示領域
+- 円外は暗く表示し、実際には要素へ表示されない領域として示す
+- ドラッグとzoomで円内へ収まる位置を調整
+- JSONには調整後の正方形Data URLを保持
+- Creator / Viewer描画時に円形maskでclip
+
+画像そのものを円形PNGへ加工するのではなく、元の正方形クロップを保持したまま表示時に円形化します。
+
+外周色:
+
+- Unit: forceに登録された色を優先。無ければunit.color
+- Legion / Corps / Division / Regiment: 配下Unitを再帰的に探索し、最初に見つかるUnitのforce/colorを使用
+- Character: 現在のCharacter既定色
+- 色を決定できないHierarchy: fallback色
+
+これによりアイコン画像を使用しても、外周色から所属forceを判別できます。
+
+
+## Tauri desktop build
+
+Battle Viewer can be built as a Tauri desktop application while keeping the existing Next.js web development flow.
+
+### Development
+
+The normal web development command remains:
+
+```bash
+npm run dev
+```
+
+Tauri development:
+
+```bash
+npm run tauri dev
+```
+
+In Tauri runtime, authentication and Battle Hub calls are routed through Rust commands instead of Next.js Route Handlers.
+
+### Linux / WSL production build
+
+Required Ubuntu/WSL packages:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  libwebkit2gtk-4.1-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  patchelf
+```
+
+Build a distributable package:
+
+```bash
+npm ci
+npm run tauri build
+```
+
+For a Debian package only:
+
+```bash
+npm run tauri build -- --bundles deb
+```
+
+Output is generated under:
+
+```text
+src-tauri/target/release/bundle/
+```
+
+The Linux executable itself is generated under:
+
+```text
+src-tauri/target/release/
+```
+
+### Static frontend packaging
+
+Tauri production does not run a Next.js server.
+
+During `build:tauri`:
+
+1. `app/api` is temporarily moved out of the Next.js app tree.
+2. Next.js runs with `output: "export"`.
+3. Static files are written to `out/`.
+4. `app/api` is restored even if the build fails.
+5. Tauri embeds `out/` into the native application.
+
+The normal web build still includes the existing Next.js Route Handlers.
+
+### Battle Hub URL
+
+Rust uses:
+
+```text
+http://localhost:8080
+```
+
+by default.
+
+It can be overridden when launching/building with:
+
+```bash
+export BATTLE_HUB_API_BASE_URL="https://your-battle-hub.example"
+```
+
+For packaged production releases, configure this to the deployed Battle Hub endpoint.
+
+### Authentication behavior
+
+The Tauri process keeps the access token and refresh token in native Rust state.
+
+If an authenticated Battle Hub request returns HTTP 401:
+
+1. Rust calls `POST /api/auth/refresh`.
+2. Access/refresh tokens are rotated.
+3. The original request is retried once.
+
+At this stage tokens are process-memory only. Closing the application requires login again on the next launch.
+Persistent OS-protected credential storage is a separate hardening step.

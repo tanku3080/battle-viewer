@@ -13,6 +13,7 @@ type DrawArgs = {
   bgImage: HTMLImageElement | null;
   unitImages: Record<string, HTMLImageElement>;
   charImages: Record<string, HTMLImageElement>;
+  hierarchyImages: Record<string, HTMLImageElement>;
   fadeDuration: number;
   cameraScale?: number;
   frameState?: FrameState;
@@ -29,11 +30,29 @@ const LEVELS = {
 };
 
 function nodeColor(node: NodeWithPosition, battle: BattleData) {
-  for (const uid of node.unitIds) {
-    const unit = battle.unitIndex[uid];
-    if (unit) return unit.color;
-  }
-  return "#cbd5f5";
+  const visited = new Set<string>();
+
+  const find = (nodeId: string): string | null => {
+    if (visited.has(nodeId)) return null;
+    visited.add(nodeId);
+
+    const current = battle.hierarchy.nodes[nodeId];
+    if (!current) return null;
+
+    for (const uid of current.unitIds) {
+      const unit = battle.unitIndex[uid];
+      if (unit?.color) return unit.color;
+    }
+
+    for (const childId of current.childrenIds) {
+      const nested = find(childId);
+      if (nested) return nested;
+    }
+
+    return null;
+  };
+
+  return find(node.id) ?? "#cbd5f5";
 }
 
 function drawHierarchyNodes(params: {
@@ -41,17 +60,18 @@ function drawHierarchyNodes(params: {
   nodes: NodeWithPosition[];
   alpha: number;
   battle: BattleData;
+  hierarchyImages: Record<string, HTMLImageElement>;
   sizeKey: "legion" | "corps" | "division" | "regiment";
 }) {
-  const { ctx, nodes, alpha, battle, sizeKey } = params;
+  const { ctx, nodes, alpha, battle, hierarchyImages, sizeKey } = params;
   if (alpha <= 0) return;
 
   const style = LEVELS[sizeKey];
 
   nodes.forEach((node) => {
-    if (!node.position) return;
+    if (!node.position || !node.lifecycleVisible) return;
     const baseAlpha = node.status === "destroyed" ? 0.35 : 1;
-    const nodeAlpha = alpha * baseAlpha;
+    const nodeAlpha = alpha * baseAlpha * node.lifecycleAlpha;
     if (nodeAlpha <= 0) return;
 
     const color = nodeColor(node, battle);
@@ -59,14 +79,33 @@ function drawHierarchyNodes(params: {
     ctx.save();
     ctx.translate(node.position.x, node.position.y);
     ctx.globalAlpha *= nodeAlpha;
+    ctx.scale(node.lifecycleScale, node.lifecycleScale);
 
-    ctx.beginPath();
-    ctx.arc(0, 0, style.radius, 0, Math.PI * 2);
-    ctx.fillStyle = color + "33";
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.fill();
-    ctx.stroke();
+    const icon = hierarchyImages[node.id];
+    if (icon) {
+      const size = style.radius * 2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(icon, -size / 2, -size / 2, size, size);
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, style.radius, 0, Math.PI * 2);
+      ctx.fillStyle = color + "33";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.fill();
+      ctx.stroke();
+    }
 
     ctx.fillStyle = "#e2e8f0";
     ctx.font = style.font;
@@ -123,7 +162,18 @@ function drawUnits(params: {
 
     const cached = unitImages[unit.id];
     if (cached) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, iconSize / 2, 0, Math.PI * 2);
+      ctx.clip();
       ctx.drawImage(cached, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, iconSize / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = unit.color || "#cbd5f5";
+      ctx.lineWidth = 3;
+      ctx.stroke();
     } else {
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
@@ -178,10 +228,23 @@ function drawCharacters(params: {
 
     const cached = charImages[ch.id];
     if (cached) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.clip();
       ctx.drawImage(cached, -size / 2, -size / 2, size, size);
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = "#f97316";
+      ctx.lineWidth = 3;
+      ctx.stroke();
     } else {
       ctx.fillStyle = "#f97316";
-      ctx.fillRect(-size / 2, -size / 2, size, size);
+      ctx.beginPath();
+      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     if (enableSelection && selectedCharacterId === ch.id) {
@@ -213,6 +276,7 @@ export function drawWorld(args: DrawArgs) {
     bgImage,
     unitImages,
     charImages,
+    hierarchyImages,
     fadeDuration,
     cameraScale = 1,
     frameState,
@@ -325,6 +389,7 @@ export function drawWorld(args: DrawArgs) {
       .filter(Boolean),
     alpha: alphaLegion,
     battle,
+    hierarchyImages,
     sizeKey: "legion",
   });
 
@@ -335,6 +400,7 @@ export function drawWorld(args: DrawArgs) {
       .filter(Boolean),
     alpha: alphaCorps,
     battle,
+    hierarchyImages,
     sizeKey: "corps",
   });
 
@@ -345,6 +411,7 @@ export function drawWorld(args: DrawArgs) {
       .filter(Boolean),
     alpha: alphaDivision,
     battle,
+    hierarchyImages,
     sizeKey: "division",
   });
 
@@ -355,6 +422,7 @@ export function drawWorld(args: DrawArgs) {
       .filter(Boolean),
     alpha: alphaRegiment,
     battle,
+    hierarchyImages,
     sizeKey: "regiment",
   });
 

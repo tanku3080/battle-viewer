@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getBattleHubApiBaseUrl } from "@/utils/battleHub/config";
 
@@ -13,10 +14,16 @@ async function forward(response: Response) {
   });
 }
 
+async function authorizationHeader(): Promise<Record<string, string>> {
+  const token = (await cookies()).get("battle_hub_session")?.value;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function GET() {
   try {
     return forward(
       await fetch(`${getBattleHubApiBaseUrl()}/api/battles`, {
+        headers: await authorizationHeader(),
         cache: "no-store",
       })
     );
@@ -42,6 +49,7 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(await authorizationHeader()),
         },
         body,
       }

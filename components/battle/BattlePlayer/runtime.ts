@@ -36,6 +36,9 @@ export type CharacterRenderState = {
 
 export type NodeWithPosition = HierarchyNode & {
   position: { x: number; y: number } | null;
+  lifecycleVisible: boolean;
+  lifecycleAlpha: number;
+  lifecycleScale: number;
 };
 
 export type FrameHierarchyState = {
@@ -69,7 +72,7 @@ function collectUnitStates(
     const { visible, alpha, scale } = getSpawnState(
       currentTime,
       unit.appearAt,
-      unit.disappearAt,
+      unit.destroyAt ?? unit.disappearAt,
       fadeDuration
     );
 
@@ -108,7 +111,7 @@ function collectCharacterStates(
     const { visible, alpha, scale } = getSpawnState(
       currentTime,
       appearAt,
-      disappearAt,
+      ch.destroyAt ?? disappearAt,
       fadeDuration
     );
 
@@ -265,7 +268,9 @@ function applyEventsToHierarchy(
 
 function computeHierarchyPositions(
   nodes: Record<string, HierarchyNode>,
-  unitStates: Record<string, UnitRenderState>
+  unitStates: Record<string, UnitRenderState>,
+  currentTime: number,
+  fadeDuration: number
 ): {
   positioned: Record<string, NodeWithPosition>;
   levels: Record<HierarchyLevel, string[]>;
@@ -286,6 +291,13 @@ function computeHierarchyPositions(
 
     const node = nodes[nodeId];
     if (!node) return null;
+
+    if (node.timeline?.length) {
+      const transform = getSmoothTransform(node.timeline, currentTime);
+      const position = transform ? { x: transform.x, y: transform.y } : null;
+      cache.set(node.id, position);
+      return position;
+    }
 
     if (node.pos) {
       const fixed = { ...node.pos };
@@ -328,8 +340,20 @@ function computeHierarchyPositions(
   // positioned 作成
   for (const n of Object.values(nodes)) {
     const pos = getPosition(n.id);
-    positioned[n.id] = { ...n, position: pos };
-    levels[n.level].push(n.id);
+    const lifecycle = getSpawnState(
+      currentTime,
+      n.appearAt ?? 0,
+      n.destroyAt ?? Number.POSITIVE_INFINITY,
+      fadeDuration
+    );
+    positioned[n.id] = {
+      ...n,
+      position: pos,
+      lifecycleVisible: lifecycle.visible,
+      lifecycleAlpha: lifecycle.alpha,
+      lifecycleScale: lifecycle.scale,
+    };
+    if (lifecycle.visible) levels[n.level].push(n.id);
   }
 
   return { positioned, levels, roots };
@@ -404,7 +428,9 @@ export function prepareFrameState(
 
   const { positioned, levels, roots } = computeHierarchyPositions(
     nodes,
-    unitMap
+    unitMap,
+    currentTime,
+    fadeDuration
   );
 
   const activeUnitIds = computeActiveUnitIds(positioned, cameraTarget);

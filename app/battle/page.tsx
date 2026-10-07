@@ -96,7 +96,7 @@ export default function BattlePage() {
 
         <Link
           className="px-4 py-2 rounded-md bg-gray-600 text-white"
-          href="/"
+          href="/home"
         >
           タイトルに戻る
         </Link>

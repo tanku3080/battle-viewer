@@ -1,4 +1,5 @@
 // types/battle.ts
+import type { ForceDefinition } from "@/utils/battle/forces";
 
 export type TimelinePoint = {
   t: number;
@@ -13,6 +14,7 @@ export type UnitDefinition = {
   name: string;
   color: string;
   icon: string | null;
+  destroyAt?: number;
 };
 
 export type Unit = UnitDefinition & {
@@ -25,6 +27,7 @@ export type Character = {
   id: string;
   name: string;
   icon?: string | null;
+  destroyAt?: number;
   timeline: TimelinePoint[];
   appearAt: number;
   disappearAt: number;
@@ -33,10 +36,13 @@ export type Character = {
 export type HierarchyLevel = "legion" | "corps" | "division" | "regiment";
 export type LodLevel = HierarchyLevel | "unit";
 
+export type GroupMoveKeyframe = { t: number; enabled: boolean };
+
 export type HierarchyNode = {
   id: string;
   level: HierarchyLevel;
   name: string;
+  icon?: string | null;
   parentId: string | null;
   childrenIds: string[];
   unitIds: string[];
@@ -47,6 +53,11 @@ export type HierarchyNode = {
     detail?: unknown;
   }>;
   pos?: { x: number; y: number };
+  groupMove?: boolean;
+  groupMoveTimeline?: GroupMoveKeyframe[];
+  timeline?: TimelinePoint[];
+  appearAt?: number;
+  destroyAt?: number;
 };
 
 export type LODBand = { min: number; max: number };
@@ -114,6 +125,7 @@ export type BattleTimeline = {
   camera?: CameraKeyframe[];
   units: Record<string, TimelinePoint[]>;
   characters?: Record<string, TimelinePoint[]>;
+  hierarchy?: Record<string, TimelinePoint[]>;
 };
 
 export type CoordinateOrigin = "top-left" | "center";
@@ -134,6 +146,7 @@ export type BattleMap = {
 
 export type BattleData = {
   title: string;
+  forces?: ForceDefinition[];
   map: BattleMap;
   lod: LODConfig;
   camera: CameraKeyframe[];

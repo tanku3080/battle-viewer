@@ -18,6 +18,7 @@ import {
   type HierarchySourceNode,
 } from "./hierarchy";
 import { LOD_LEVELS } from "./lod";
+import { getForceColor, type ForceDefinition } from "./forces";
 import {
   normalizeBattleEvents,
   type RawBattleEvent,
@@ -37,6 +38,7 @@ type RawCharacter = {
   id: string;
   name?: string;
   icon?: string | null;
+  destroyAt?: number;
   timeline?: TimelinePoint[];
 };
 
@@ -51,6 +53,7 @@ type RawLODConfig = Partial<Record<LodLevel, Partial<LODBand>>> & {
 };
 
 export type RawBattleJson = {
+  forces?: ForceDefinition[];
   lod?: RawLODConfig;
   meta?: { title?: string; duration?: number };
   title?: string;
@@ -100,14 +103,18 @@ function fillDir(timeline: TimelinePoint[]): TimelinePoint[] {
   });
 }
 
-function buildUnitDefinitions(units: RawUnit[]) {
+function buildUnitDefinitions(units: RawUnit[], forces: ForceDefinition[]) {
   return units.reduce<Record<string, UnitDefinition>>((acc, unit) => {
     acc[unit.id] = {
       id: unit.id,
       force: unit.force,
       name: unit.name ?? unit.id,
-      color: unit.color ?? fallbackColor(unit.id),
+      color: getForceColor(forces, unit.force) ?? unit.color ?? fallbackColor(unit.id),
       icon: unit.icon ?? null,
+      destroyAt:
+        typeof unit.destroyAt === "number" && Number.isFinite(unit.destroyAt)
+          ? unit.destroyAt
+          : undefined,
     };
     return acc;
   }, {});
@@ -161,7 +168,7 @@ function buildUnits(
       ...def,
       timeline: tl,
       appearAt: tl.length ? tl[0].t : Number.POSITIVE_INFINITY,
-      disappearAt: tl.length ? tl[tl.length - 1].t : Number.NEGATIVE_INFINITY,
+      disappearAt: Number.POSITIVE_INFINITY,
     };
   });
 
@@ -187,9 +194,13 @@ function buildCharacters(
       id,
       name: def?.name ?? id,
       icon: def?.icon ?? null,
+      destroyAt:
+        typeof def?.destroyAt === "number" && Number.isFinite(def.destroyAt)
+          ? def.destroyAt
+          : undefined,
       timeline: tl,
       appearAt: tl.length ? tl[0].t : Number.POSITIVE_INFINITY,
-      disappearAt: tl.length ? tl[tl.length - 1].t : Number.NEGATIVE_INFINITY,
+      disappearAt: Number.POSITIVE_INFINITY,
     };
   });
 
@@ -219,12 +230,24 @@ function normalizeHierarchy(
       id,
       level: value.level,
       name: value.name ?? id,
+      icon: value.icon ?? null,
       parentId: value.parentId ?? null,
       childrenIds: [...(value.childrenIds ?? [])],
       unitIds: (value.unitIds ?? []).filter((unitId) => !!unitIndex[unitId]),
       status: value.status ?? "active",
       history: [...(value.history ?? [])],
       pos: value.pos,
+      groupMove: value.groupMove === true,
+      groupMoveTimeline: value.groupMoveTimeline?.map((point) => ({ ...point })),
+      timeline: value.timeline,
+      appearAt:
+        typeof value.appearAt === "number" && Number.isFinite(value.appearAt)
+          ? value.appearAt
+          : undefined,
+      destroyAt:
+        typeof value.destroyAt === "number" && Number.isFinite(value.destroyAt)
+          ? value.destroyAt
+          : undefined,
     };
   });
 
@@ -277,6 +300,9 @@ function normalizeLod(raw: RawLODConfig | undefined): LODConfig {
 
 export function loadBattleJson(raw: RawBattleJson): BattleData {
   validateCoordinateMap(raw?.map);
+  const forces = (Array.isArray(raw.forces) ? raw.forces : []).filter(
+    (force) => force && typeof force.name === "string" && force.name.trim() && typeof force.color === "string" && /^#[0-9a-f]{6}$/i.test(force.color)
+  );
 
   const cameraTimeline = [...(raw.timeline?.camera ?? raw.camera ?? [])]
     .map((point) => toInternalPoint(point, raw.map))
@@ -286,9 +312,12 @@ export function loadBattleJson(raw: RawBattleJson): BattleData {
     camera: cameraTimeline,
     units: buildUnitTimeline(raw),
     characters: buildCharacterTimeline(raw),
+    hierarchy: Object.fromEntries(Object.entries(raw.timeline?.hierarchy ?? {}).map(
+      ([id, points]) => [id, points.map((point) => toInternalPoint(point, raw.map))]
+    )),
   };
 
-  const unitDefs = buildUnitDefinitions(raw.units ?? []);
+  const unitDefs = buildUnitDefinitions(raw.units ?? [], forces);
   const { units, index: unitIndex } = buildUnits(unitDefs, timeline.units);
   const { characters, index: characterIndex } = buildCharacters(
     raw.characters,
@@ -298,12 +327,17 @@ export function loadBattleJson(raw: RawBattleJson): BattleData {
 
   Object.values(hierarchy.nodes).forEach((node) => {
     node.pos = toInternalPosition(node.pos, raw.map);
+    node.timeline = timeline.hierarchy?.[node.id] ?? node.timeline?.map((point) => toInternalPoint(point, raw.map));
+    if (node.appearAt === undefined && node.timeline?.length) {
+      node.appearAt = Math.min(...node.timeline.map((point) => point.t));
+    }
   });
 
   const lod = normalizeLod(raw.lod);
 
   return {
     title: raw.title ?? raw.meta?.title ?? "Untitled Battle",
+    forces,
     map: raw.map,
     lod,
     camera: cameraTimeline,
