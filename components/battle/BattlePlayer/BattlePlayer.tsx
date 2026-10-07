@@ -320,6 +320,7 @@ export const BattlePlayer: React.FC<Props> = ({
       bgImage: bgImageRef.current,
       unitImages: unitImagesRef.current,
       charImages: charImagesRef.current,
+      hierarchyImages: hierarchyImagesRef.current,
     });
 
     ctx.restore();
