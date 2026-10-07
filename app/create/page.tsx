@@ -810,9 +810,13 @@ export default function BattleCreator() {
             onDrop={drop}
             className="relative flex-1 m-4 overflow-hidden border border-gray-600 bg-[#0a1020]"
             style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px)",
-              backgroundSize: "50px 50px",
+              backgroundImage: mapImage
+                ? `linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px), url("${mapImage}")`
+                : "linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px)",
+              backgroundSize: mapImage
+                ? "50px 50px, 50px 50px, 100% 100%"
+                : "50px 50px",
+              backgroundRepeat: mapImage ? "repeat, repeat, no-repeat" : "repeat",
             }}
           >
             <div className="absolute left-1/2 top-0 bottom-0 w-px bg-yellow-400/80" />
@@ -931,7 +935,15 @@ export default function BattleCreator() {
                       current.y.toFixed(1)
                     }
                   >
-                    {mark}
+                    {item.icon ? (
+                      <img
+                        src={item.icon}
+                        alt=""
+                        className="h-7 w-7 rounded object-cover"
+                      />
+                    ) : (
+                      mark
+                    )}
                   </button>
                 </div>
               );
