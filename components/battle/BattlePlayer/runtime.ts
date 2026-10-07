@@ -66,6 +66,8 @@ function collectUnitStates(
 
   battle.units.forEach((unit) => {
     const transform = getSmoothTransform(unit.timeline, currentTime);
+    const destroyed =
+      unit.destroyAt !== undefined && currentTime >= unit.destroyAt;
     const { visible, alpha, scale } = getSpawnState(
       currentTime,
       unit.appearAt,
@@ -76,9 +78,9 @@ function collectUnitStates(
     const state: UnitRenderState = {
       unit,
       transform,
-      visible,
-      alpha,
-      scale,
+      visible: visible && !destroyed,
+      alpha: destroyed ? 0 : alpha,
+      scale: destroyed ? 0 : scale,
     };
 
     unitStates.push(state);
@@ -105,6 +107,8 @@ function collectCharacterStates(
     const appearAt = ch.appearAt ?? 0;
     const disappearAt = ch.disappearAt ?? Number.POSITIVE_INFINITY;
 
+    const destroyed =
+      ch.destroyAt !== undefined && currentTime >= ch.destroyAt;
     const { visible, alpha, scale } = getSpawnState(
       currentTime,
       appearAt,
@@ -117,9 +121,9 @@ function collectCharacterStates(
       name: ch.name,
       icon: ch.icon ?? null,
       transform,
-      visible,
-      alpha,
-      scale,
+      visible: visible && !destroyed,
+      alpha: destroyed ? 0 : alpha,
+      scale: destroyed ? 0 : scale,
     });
   });
 
@@ -143,7 +147,15 @@ function applyEventsToHierarchy(
   events: BattleEvent[],
   currentTime: number
 ) {
-  const nodes = cloneHierarchyNodes(baseNodes);
+  const nodes = Object.fromEntries(
+    Object.entries(cloneHierarchyNodes(baseNodes)).filter(([, node]) => {
+      const appearAt = node.appearAt ?? 0;
+      const beforeAppearance = currentTime < appearAt;
+      const destroyed =
+        node.destroyAt !== undefined && currentTime >= node.destroyAt;
+      return !beforeAppearance && !destroyed;
+    })
+  );
 
   const relevant = events
     .filter((event) => event.t <= currentTime)
