@@ -44,6 +44,7 @@ export const BattlePlayer: React.FC<Props> = ({
   const bgImageRef = useRef<HTMLImageElement | null>(null);
   const unitImagesRef = useRef<Record<string, HTMLImageElement>>({});
   const charImagesRef = useRef<Record<string, HTMLImageElement>>({});
+  const hierarchyImagesRef = useRef<Record<string, HTMLImageElement>>({});
 
   const [userScale, setUserScale] = useState(1);
   const cameraOverrideRef = useRef(false);
@@ -75,6 +76,7 @@ export const BattlePlayer: React.FC<Props> = ({
     bgImageRef.current = null;
     unitImagesRef.current = {};
     charImagesRef.current = {};
+    hierarchyImagesRef.current = {};
     if (!battle) return;
 
     const loadImage = (
@@ -107,6 +109,12 @@ export const BattlePlayer: React.FC<Props> = ({
     battle.characters.forEach((character) => {
       loadImage(character.icon, (image) => {
         charImagesRef.current[character.id] = image;
+      });
+    });
+
+    Object.values(battle.hierarchy?.nodes ?? {}).forEach((node) => {
+      loadImage(node.icon, (image) => {
+        hierarchyImagesRef.current[node.id] = image;
       });
     });
 
@@ -242,6 +250,7 @@ export const BattlePlayer: React.FC<Props> = ({
         bgImage: bgImageRef.current,
         unitImages: unitImagesRef.current,
         charImages: charImagesRef.current,
+        hierarchyImages: hierarchyImagesRef.current,
       });
 
       ctx.restore();
