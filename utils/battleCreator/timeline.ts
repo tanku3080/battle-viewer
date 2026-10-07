@@ -36,6 +36,62 @@ export function getCreatorPositionAt(
   return fallback;
 }
 
+export function getCreatorElementVisualState(args: {
+  timeline: CreatorTimelinePoint[];
+  appearAt: number;
+  destroyEnabled: boolean;
+  destroyAt: number;
+  t: number;
+  fadeDuration: number;
+}) {
+  const {
+    timeline,
+    appearAt,
+    destroyEnabled,
+    destroyAt,
+    t,
+    fadeDuration,
+  } = args;
+
+  const spawnAt = timeline.length > 0
+    ? Math.min(...timeline.map((point) => point.t))
+    : appearAt;
+
+  if (!Number.isFinite(spawnAt) || t < spawnAt) {
+    return { visible: false, alpha: 0, scale: 0 };
+  }
+
+  if (t < spawnAt + fadeDuration) {
+    const ratio = Math.max(
+      0,
+      Math.min(1, (t - spawnAt) / fadeDuration)
+    );
+    return {
+      visible: true,
+      alpha: ratio,
+      scale: 0.2 + 0.8 * ratio,
+    };
+  }
+
+  if (
+    destroyEnabled &&
+    Number.isFinite(destroyAt) &&
+    t > destroyAt
+  ) {
+    const ratio = 1 - (t - destroyAt) / fadeDuration;
+    if (ratio <= 0) {
+      return { visible: false, alpha: 0, scale: 0 };
+    }
+    return {
+      visible: true,
+      alpha: ratio,
+      scale: 0.2 + 0.8 * ratio,
+    };
+  }
+
+  return { visible: true, alpha: 1, scale: 1 };
+}
+
 export function isCreatorElementVisibleAt(args: {
   timeline: CreatorTimelinePoint[];
   appearAt: number;
@@ -43,14 +99,8 @@ export function isCreatorElementVisibleAt(args: {
   destroyAt: number;
   t: number;
 }) {
-  const { timeline, appearAt, destroyEnabled, destroyAt, t } = args;
-  const spawnAt = timeline.length > 0
-    ? Math.min(...timeline.map((point) => point.t))
-    : appearAt;
-
-  if (!Number.isFinite(spawnAt) || t < spawnAt) return false;
-  if (destroyEnabled && Number.isFinite(destroyAt) && t >= destroyAt) {
-    return false;
-  }
-  return true;
+  return getCreatorElementVisualState({
+    ...args,
+    fadeDuration: 0.5,
+  }).visible;
 }
