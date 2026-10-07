@@ -230,6 +230,7 @@ function normalizeHierarchy(
       id,
       level: value.level,
       name: value.name ?? id,
+      icon: value.icon ?? null,
       parentId: value.parentId ?? null,
       childrenIds: [...(value.childrenIds ?? [])],
       unitIds: (value.unitIds ?? []).filter((unitId) => !!unitIndex[unitId]),
