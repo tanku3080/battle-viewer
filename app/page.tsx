@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { login } from "@/utils/auth/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,20 +17,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as
-          | { error?: string; details?: string[] }
-          | null;
-        throw new Error(
-          body?.details?.join(", ") ?? body?.error ?? "ログインに失敗しました"
-        );
-      }
+      await login(username, password);
 
       localStorage.setItem(
         "battle-viewer:last-activity",
