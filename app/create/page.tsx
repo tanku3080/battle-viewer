@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  getCreatorCameraAt,
   getCreatorElementVisualState,
   getCreatorPositionAt,
 } from "@/utils/battleCreator/timeline";
