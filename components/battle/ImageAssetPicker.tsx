@@ -1,6 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState, type PointerEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 
 type Props = {
   label: string;
@@ -29,7 +37,10 @@ export default function ImageAssetPicker({
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const titleId = useId();
+  const helpId = useId();
   const [source, setSource] = useState("");
   const [imageSize, setImageSize] = useState<ImageSize | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -54,9 +65,8 @@ export default function ImageAssetPicker({
   }, [maxPreviewHeight, maxPreviewWidth, safeAspect]);
   const previewWidth = previewSize.width;
   const previewHeight = previewSize.height;
-  const iconCropSize = mode === "icon"
-    ? Math.min(previewWidth, previewHeight) * 0.82
-    : null;
+  const iconCropSize =
+    mode === "icon" ? Math.min(previewWidth, previewHeight) * 0.82 : null;
   const cropWidth = iconCropSize ?? previewWidth;
   const cropHeight = iconCropSize ?? previewHeight;
 
@@ -79,6 +89,17 @@ export default function ImageAssetPicker({
       y: clamp(next.y, -maxY, maxY),
     };
   };
+
+  useEffect(() => {
+    if (!source) return;
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => {
+      if (dialog?.open) dialog.close();
+      previousFocus?.focus();
+    };
+  }, [source]);
 
   const openFileDialog = () => inputRef.current?.click();
 
@@ -104,6 +125,29 @@ export default function ImageAssetPicker({
     };
     reader.onerror = () => setError("画像を読み込めませんでした。");
     reader.readAsDataURL(file);
+  };
+
+  const nudge = (x: number, y: number) => {
+    setOffset((current) =>
+      clampOffset({ x: current.x + x, y: current.y + y })
+    );
+  };
+
+  const handlePreviewKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 20 : 5;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      nudge(-step, 0);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      nudge(step, 0);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      nudge(0, -step);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      nudge(0, step);
+    }
   };
 
   const commit = () => {
@@ -152,6 +196,7 @@ export default function ImageAssetPicker({
         type="file"
         accept="image/png,image/jpeg,image/webp"
         className="hidden"
+        aria-label={label + "ファイルを選択"}
         onChange={(event) => {
           handleFile(event.target.files?.[0]);
           event.currentTarget.value = "";
@@ -176,7 +221,7 @@ export default function ImageAssetPicker({
         </button>
       ) : (
         <div className="mb-3">
-          <span className="mb-1 block text-xs text-gray-400">{label}</span>
+          <span className="mb-1 block text-xs text-gray-300">{label}</span>
           <button
             type="button"
             onClick={openFileDialog}
@@ -192,13 +237,16 @@ export default function ImageAssetPicker({
                 }
               />
             ) : (
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-dashed border-gray-600 text-2xl text-gray-500">
+              <span
+                aria-hidden="true"
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-dashed border-gray-500 text-2xl text-gray-300"
+              >
                 +
               </span>
             )}
             <span className="text-sm">
               {value ? "画像を変更" : "画像を選択"}
-              <span className="mt-1 block text-[11px] text-gray-500">
+              <span className="mt-1 block text-[11px] text-gray-300">
                 選択後に位置とズームを調整できます。
               </span>
             </span>
@@ -207,128 +255,166 @@ export default function ImageAssetPicker({
             <button
               type="button"
               onClick={() => onChange("")}
-              className="mt-2 text-xs text-red-400 hover:text-red-300"
+              className="mt-2 min-h-8 text-xs text-red-300 hover:text-red-200"
             >
               画像を削除
             </button>
           )}
-          {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+          {error && (
+            <p role="alert" className="mt-1 text-xs text-red-300">
+              {error}
+            </p>
+          )}
         </div>
       )}
 
       {source && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-6">
-          <div className="max-h-full max-w-3xl overflow-auto rounded-xl border border-gray-700 bg-[#0b1020] p-5 shadow-2xl">
-            <h2 className="text-lg font-semibold">{label}プレビュー</h2>
-            <p className="mt-1 text-xs text-gray-400">
-              {mode === "icon"
-                ? "明るい円の内側が実際に表示される範囲です。画像をドラッグし、ズームして位置を調整してください。"
-                : "画像をドラッグして位置を調整し、ズームで表示範囲を決めてください。"}
-            </p>
+        <dialog
+          ref={dialogRef}
+          aria-labelledby={titleId}
+          aria-describedby={helpId}
+          onCancel={(event) => {
+            event.preventDefault();
+            setSource("");
+          }}
+          className="m-auto max-h-[95vh] max-w-[min(48rem,95vw)] overflow-auto rounded-xl border border-gray-700 bg-[#0b1020] p-5 text-gray-100 shadow-2xl backdrop:bg-black/80"
+        >
+          <h2 id={titleId} className="text-lg font-semibold">
+            {label}プレビュー
+          </h2>
+          <p id={helpId} className="mt-1 text-xs text-gray-300">
+            {mode === "icon"
+              ? "明るい円の内側が実際に表示される範囲です。ドラッグ、矢印キー、又は移動ボタンで位置を調整できます。"
+              : "ドラッグ、矢印キー、又は移動ボタンで位置を調整し、ズームで表示範囲を決めてください。"}
+          </p>
 
-            <div className="mt-4 flex justify-center">
-              <div
-                className="relative touch-none overflow-hidden border-2 border-blue-500 bg-black"
-                style={{ width: previewWidth, height: previewHeight }}
-                onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  dragRef.current = {
-                    x: event.clientX,
-                    y: event.clientY,
-                    ox: offset.x,
-                    oy: offset.y,
-                  };
+          <div className="mt-4 flex justify-center">
+            <div
+              role="group"
+              aria-label={label + "の位置調整"}
+              tabIndex={0}
+              className="relative touch-none overflow-hidden border-2 border-blue-500 bg-black"
+              style={{ width: previewWidth, height: previewHeight }}
+              onKeyDown={handlePreviewKeyDown}
+              onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                dragRef.current = {
+                  x: event.clientX,
+                  y: event.clientY,
+                  ox: offset.x,
+                  oy: offset.y,
+                };
+              }}
+              onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
+                if (!dragRef.current) return;
+                const next = {
+                  x: dragRef.current.ox + event.clientX - dragRef.current.x,
+                  y: dragRef.current.oy + event.clientY - dragRef.current.y,
+                };
+                setOffset(clampOffset(next));
+              }}
+              onPointerUp={() => {
+                dragRef.current = null;
+              }}
+              onPointerCancel={() => {
+                dragRef.current = null;
+              }}
+            >
+              <img
+                ref={imageRef}
+                src={source}
+                alt="調整中の画像"
+                draggable={false}
+                onLoad={(event) => {
+                  setImageSize({
+                    width: event.currentTarget.naturalWidth,
+                    height: event.currentTarget.naturalHeight,
+                  });
                 }}
-                onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
-                  if (!dragRef.current) return;
-                  const next = {
-                    x: dragRef.current.ox + event.clientX - dragRef.current.x,
-                    y: dragRef.current.oy + event.clientY - dragRef.current.y,
-                  };
-                  setOffset(clampOffset(next));
-                }}
-                onPointerUp={() => {
-                  dragRef.current = null;
-                }}
-                onPointerCancel={() => {
-                  dragRef.current = null;
-                }}
-              >
-                <img
-                  ref={imageRef}
-                  src={source}
-                  alt="調整中"
-                  draggable={false}
-                  onLoad={(event) => {
-                    setImageSize({
-                      width: event.currentTarget.naturalWidth,
-                      height: event.currentTarget.naturalHeight,
-                    });
-                  }}
-                  className="pointer-events-none absolute left-1/2 top-1/2 max-w-none select-none"
-                  style={
-                    imageSize
-                      ? {
-                          width: imageSize.width * baseScale * zoom,
-                          height: imageSize.height * baseScale * zoom,
-                          transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
-                        }
-                      : undefined
-                  }
-                />
-                {mode === "icon" ? (
-                  <div
-                    className="pointer-events-none absolute left-1/2 top-1/2 rounded-full border-2 border-white/90"
-                    style={{
-                      width: iconCropSize ?? undefined,
-                      height: iconCropSize ?? undefined,
-                      transform: "translate(-50%, -50%)",
-                      boxShadow: "0 0 0 9999px rgba(0,0,0,0.6)",
-                    }}
-                  />
-                ) : (
-                  <div className="pointer-events-none absolute inset-0 border border-white/40" />
-                )}
-              </div>
-            </div>
-
-            <label className="mt-4 flex items-center gap-3 text-sm">
-              ズーム
-              <input
-                type="range"
-                min={1}
-                max={4}
-                step={0.01}
-                value={zoom}
-                onChange={(event) => {
-                  const nextZoom = Number(event.target.value);
-                  setZoom(nextZoom);
-                  setOffset((current) => clampOffset(current, nextZoom));
-                }}
-                className="w-72"
+                className="pointer-events-none absolute left-1/2 top-1/2 max-w-none select-none"
+                style={
+                  imageSize
+                    ? {
+                        width: imageSize.width * baseScale * zoom,
+                        height: imageSize.height * baseScale * zoom,
+                        transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+                      }
+                    : undefined
+                }
               />
-              <span>{zoom.toFixed(2)}x</span>
-            </label>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setSource("")}
-                className="rounded bg-gray-600 px-4 py-2 hover:bg-gray-500"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                disabled={!imageSize}
-                onClick={commit}
-                className="rounded bg-blue-600 px-4 py-2 hover:bg-blue-700 disabled:opacity-40"
-              >
-                決定
-              </button>
+              {mode === "icon" ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-1/2 top-1/2 rounded-full border-2 border-white/90"
+                  style={{
+                    width: iconCropSize ?? undefined,
+                    height: iconCropSize ?? undefined,
+                    transform: "translate(-50%, -50%)",
+                    boxShadow: "0 0 0 9999px rgba(0,0,0,0.6)",
+                  }}
+                />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 border border-white/40"
+                />
+              )}
             </div>
           </div>
-        </div>
+
+          <div
+            className="mx-auto mt-3 grid w-fit grid-cols-3 gap-2"
+            role="group"
+            aria-label="画像位置をボタンで調整"
+          >
+            <span />
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(0, -5)} aria-label="画像を上へ移動">↑</button>
+            <span />
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(-5, 0)} aria-label="画像を左へ移動">←</button>
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => setOffset({ x: 0, y: 0 })} aria-label="画像位置を中央に戻す">中央</button>
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(5, 0)} aria-label="画像を右へ移動">→</button>
+            <span />
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(0, 5)} aria-label="画像を下へ移動">↓</button>
+            <span />
+          </div>
+
+          <label className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            <span>ズーム</span>
+            <input
+              type="range"
+              min={1}
+              max={4}
+              step={0.01}
+              value={zoom}
+              aria-valuetext={zoom.toFixed(2) + "倍"}
+              onChange={(event) => {
+                const nextZoom = Number(event.target.value);
+                setZoom(nextZoom);
+                setOffset((current) => clampOffset(current, nextZoom));
+              }}
+              className="w-72 max-w-full"
+            />
+            <span>{zoom.toFixed(2)}x</span>
+          </label>
+
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setSource("")}
+              className="rounded bg-gray-600 px-4 py-2 hover:bg-gray-500"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              disabled={!imageSize}
+              onClick={commit}
+              className="rounded bg-blue-600 px-4 py-2 hover:bg-blue-700 disabled:opacity-40"
+            >
+              決定
+            </button>
+          </div>
+        </dialog>
       )}
     </>
   );
