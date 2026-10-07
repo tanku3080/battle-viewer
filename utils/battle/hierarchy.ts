@@ -9,6 +9,8 @@ export type HierarchySourceNode = {
   id: string;
   name?: string;
   pos?: { x: number; y: number };
+  appearAt?: number;
+  destroyAt?: number;
   children?: HierarchySourceNode[];
   units?: string[];
 };
@@ -60,6 +62,8 @@ export function buildHierarchyNodesFromJson(
       status: "active",
       history: [],
       pos: src.pos,
+      appearAt: src.appearAt,
+      destroyAt: src.destroyAt,
     };
 
     nodes[node.id] = node;
