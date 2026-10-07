@@ -7,6 +7,12 @@ import {
   getCreatorPositionAt,
 } from "@/utils/battleCreator/timeline";
 import { hasMissingRequiredFields } from "@/utils/battleCreator/validation";
+import {
+  canCreatorHaveManualParent,
+  canCreatorParent,
+  expectedCreatorParentType,
+  isCreatorBattleRootOnly,
+} from "@/utils/battleCreator/hierarchy";
 
 type SpatialType =
   | "unit"
@@ -17,7 +23,7 @@ type SpatialType =
   | "regiment"
   | "camera";
 type SidebarTab = "elements" | "hierarchy";
-type Point = { t: number; x: number; y: number; dir?: number };
+type Point = { t: number; x: number; y: number; dir?: number; zoom?: number };
 type EditorItem = {
   key: string;
   type: SpatialType;
@@ -96,22 +102,6 @@ const HIERARCHY_TYPES: SpatialType[] = [
 
 function isHierarchy(type: SpatialType) {
   return HIERARCHY_TYPES.includes(type);
-}
-
-function canHaveManualParent(type: SpatialType) {
-  return ["corps", "division", "regiment", "unit"].includes(type);
-}
-
-function expectedParentType(type: SpatialType): SpatialType | null {
-  if (type === "corps") return "legion";
-  if (type === "division") return "corps";
-  if (type === "regiment") return "division";
-  if (type === "unit") return "regiment";
-  return null;
-}
-
-function canParent(child: SpatialType, parent: SpatialType) {
-  return expectedParentType(child) === parent;
 }
 
 function emptyItem(type: SpatialType): EditorItem {
@@ -252,6 +242,9 @@ export default function BattleCreator() {
       x,
       y,
       ...(Number.isFinite(item.dir) ? { dir: item.dir } : {}),
+      ...(item.type === "camera" && Number.isFinite(item.zoom)
+        ? { zoom: item.zoom }
+        : {}),
     };
     const timeline = [
       ...item.timeline.filter((p) => p.t !== currentTime),
@@ -321,9 +314,35 @@ export default function BattleCreator() {
   const updateSelected = (patch: Partial<EditorItem>) => {
     if (selectedKey) {
       setItems((old) =>
-        old.map((item) =>
-          item.key === selectedKey ? { ...item, ...patch } : item
-        )
+        old.map((item) => {
+          if (item.key !== selectedKey) return item;
+
+          if (
+            item.type === "camera" &&
+            patch.zoom !== undefined &&
+            Number.isFinite(patch.zoom)
+          ) {
+            const current = getCreatorPositionAt(
+              item.timeline,
+              currentTime,
+              { x: item.x, y: item.y }
+            );
+            const point: Point = {
+              t: currentTime,
+              x: current.x,
+              y: current.y,
+              zoom: patch.zoom,
+            };
+            const timeline = [
+              ...item.timeline.filter((entry) => entry.t !== currentTime),
+              point,
+            ].sort((a, b) => a.t - b.t);
+
+            return { ...item, ...patch, timeline };
+          }
+
+          return { ...item, ...patch };
+        })
       );
     } else if (draftItem) {
       setDraftItem({ ...draftItem, ...patch });
@@ -368,7 +387,7 @@ export default function BattleCreator() {
     if (
       !parent ||
       !parent.id.trim() ||
-      !canParent(child.type, parent.type)
+      !canCreatorParent(child.type, parent.type)
     ) {
       return;
     }
@@ -388,7 +407,7 @@ export default function BattleCreator() {
       (candidate) =>
         candidate.id.trim() === item.parentId.trim()
     );
-    return parent && canParent(item.type, parent.type)
+    return parent && canCreatorParent(item.type, parent.type)
       ? parent
       : null;
   };
@@ -453,7 +472,7 @@ export default function BattleCreator() {
                 .filter(
                   (child) =>
                     child.parentId.trim() === item.id.trim() &&
-                    canParent(child.type, item.type)
+                    canCreatorParent(child.type, item.type)
                 )
                 .map((child) => child.id.trim());
 
@@ -522,7 +541,10 @@ export default function BattleCreator() {
           t: point.t,
           x: point.x,
           y: point.y,
-          zoom: item.zoom,
+          zoom:
+            typeof point.zoom === "number" && Number.isFinite(point.zoom)
+              ? point.zoom
+              : item.zoom,
         }))
       )
       .sort((a, b) => a.t - b.t);
@@ -787,12 +809,22 @@ export default function BattleCreator() {
                   (palette) => palette.type === item.type
                 )?.mark ?? "?";
 
-              const zoom =
-                item.type === "camera" &&
-                Number.isFinite(item.zoom) &&
-                item.zoom > 0
-                  ? item.zoom
-                  : 1;
+              const currentCameraPoint =
+                item.type === "camera"
+                  ? getCreatorCameraAt(
+                      item.timeline,
+                      currentTime,
+                      {
+                        x: current.x,
+                        y: current.y,
+                        zoom:
+                          Number.isFinite(item.zoom) && item.zoom > 0
+                            ? item.zoom
+                            : 1,
+                      }
+                    )
+                  : null;
+              const zoom = currentCameraPoint?.zoom ?? 1;
 
               return (
                 <div key={item.key}>
@@ -800,8 +832,20 @@ export default function BattleCreator() {
                     <div
                       className="pointer-events-none absolute border-2 border-red-500"
                       style={{
-                        left: pos.left,
-                        top: pos.top,
+                        left:
+                          currentCameraPoint
+                            ? toPercent(
+                                currentCameraPoint.x,
+                                currentCameraPoint.y
+                              ).left
+                            : pos.left,
+                        top:
+                          currentCameraPoint
+                            ? toPercent(
+                                currentCameraPoint.x,
+                                currentCameraPoint.y
+                              ).top
+                            : pos.top,
                         width: String(100 / zoom) + "%",
                         height: String(100 / zoom) + "%",
                         transform:
@@ -1004,7 +1048,7 @@ function HierarchyPanel({
     items.filter(
       (item) =>
         item.parentId.trim() === parent.id.trim() &&
-        canParent(item.type, parent.type)
+        canCreatorParent(item.type, parent.type)
     );
 
   return (
@@ -1201,7 +1245,7 @@ function ItemProperties({
   onChange: (patch: Partial<EditorItem>) => void;
   onDelete: () => void;
 }) {
-  const expected = expectedParentType(item.type);
+  const expected = expectedCreatorParentType(item.type);
   const parent =
     item.parentId.trim() === ""
       ? null
@@ -1211,7 +1255,7 @@ function ItemProperties({
             item.parentId.trim()
         ) ?? null;
   const parentInvalid =
-    canHaveManualParent(item.type) &&
+    canCreatorHaveManualParent(item.type) &&
     Boolean(item.parentId.trim()) &&
     (!parent ||
       !expected ||
@@ -1290,7 +1334,7 @@ function ItemProperties({
         />
       )}
 
-      {canHaveManualParent(item.type) && (
+      {canCreatorHaveManualParent(item.type) && (
         <Field
           label="parentId"
           value={item.parentId}
@@ -1308,8 +1352,7 @@ function ItemProperties({
         />
       )}
 
-      {(item.type === "legion" ||
-        item.type === "character") && (
+      {isCreatorBattleRootOnly(item.type) && (
         <div className="mb-3 rounded border border-gray-700 bg-[#111827] p-3 text-xs text-gray-400">
           親: バトル（固定）
         </div>
