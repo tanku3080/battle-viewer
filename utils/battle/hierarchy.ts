@@ -10,6 +10,7 @@ import type {
 export type HierarchySourceNode = {
   id: string;
   name?: string;
+  icon?: string | null;
   pos?: { x: number; y: number };
   groupMove?: boolean;
   groupMoveTimeline?: GroupMoveKeyframe[];
@@ -62,6 +63,7 @@ export function buildHierarchyNodesFromJson(
     const node: HierarchyNode = {
       id: src.id,
       name: src.name ?? src.id,
+      icon: src.icon ?? null,
       level,
       parentId,
       childrenIds: [],
