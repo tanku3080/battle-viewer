@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { logout, session } from "@/utils/auth/client";
 
 const IDLE_LIMIT_MS = 60 * 60 * 1000;
 const TOUCH_THROTTLE_MS = 60 * 1000;
@@ -20,22 +21,24 @@ export function AuthActivityGuard({
 
     const redirectToLogin = async () => {
       try {
-        await fetch("/api/auth/logout", { method: "POST" });
+        await logout();
       } finally {
         if (!disposed) router.replace("/");
       }
     };
 
     const touchSession = async () => {
-      const response = await fetch("/api/auth/session", {
-        method: "GET",
-        cache: "no-store",
-      });
-      if (response.status === 401) {
-        await redirectToLogin();
-        return false;
+      try {
+        const current = await session();
+        if (!current) {
+          await redirectToLogin();
+          return false;
+        }
+        return true;
+      } catch {
+        // Hubが一時的にオフラインでもローカル画面は維持する。
+        return true;
       }
-      return response.ok;
     };
 
     const initialize = async () => {
