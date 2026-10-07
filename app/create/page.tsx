@@ -1354,11 +1354,13 @@ function Field({
   };
 
   return (
-    <label className="block mb-3" htmlFor={inputId}>
-      <span className="block text-xs text-gray-300 mb-1">
+    <div className="block mb-3">
+      <label htmlFor={inputId} className="block text-xs text-gray-300 mb-1">
         {label}
         {required && (
-          <span className="ml-1 text-red-300" aria-hidden="true">*</span>
+          <span className="ml-1 text-red-300" aria-hidden="true">
+            *
+          </span>
         )}
       </label>
       <div className={coordinate ? "flex items-center gap-2" : undefined}>
@@ -1379,7 +1381,7 @@ function Field({
           aria-required={required || undefined}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
             if (!coordinate) return;
             const next = stepCreatorCoordinate(
