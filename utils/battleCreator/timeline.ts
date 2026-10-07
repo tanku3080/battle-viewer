@@ -35,3 +35,22 @@ export function getCreatorPositionAt(
 
   return fallback;
 }
+
+export function isCreatorElementVisibleAt(args: {
+  timeline: CreatorTimelinePoint[];
+  appearAt: number;
+  destroyEnabled: boolean;
+  destroyAt: number;
+  t: number;
+}) {
+  const { timeline, appearAt, destroyEnabled, destroyAt, t } = args;
+  const spawnAt = timeline.length > 0
+    ? Math.min(...timeline.map((point) => point.t))
+    : appearAt;
+
+  if (!Number.isFinite(spawnAt) || t < spawnAt) return false;
+  if (destroyEnabled && Number.isFinite(destroyAt) && t >= destroyAt) {
+    return false;
+  }
+  return true;
+}
