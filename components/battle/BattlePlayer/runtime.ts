@@ -36,6 +36,9 @@ export type CharacterRenderState = {
 
 export type NodeWithPosition = HierarchyNode & {
   position: { x: number; y: number } | null;
+  lifecycleVisible: boolean;
+  lifecycleAlpha: number;
+  lifecycleScale: number;
 };
 
 export type FrameHierarchyState = {
@@ -66,21 +69,19 @@ function collectUnitStates(
 
   battle.units.forEach((unit) => {
     const transform = getSmoothTransform(unit.timeline, currentTime);
-    const destroyed =
-      unit.destroyAt !== undefined && currentTime >= unit.destroyAt;
     const { visible, alpha, scale } = getSpawnState(
       currentTime,
       unit.appearAt,
-      unit.disappearAt,
+      unit.destroyAt ?? unit.disappearAt,
       fadeDuration
     );
 
     const state: UnitRenderState = {
       unit,
       transform,
-      visible: visible && !destroyed,
-      alpha: destroyed ? 0 : alpha,
-      scale: destroyed ? 0 : scale,
+      visible,
+      alpha,
+      scale,
     };
 
     unitStates.push(state);
@@ -107,12 +108,10 @@ function collectCharacterStates(
     const appearAt = ch.appearAt ?? 0;
     const disappearAt = ch.disappearAt ?? Number.POSITIVE_INFINITY;
 
-    const destroyed =
-      ch.destroyAt !== undefined && currentTime >= ch.destroyAt;
     const { visible, alpha, scale } = getSpawnState(
       currentTime,
       appearAt,
-      disappearAt,
+      ch.destroyAt ?? disappearAt,
       fadeDuration
     );
 
@@ -121,9 +120,9 @@ function collectCharacterStates(
       name: ch.name,
       icon: ch.icon ?? null,
       transform,
-      visible: visible && !destroyed,
-      alpha: destroyed ? 0 : alpha,
-      scale: destroyed ? 0 : scale,
+      visible,
+      alpha,
+      scale,
     });
   });
 
@@ -147,15 +146,7 @@ function applyEventsToHierarchy(
   events: BattleEvent[],
   currentTime: number
 ) {
-  const nodes = Object.fromEntries(
-    Object.entries(cloneHierarchyNodes(baseNodes)).filter(([, node]) => {
-      const appearAt = node.appearAt ?? 0;
-      const beforeAppearance = currentTime < appearAt;
-      const destroyed =
-        node.destroyAt !== undefined && currentTime >= node.destroyAt;
-      return !beforeAppearance && !destroyed;
-    })
-  );
+  const nodes = cloneHierarchyNodes(baseNodes);
 
   const relevant = events
     .filter((event) => event.t <= currentTime)
@@ -277,7 +268,9 @@ function applyEventsToHierarchy(
 
 function computeHierarchyPositions(
   nodes: Record<string, HierarchyNode>,
-  unitStates: Record<string, UnitRenderState>
+  unitStates: Record<string, UnitRenderState>,
+  currentTime: number,
+  fadeDuration: number
 ): {
   positioned: Record<string, NodeWithPosition>;
   levels: Record<HierarchyLevel, string[]>;
@@ -340,8 +333,20 @@ function computeHierarchyPositions(
   // positioned 作成
   for (const n of Object.values(nodes)) {
     const pos = getPosition(n.id);
-    positioned[n.id] = { ...n, position: pos };
-    levels[n.level].push(n.id);
+    const lifecycle = getSpawnState(
+      currentTime,
+      n.appearAt ?? 0,
+      n.destroyAt ?? Number.POSITIVE_INFINITY,
+      fadeDuration
+    );
+    positioned[n.id] = {
+      ...n,
+      position: pos,
+      lifecycleVisible: lifecycle.visible,
+      lifecycleAlpha: lifecycle.alpha,
+      lifecycleScale: lifecycle.scale,
+    };
+    if (lifecycle.visible) levels[n.level].push(n.id);
   }
 
   return { positioned, levels, roots };
@@ -416,7 +421,9 @@ export function prepareFrameState(
 
   const { positioned, levels, roots } = computeHierarchyPositions(
     nodes,
-    unitMap
+    unitMap,
+    currentTime,
+    fadeDuration
   );
 
   const activeUnitIds = computeActiveUnitIds(positioned, cameraTarget);
