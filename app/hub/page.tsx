@@ -46,10 +46,10 @@ export default function BattleHubPage() {
       </header>
 
       <section className="max-w-5xl mx-auto">
-        {loading && <p className="text-gray-400">読み込み中...</p>}
+        {loading && <p role="status" aria-live="polite" className="text-gray-300">読み込み中...</p>}
 
         {error && (
-          <div className="rounded border border-red-800 bg-red-950 p-4 text-red-200">
+          <div role="alert" className="rounded border border-red-800 bg-red-950 p-4 text-red-200">
             {error}
           </div>
         )}

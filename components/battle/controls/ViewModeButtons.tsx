@@ -20,6 +20,7 @@ export function ViewModeButtons({
         className={`px-3 py-2 rounded border ${
           viewMode === "map" ? "bg-blue-600" : "bg-gray-700"
         }`}
+        aria-pressed={viewMode === "map"}
         onClick={() => setViewMode("map")}
       >
         全体
@@ -29,6 +30,7 @@ export function ViewModeButtons({
         className={`px-3 py-2 rounded border ${
           viewMode === "camera" ? "bg-blue-600" : "bg-gray-700"
         }`}
+        aria-pressed={viewMode === "camera"}
         onClick={() => setViewMode("camera")}
       >
         カメラ

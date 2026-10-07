@@ -38,7 +38,7 @@ export default function LoginPage() {
         className="w-full max-w-sm rounded-xl border border-gray-700 bg-[#111827] p-6 shadow-2xl"
       >
         <h1 className="text-2xl font-semibold mb-2">Battle Viewer</h1>
-        <p className="text-sm text-gray-400 mb-6">
+        <p className="text-sm text-gray-300 mb-6">
           Battle Hubアカウントでログインしてください。
         </p>
 
@@ -49,7 +49,9 @@ export default function LoginPage() {
             onChange={(event) => setUsername(event.target.value)}
             autoComplete="username"
             required
-            className="w-full rounded-md border border-gray-600 bg-[#0b1020] px-3 py-2 outline-none focus:border-blue-400"
+            aria-describedby={error ? "login-error" : undefined}
+            aria-invalid={Boolean(error)}
+            className="w-full rounded-md border border-gray-600 bg-[#0b1020] px-3 py-2 focus:border-blue-400"
           />
         </label>
 
@@ -61,12 +63,18 @@ export default function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
             required
-            className="w-full rounded-md border border-gray-600 bg-[#0b1020] px-3 py-2 outline-none focus:border-blue-400"
+            aria-describedby={error ? "login-error" : undefined}
+            aria-invalid={Boolean(error)}
+            className="w-full rounded-md border border-gray-600 bg-[#0b1020] px-3 py-2 focus:border-blue-400"
           />
         </label>
 
         {error && (
-          <div className="mb-4 rounded border border-red-800 bg-red-950 px-3 py-2 text-sm text-red-200">
+          <div
+            id="login-error"
+            role="alert"
+            className="mb-4 rounded border border-red-800 bg-red-950 px-3 py-2 text-sm text-red-200"
+          >
             {error}
           </div>
         )}

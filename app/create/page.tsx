@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { DragEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import ForcePicker from "@/components/battle/ForcePicker";
 import ImageAssetPicker from "@/components/battle/ImageAssetPicker";
 import { createBattleHubForce, getBattleHubForces } from "@/utils/battleHub/client";
@@ -327,6 +327,27 @@ export default function BattleCreator() {
           ? 1
           : item.zoom,
     };
+  };
+
+  const placeDraftAt = (p: { x: number; y: number }) => {
+    if (!draftItem) return;
+    const type = draftItem.type;
+    const created = record(
+      {
+        ...draftItem,
+        key: crypto.randomUUID(),
+        name:
+          draftItem.name.trim() ||
+          getCreatorDefaultName(type, items),
+      },
+      p.x,
+      p.y,
+      false
+    );
+
+    setItems((old) => [...old, initializeCreatorGroupOrigin(old, created)]);
+    setSelectedKey(created.key);
+    setDraftItem(null);
   };
 
   const drop = (event: DragEvent<HTMLDivElement>) => {
@@ -705,6 +726,7 @@ export default function BattleCreator() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="戦闘名"
+          aria-label="戦闘名"
           className="w-52 rounded border border-gray-600 bg-[#111827] px-3 py-2"
         />
         <ImageAssetPicker
@@ -723,6 +745,7 @@ export default function BattleCreator() {
             setMapWidth(Math.max(1, Number(e.target.value)))
           }
           title="map.width"
+          aria-label="マップ幅"
           className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
         />
         <input
@@ -733,6 +756,7 @@ export default function BattleCreator() {
             setMapHeight(Math.max(1, Number(e.target.value)))
           }
           title="map.height"
+          aria-label="マップ高さ"
           className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
         />
         <span className="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-300">
@@ -768,9 +792,12 @@ export default function BattleCreator() {
 
           {sidebarOpen && (
             <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-              <div className="shrink-0 grid grid-cols-2 border-b border-gray-700">
+              <div className="shrink-0 grid grid-cols-2 border-b border-gray-700" role="tablist" aria-label="Creatorサイドパネル">
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={sidebarTab === "elements"}
+                  aria-controls="creator-elements-panel"
                   onClick={() => setSidebarTab("elements")}
                   className={
                     "py-3 text-sm " +
@@ -783,6 +810,9 @@ export default function BattleCreator() {
                 </button>
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={sidebarTab === "hierarchy"}
+                  aria-controls="creator-hierarchy-panel"
                   onClick={() => setSidebarTab("hierarchy")}
                   className={
                     "py-3 text-sm " +
@@ -796,7 +826,7 @@ export default function BattleCreator() {
               </div>
 
               {sidebarTab === "elements" ? (
-                <div className="flex-1 min-h-0 min-w-0 overflow-auto p-3">
+                <div id="creator-elements-panel" role="tabpanel" className="flex-1 min-h-0 min-w-0 overflow-auto p-3">
                   <div className="grid w-full grid-cols-2 gap-2">
                     {PALETTE.map((palette) => (
                       <button
@@ -843,6 +873,13 @@ export default function BattleCreator() {
             ref={editorRef}
             onDragOver={(e) => e.preventDefault()}
             onDrop={drop}
+            onClick={(event) => {
+              if (!draftItem) return;
+              if ((event.target as HTMLElement).closest("button, input, select, textarea")) return;
+              placeDraftAt(toLogical(event.clientX, event.clientY));
+            }}
+            role="region"
+            aria-label="戦場編集エリア。要素パネルで要素を選択した後、この領域をクリックして配置できます。"
             className="relative flex-1 m-4 overflow-hidden border border-gray-600 bg-[#0a1020]"
             style={{
               backgroundImage: mapImage
@@ -933,7 +970,8 @@ export default function BattleCreator() {
                     onDragStart={(e) =>
                       itemDrag(e, item.key)
                     }
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation();
                       setSelectedKey(item.key);
                       setDraftItem(null);
                     }}
@@ -1043,7 +1081,7 @@ export default function BattleCreator() {
               </label>
             </div>
             <p className="mt-1 text-xs text-gray-400">
-              配置時刻が出現時刻です。破壊フラグの指定時刻から0.5秒かけてフェードアウトします。
+              配置時刻が出現時刻です。要素パネルで種類を選択後、戦場をクリックしても配置できます。破壊フラグの指定時刻から0.5秒かけてフェードアウトします。
             </p>
           </div>
         </section>
@@ -1069,9 +1107,9 @@ export default function BattleCreator() {
       </div>
 
       {validationDialog && (
-        <div className="fixed inset-0 z-[60] bg-black/70 p-8 flex items-center justify-center">
+        <div className="fixed inset-0 z-[60] bg-black/70 p-8 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="creator-validation-title">
           <div className="w-full max-w-xl rounded-xl border border-red-800 bg-[#111827] p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold mb-4">
+            <h2 id="creator-validation-title" className="text-lg font-semibold mb-4">
               入力必須項目の確認
             </h2>
             <p className="text-sm leading-7 text-gray-200">
@@ -1104,10 +1142,10 @@ export default function BattleCreator() {
       )}
 
       {jsonOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 p-8 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 bg-black/70 p-8 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="creator-json-title">
           <div className="w-full max-w-4xl max-h-full flex flex-col rounded-xl border border-gray-700 bg-[#0b1020]">
             <div className="flex items-center border-b border-gray-700 p-3">
-              <strong>生成JSON</strong>
+              <strong id="creator-json-title">生成JSON</strong>
               <button
                 className="ml-auto px-3 py-1 rounded bg-gray-700"
                 onClick={() => setJsonOpen(false)}
@@ -1147,7 +1185,7 @@ function HierarchyPanel({
     items.filter((item) => isCreatorParentOf(parent, item));
 
   return (
-    <div className="flex-1 min-h-0 min-w-0 overflow-auto p-3">
+    <div id="creator-hierarchy-panel" role="tabpanel" className="flex-1 min-h-0 min-w-0 overflow-auto p-3">
       <div className="inline-block min-w-full align-top">
         <div
           className="min-w-full rounded-lg border border-blue-700 bg-blue-950/40 p-3"
@@ -1307,43 +1345,82 @@ function Field({
   help?: string;
   coordinate?: boolean;
 }) {
+  const inputId = useId();
+  const helpId = useId();
+  const describedBy = invalid || help ? helpId : undefined;
+  const step = (delta: number) => {
+    const numeric = Number(value);
+    onChange(String((Number.isFinite(numeric) ? numeric : 0) + delta));
+  };
+
   return (
-    <label className="block mb-3">
-      <span className="block text-xs text-gray-400 mb-1">
+    <div className="block mb-3">
+      <label htmlFor={inputId} className="block text-xs text-gray-300 mb-1">
         {label}
         {required && (
-          <span className="ml-1 text-red-400">*</span>
+          <span className="ml-1 text-red-300" aria-hidden="true">
+            *
+          </span>
         )}
-      </span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(event) => {
-          if (!coordinate) return;
-          const next = stepCreatorCoordinate(event.currentTarget.value, event.key);
-          if (next === null) return;
-          event.preventDefault();
-          onChange(String(next));
-        }}
-        className={
-          "w-full rounded border bg-[#111827] px-3 py-2 text-sm " +
-          (invalid
-            ? "border-red-500"
-            : "border-gray-600")
-        }
-      />
-      {required && invalid && (
-        <span className="block mt-1 text-xs text-red-400">
-          必須入力フォームです
+      </label>
+      <div className={coordinate ? "flex items-center gap-2" : undefined}>
+        {coordinate && (
+          <button
+            type="button"
+            onClick={() => step(-1)}
+            className="min-h-9 min-w-9 rounded border border-gray-600 bg-gray-700 px-2 hover:bg-gray-600"
+            aria-label={label + "を1減らす"}
+          >
+            −
+          </button>
+        )}
+        <input
+          id={inputId}
+          type={type}
+          value={value}
+          aria-required={required || undefined}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (!coordinate) return;
+            const next = stepCreatorCoordinate(
+              event.currentTarget.value,
+              event.key
+            );
+            if (next === null) return;
+            event.preventDefault();
+            onChange(String(next));
+          }}
+          className={
+            "w-full rounded border bg-[#111827] px-3 py-2 text-sm " +
+            (invalid ? "border-red-500" : "border-gray-600")
+          }
+        />
+        {coordinate && (
+          <button
+            type="button"
+            onClick={() => step(1)}
+            className="min-h-9 min-w-9 rounded border border-gray-600 bg-gray-700 px-2 hover:bg-gray-600"
+            aria-label={label + "を1増やす"}
+          >
+            ＋
+          </button>
+        )}
+      </div>
+      {(required && invalid) || help ? (
+        <span
+          id={helpId}
+          role={required && invalid ? "alert" : undefined}
+          className={
+            "block mt-1 text-xs " +
+            (required && invalid ? "text-red-300" : "text-gray-300")
+          }
+        >
+          {required && invalid ? "必須入力フォームです" : help}
         </span>
-      )}
-      {help && (
-        <span className="block mt-1 text-[11px] text-gray-500">
-          {help}
-        </span>
-      )}
-    </label>
+      ) : null}
+    </div>
   );
 }
 
@@ -1387,6 +1464,21 @@ function ItemProperties({
     (!parent ||
       !expected ||
       parent.type !== expected);
+  const parentOptions = expected
+    ? items.filter(
+        (candidate) =>
+          candidate.key !== item.key &&
+          candidate.type === expected &&
+          Boolean(candidate.id.trim())
+      )
+    : [];
+  const selectedParentValue = parentOptions.some(
+    (candidate) => candidate.id.trim() === item.parentId.trim()
+  )
+    ? item.parentId.trim()
+    : item.parentId.trim()
+      ? "__manual__"
+      : "";
 
   return (
     <div className="p-4">
@@ -1455,21 +1547,43 @@ function ItemProperties({
       )}
 
       {canCreatorHaveManualParent(item.type) && (
-        <Field
-          label="parentId"
-          value={item.parentId}
-          onChange={(parentId) =>
-            onChange({ parentId })
-          }
-          invalid={parentInvalid}
-          help={
-            parentInvalid
-              ? "指定できる親は " +
-                String(expected) +
-                " のIDです。"
-              : "階層タブのD&Dと双方向で同期します。"
-          }
-        />
+        <>
+          <label className="block mb-3 text-xs text-gray-300">
+            親を選択
+            <select
+              value={selectedParentValue}
+              onChange={(event) => {
+                if (event.target.value !== "__manual__") {
+                  onChange({ parentId: event.target.value });
+                }
+              }}
+              className="mt-1 w-full rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm"
+            >
+              <option value="">親なし</option>
+              {parentOptions.map((candidate) => (
+                <option key={candidate.key} value={candidate.id.trim()}>
+                  {getCreatorDisplayName(candidate)} ({candidate.id.trim()})
+                </option>
+              ))}
+              {selectedParentValue === "__manual__" && (
+                <option value="__manual__" disabled>
+                  現在の入力: {item.parentId}
+                </option>
+              )}
+            </select>
+          </label>
+          <Field
+            label="parentId"
+            value={item.parentId}
+            onChange={(parentId) => onChange({ parentId })}
+            invalid={parentInvalid}
+            help={
+              parentInvalid
+                ? "指定できる親は " + String(expected) + " のIDです。"
+                : "親選択、階層タブのD&D、手入力は双方向で同期します。"
+            }
+          />
+        </>
       )}
 
       {isCreatorBattleRootOnly(item.type) && (

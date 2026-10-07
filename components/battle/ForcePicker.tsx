@@ -78,11 +78,11 @@ export default function ForcePicker({ value, forces, loading, loadError, onRetry
         className="m-auto w-[min(30rem,90vw)] rounded-lg border border-gray-600 bg-[#0b1020] p-5 text-gray-100 backdrop:bg-black/70">
         <div className="mb-4 flex items-center justify-between">
           <h2 id="force-dialog-title" className="font-semibold">force管理</h2>
-          <button type="button" onClick={closeDialog} disabled={saving} aria-label="force管理を閉じる">×</button>
+          <button type="button" onClick={closeDialog} disabled={saving} aria-label="force管理を閉じる" className="h-8 w-8 rounded hover:bg-gray-700">×</button>
         </div>
         <ul className="mb-4 max-h-48 overflow-auto space-y-2">
           {forces.map((force) => <li key={force.name} className="flex items-center gap-2 text-sm">
-            <span className="h-5 w-5 shrink-0 rounded border border-gray-500" style={{ backgroundColor: force.color }} aria-label={force.color} />
+            <span role="img" className="h-6 w-6 shrink-0 rounded border border-gray-400" style={{ backgroundColor: force.color }} aria-label={`色 ${force.color}`} />
             <span className="break-all">{force.name}</span>
           </li>)}
         </ul>

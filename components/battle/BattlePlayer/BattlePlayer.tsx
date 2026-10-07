@@ -401,17 +401,83 @@ export const BattlePlayer: React.FC<Props> = ({
     window.setTimeout(() => setIsDragging(false), 0);
   };
 
+  const panView = (dx: number, dy: number) => {
+    cameraOverrideRef.current = true;
+    setViewOffset((previous) => ({
+      x: previous.x + dx,
+      y: previous.y + dy,
+    }));
+  };
+
+  const zoomView = (direction: "in" | "out") => {
+    setUserScale((previous) =>
+      getNextZoomScale(previous, direction === "in" ? -120 : 120)
+    );
+  };
+
+  const resetView = () => {
+    cameraOverrideRef.current = false;
+    setUserScale(1);
+    setViewOffset({ x: 0, y: 0 });
+  };
+
+  const handleCanvasKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const panStep = 32;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      panView(panStep, 0);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      panView(-panStep, 0);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      panView(0, panStep);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      panView(0, -panStep);
+    } else if (event.key === "+" || event.key === "=") {
+      event.preventDefault();
+      zoomView("in");
+    } else if (event.key === "-") {
+      event.preventDefault();
+      zoomView("out");
+    } else if (event.key === "0" || event.key === "Home") {
+      event.preventDefault();
+      resetView();
+    }
+  };
+
   return (
-    <div className="w-full h-full">
+    <div className="relative w-full h-full">
       <canvas
         ref={canvasRef}
         className="w-full h-full"
+        tabIndex={0}
+        aria-label="戦場表示。矢印キーで表示位置を移動、プラスとマイナスで拡大縮小、Homeまたは0で表示をリセットできます。"
+        onKeyDown={handleCanvasKeyDown}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={stopDrag}
         onMouseLeave={stopDrag}
       />
+      {battle && (
+        <div
+          className="absolute bottom-3 left-3 grid grid-cols-3 gap-1 rounded-lg border border-gray-600 bg-black/75 p-2"
+          role="group"
+          aria-label="戦場表示の移動と拡大縮小"
+        >
+          <span />
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(0, 32)} aria-label="上へ移動">↑</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => zoomView("in")} aria-label="拡大">＋</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(32, 0)} aria-label="左へ移動">←</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={resetView} aria-label="表示をリセット">↺</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(-32, 0)} aria-label="右へ移動">→</button>
+          <span />
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(0, -32)} aria-label="下へ移動">↓</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => zoomView("out")} aria-label="縮小">−</button>
+        </div>
+      )}
     </div>
   );
 };
