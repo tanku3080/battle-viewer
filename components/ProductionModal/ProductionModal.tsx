@@ -21,7 +21,8 @@ export const ProductionModal: React.FC<Props> = ({
   onClose,
 }) => {
   useProductionInput(isOpen, onClose);
-  const dialogRef = useRef<HTMLDialogElement | null>(null);\n  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -29,6 +30,7 @@ export const ProductionModal: React.FC<Props> = ({
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
     closeButtonRef.current?.focus();
+
     return () => {
       if (dialog?.open) dialog.close();
       previousFocus?.focus();
@@ -38,7 +40,18 @@ export const ProductionModal: React.FC<Props> = ({
   if (!isOpen || !battle) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95" role="dialog" aria-modal="true" aria-labelledby="production-dialog-title">\n      <h2 id="production-dialog-title" className="sr-only">本番表示</h2>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="production-dialog-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      className="fixed inset-0 m-0 h-screen max-h-none w-screen max-w-none border-0 bg-black/95 p-0 text-white backdrop:bg-black/95"
+    >
+      <h2 id="production-dialog-title" className="sr-only">
+        本番表示
+      </h2>
       <div className="w-full h-full">
         <BattlePlayer
           battle={battle}
@@ -56,6 +69,6 @@ export const ProductionModal: React.FC<Props> = ({
       >
         終了 (Esc / Space)
       </button>
-    </div>
+    </dialog>
   );
 };
