@@ -31,6 +31,7 @@ pub struct NetworkView {
 struct WorkResponse {
   id: String,
   content_hash: String,
+  compressed_hash: String,
   distribution_state: String,
 }
 
@@ -224,9 +225,10 @@ pub async fn p2p_publish(
     let title = document.get("title").and_then(|value| value.as_str())
       .filter(|title| !title.trim().is_empty())
       .ok_or_else(|| "Battle title required".to_string())?.to_string();
-    validate_render_assets(raw.as_bytes())?;
+    // Validate deep JSON structure and size before walking image resources.
     let (manifest, gzip) = content::encode(raw.as_bytes())
       .map_err(|error| error.to_string())?;
+    validate_render_assets(raw.as_bytes())?;
     cache.lock().map_err(|_| "P2P cache unavailable".to_string())?
       .store(&manifest, &gzip).map_err(|error| error.to_string())?;
     Ok::<_, String>((manifest, title))
@@ -285,9 +287,14 @@ pub async fn p2p_fetch(
   let already_cached = {
     let cache = Arc::clone(&cache);
     let hash = hash.clone();
+    let compressed_hash = work.compressed_hash.clone();
     tauri::async_runtime::spawn_blocking(move || {
-      cache.lock().map_err(|_| "P2P cache unavailable".to_string())?
-        .read_raw(&hash).map_err(|error| error.to_string())
+      let cache = cache.lock().map_err(|_| "P2P cache unavailable".to_string())?;
+      let (manifest, gzip) = cache.read(&hash).map_err(|error| error.to_string())?;
+      if manifest.compressed_hash != compressed_hash {
+        return Err("Local compressed representation differs from Hub metadata".to_string());
+      }
+      content::decode(&manifest, &gzip).map_err(|error| error.to_string())
     }).await.map_err(|error| error.to_string())?
   };
   if let Ok(bytes) = already_cached {
@@ -297,7 +304,7 @@ pub async fn p2p_fetch(
     }).await.map_err(|error| error.to_string())?
   } else {
     // Continue to authorized peer acquisition if no validated local copy exists.
-    fetch_remote(ready, &auth, &work_id, &work.content_hash, &own_peer, handle).await
+    fetch_remote(ready, &auth, &work_id, &work.content_hash, &work.compressed_hash, &own_peer, handle).await
   }
 }
 
@@ -306,6 +313,7 @@ async fn fetch_remote(
   auth: &AuthState,
   work_id: &str,
   expected_hash: &str,
+  expected_compressed_hash: &str,
   own_peer: &str,
   handle: network::DirectTransportHandle,
 ) -> Result<String, String> {
@@ -347,7 +355,7 @@ async fn fetch_remote(
     };
     match handle.fetch_authorized(
       vec![PeerRoute { peer_id: peer, addresses: vec![address] }],
-      hash.clone(), work_id.clone(), vec![grant.token],
+      hash.clone(), work_id.clone(), vec![grant.token], expected_compressed_hash.to_string(),
     ).await {
       Ok(receipt) => {
         let result = {

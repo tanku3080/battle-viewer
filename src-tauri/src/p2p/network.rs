@@ -9,6 +9,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use super::network_auth::HubTransferAuthorizer;
 use super::settings::P2pSettings;
+use super::image_guard::validate_render_assets;
+use battle_p2p_core::content::decode;
 use tokio::sync::{mpsc, oneshot};
 
 const PROTOCOL: &str = "/battle-viewer/content/1";
@@ -68,6 +70,7 @@ enum Command {
     content_hash: String,
     work_id: String,
     grants: Vec<String>,
+    expected_compressed_hash: String,
     reply: oneshot::Sender<Result<String, String>>,
   },
   Shutdown,
@@ -79,6 +82,7 @@ struct PendingFetch {
   content_hash: String,
   work_id: String,
   grants: Vec<String>,
+  expected_compressed_hash: String,
   reply: oneshot::Sender<Result<String, String>>,
 }
 
@@ -94,7 +98,7 @@ impl DirectTransportHandle {
     routes: Vec<PeerRoute>,
     content_hash: String,
   ) -> Result<String, String> {
-    self.fetch_authorized(routes, content_hash, String::new(), Vec::new()).await
+    self.fetch_authorized(routes, content_hash, String::new(), Vec::new(), String::new()).await
   }
 
   pub async fn fetch_authorized(
@@ -103,6 +107,7 @@ impl DirectTransportHandle {
     content_hash: String,
     work_id: String,
     grants: Vec<String>,
+    expected_compressed_hash: String,
   ) -> Result<String, String> {
     if routes.is_empty() || (!grants.is_empty() && grants.len() != routes.len()) {
       return Err("invalid P2P peer routes".into());
@@ -111,7 +116,7 @@ impl DirectTransportHandle {
     let (reply_tx, reply_rx) = oneshot::channel();
     self.command_tx
       .send(Command::Fetch {
-        routes, content_hash, work_id, grants, reply: reply_tx,
+        routes, content_hash, work_id, grants, expected_compressed_hash, reply: reply_tx,
       }).await.map_err(|_| "P2P network task is not running".to_string())?;
     reply_rx.await.map_err(|_| "P2P network task stopped".to_string())?
   }
@@ -274,7 +279,7 @@ async fn run_actor(
     tokio::select! {
       maybe_command = command_rx.recv() => {
         match maybe_command {
-          Some(Command::Fetch { routes, content_hash, work_id, grants, reply }) => {
+          Some(Command::Fetch { routes, content_hash, work_id, grants, expected_compressed_hash, reply }) => {
             if pending.is_some() || validating_response {
               let _ = reply.send(Err("another P2P fetch is already in progress".into()));
               continue;
@@ -285,6 +290,7 @@ async fn run_actor(
               content_hash,
               work_id,
               grants,
+              expected_compressed_hash,
               reply,
             };
             let request_id = send_next_request(&mut swarm, &mut state);
@@ -365,9 +371,10 @@ async fn run_actor(
                   let cache = Arc::clone(&cache);
                   let accept_tx = accept_tx.clone();
                   let expected_hash = state.content_hash.clone();
+                  let expected_compressed_hash = state.expected_compressed_hash.clone();
                   tokio::spawn(async move {
                     let result = tokio::task::spawn_blocking(move || {
-                      accept_response(&cache, &expected_hash, response)
+                      accept_response(&cache, &expected_hash, &expected_compressed_hash, response)
                     })
                     .await
                     .unwrap_or_else(|error| {
@@ -452,7 +459,16 @@ fn serve_request(
   };
 
   match cache.read(&request.content_hash) {
-    Ok((manifest, gzip)) => FetchResponse::Found { manifest, gzip, receipt },
+    Ok((manifest, gzip)) => {
+      // Reject older local cache entries that have not passed image decoding.
+      match decode(&manifest, &gzip)
+        .map_err(|error| error.to_string())
+        .and_then(|raw| validate_render_assets(&raw))
+      {
+        Ok(()) => FetchResponse::Found { manifest, gzip, receipt },
+        Err(_) => FetchResponse::Denied,
+      }
+    }
     Err(_) => FetchResponse::NotFound,
   }
 }
@@ -460,6 +476,7 @@ fn serve_request(
 fn accept_response(
   cache: &Arc<Mutex<Cache>>,
   expected_hash: &str,
+  expected_compressed_hash: &str,
   response: FetchResponse,
 ) -> Result<String, String> {
   match response {
@@ -467,6 +484,13 @@ fn accept_response(
       if manifest.content_hash != expected_hash {
         return Err("P2P peer returned a different content hash".into());
       }
+      if !expected_compressed_hash.is_empty() && manifest.compressed_hash != expected_compressed_hash {
+        return Err("P2P peer returned a compressed representation that does not match Hub".into());
+      }
+      // Reject malicious raster payloads *before* publishing to the native cache.
+      let raw = decode(&manifest, &gzip)
+        .map_err(|error| format!("rejected P2P content: {error}"))?;
+      validate_render_assets(&raw)?;
       let mut cache = cache
         .lock()
         .map_err(|_| "failed to lock P2P cache".to_string())?;
@@ -497,6 +521,55 @@ mod tests {
     let dir = tempfile::tempdir().unwrap();
     let cache = Cache::open(dir.path(), quota).unwrap();
     (dir, Arc::new(Mutex::new(cache)))
+  }
+
+  #[test]
+  fn malformed_raster_is_neither_accepted_nor_served() {
+    use base64::Engine;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(b"\x89PNG\r\n\x1a\n");
+    let raw = format!(
+      r#"{{"title":"bad image","map":{{"width":100,"height":100,"coordinateOrigin":"center","image":"data:image/png;base64,{encoded}"}},"units":[]}}"#
+    );
+    let (manifest, gzip) = encode(raw.as_bytes()).unwrap();
+    let (_source, source_cache) = test_cache(32 * 1024 * 1024);
+    let (_dest, dest_cache) = test_cache(32 * 1024 * 1024);
+    source_cache.lock().unwrap().store(&manifest, &gzip).unwrap();
+    let request = FetchRequest {
+      content_hash: manifest.content_hash.clone(),
+      work_id: "01234567-89ab-cdef-0123-456789abcdef".into(),
+      grant: "for-test".into(),
+    };
+    assert!(matches!(
+      serve_request(&source_cache, true, request, "receipt".into()),
+      FetchResponse::Denied
+    ));
+    let expected_content_hash = manifest.content_hash.clone();
+    let expected_compressed_hash = manifest.compressed_hash.clone();
+    let result = accept_response(
+      &dest_cache,
+      &expected_content_hash,
+      &expected_compressed_hash,
+      FetchResponse::Found { manifest, gzip, receipt: "receipt".into() },
+    );
+    assert!(result.is_err());
+    assert!(dest_cache.lock().unwrap().inventory().unwrap().entries.is_empty());
+  }
+
+  #[test]
+  fn rejects_compressed_digest_mismatch_without_cache_write() {
+    let raw = test_document("compressed representation mismatch");
+    let (manifest, gzip) = encode(&raw).unwrap();
+    let (_dir, cache) = test_cache(32 * 1024 * 1024);
+    let wrong = "f".repeat(64);
+    assert_ne!(manifest.compressed_hash, wrong);
+    let result = accept_response(
+      &cache,
+      &manifest.content_hash,
+      &wrong,
+      FetchResponse::Found { manifest: manifest.clone(), gzip, receipt: "r".into() },
+    );
+    assert!(result.is_err());
+    assert!(cache.lock().unwrap().inventory().unwrap().entries.is_empty());
   }
 
   #[test]
