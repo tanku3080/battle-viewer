@@ -25,7 +25,11 @@ struct FetchRequest {
 #[serde(rename_all = "camelCase", tag = "status")]
 enum FetchResponse {
   #[serde(rename = "found")]
-  Found { manifest: Manifest, gzip: Vec<u8> },
+  Found {
+    manifest: Manifest,
+    #[serde(with = "serde_bytes")]
+    gzip: Vec<u8>,
+  },
   #[serde(rename = "notFound")]
   NotFound,
   #[serde(rename = "denied")]
@@ -522,7 +526,10 @@ mod tests {
       .fetch_to_cache(
         vec![
           PeerRoute {
-            peer_id: PeerId::random(),
+            peer_id: keypair_from_seed(&[99u8; 32])
+              .unwrap()
+              .public()
+              .to_peer_id(),
             addresses: vec![unreachable],
           },
           PeerRoute {
