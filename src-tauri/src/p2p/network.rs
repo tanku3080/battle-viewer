@@ -7,6 +7,7 @@ use libp2p::{Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder, identity, n
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use super::network_auth::HubTransferAuthorizer;
 use tokio::sync::{mpsc, oneshot};
 
 const PROTOCOL: &str = "/battle-viewer/content/1";
@@ -19,6 +20,8 @@ const MAX_RESPONSE_BYTES: u64 = MAX_COMPRESSED_SIZE + 16 * 1024;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct FetchRequest {
   content_hash: String,
+  work_id: String,
+  grant: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +32,7 @@ enum FetchResponse {
     manifest: Manifest,
     #[serde(with = "serde_bytes")]
     gzip: Vec<u8>,
+    receipt: String,
   },
   #[serde(rename = "notFound")]
   NotFound,
@@ -61,7 +65,9 @@ enum Command {
   Fetch {
     routes: Vec<PeerRoute>,
     content_hash: String,
-    reply: oneshot::Sender<Result<(), String>>,
+    work_id: String,
+    grants: Vec<String>,
+    reply: oneshot::Sender<Result<String, String>>,
   },
   Shutdown,
 }
@@ -70,7 +76,9 @@ struct PendingFetch {
   routes: Vec<PeerRoute>,
   route_index: usize,
   content_hash: String,
-  reply: oneshot::Sender<Result<(), String>>,
+  work_id: String,
+  grants: Vec<String>,
+  reply: oneshot::Sender<Result<String, String>>,
 }
 
 type ResponseChannel = request_response::ResponseChannel<FetchResponse>;
@@ -84,26 +92,27 @@ impl DirectTransportHandle {
     &self,
     routes: Vec<PeerRoute>,
     content_hash: String,
-  ) -> Result<(), String> {
-    if routes.is_empty() {
-      return Err("no P2P peer routes supplied".into());
+  ) -> Result<String, String> {
+    self.fetch_authorized(routes, content_hash, String::new(), Vec::new()).await
+  }
+
+  pub async fn fetch_authorized(
+    &self,
+    routes: Vec<PeerRoute>,
+    content_hash: String,
+    work_id: String,
+    grants: Vec<String>,
+  ) -> Result<String, String> {
+    if routes.is_empty() || (!grants.is_empty() && grants.len() != routes.len()) {
+      return Err("invalid P2P peer routes".into());
     }
     validate_hash(&content_hash)?;
-
     let (reply_tx, reply_rx) = oneshot::channel();
-    self
-      .command_tx
+    self.command_tx
       .send(Command::Fetch {
-        routes,
-        content_hash,
-        reply: reply_tx,
-      })
-      .await
-      .map_err(|_| "P2P network task is not running".to_string())?;
-
-    reply_rx
-      .await
-      .map_err(|_| "P2P network task stopped before fetch completed".to_string())?
+        routes, content_hash, work_id, grants, reply: reply_tx,
+      }).await.map_err(|_| "P2P network task is not running".to_string())?;
+    reply_rx.await.map_err(|_| "P2P network task stopped".to_string())?
   }
 
   pub async fn shutdown(&self) {
@@ -176,11 +185,31 @@ fn swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>, String> {
     })
 }
 
+pub(crate) async fn spawn_authorized_direct_transport(
+  identity_seed: &[u8; 32],
+  cache: Arc<Mutex<Cache>>,
+  listen_addr: Multiaddr,
+  authorizer: HubTransferAuthorizer,
+) -> Result<DirectTransport, String> {
+  spawn_transport(identity_seed, cache, true, listen_addr, Some(authorizer)).await
+}
+
+#[cfg(test)]
 pub(crate) async fn spawn_direct_transport(
   identity_seed: &[u8; 32],
   cache: Arc<Mutex<Cache>>,
   allow_serving: bool,
   listen_addr: Multiaddr,
+) -> Result<DirectTransport, String> {
+  spawn_transport(identity_seed, cache, allow_serving, listen_addr, None).await
+}
+
+async fn spawn_transport(
+  identity_seed: &[u8; 32],
+  cache: Arc<Mutex<Cache>>,
+  allow_serving: bool,
+  listen_addr: Multiaddr,
+  authorizer: Option<HubTransferAuthorizer>,
 ) -> Result<DirectTransport, String> {
   let mut swarm = swarm(keypair_from_seed(identity_seed)?)?;
   swarm
@@ -203,6 +232,7 @@ pub(crate) async fn spawn_direct_transport(
     swarm,
     cache,
     allow_serving,
+    authorizer,
     command_rx,
   ));
 
@@ -219,6 +249,7 @@ async fn run_actor(
   mut swarm: Swarm<Behaviour>,
   cache: Arc<Mutex<Cache>>,
   allow_serving: bool,
+  authorizer: Option<HubTransferAuthorizer>,
   mut command_rx: mpsc::Receiver<Command>,
 ) {
   use request_response::{Event, Message};
@@ -232,13 +263,13 @@ async fn run_actor(
   let (serve_tx, mut serve_rx) =
     mpsc::channel::<(ResponseChannel, FetchResponse)>(MAX_CONCURRENT_STREAMS);
   let (accept_tx, mut accept_rx) =
-    mpsc::channel::<(PendingFetch, Result<(), String>)>(1);
+    mpsc::channel::<(PendingFetch, Result<String, String>)>(1);
 
   loop {
     tokio::select! {
       maybe_command = command_rx.recv() => {
         match maybe_command {
-          Some(Command::Fetch { routes, content_hash, reply }) => {
+          Some(Command::Fetch { routes, content_hash, work_id, grants, reply }) => {
             if pending.is_some() || validating_response {
               let _ = reply.send(Err("another P2P fetch is already in progress".into()));
               continue;
@@ -247,6 +278,8 @@ async fn run_actor(
               routes,
               route_index: 0,
               content_hash,
+              work_id,
+              grants,
               reply,
             };
             let request_id = send_next_request(&mut swarm, &mut state);
@@ -263,8 +296,8 @@ async fn run_actor(
       Some((state, result)) = accept_rx.recv() => {
         validating_response = false;
         match result {
-          Ok(()) => {
-            let _ = state.reply.send(Ok(()));
+          Ok(receipt) => {
+            let _ = state.reply.send(Ok(receipt));
           }
           Err(error) => {
             pending = retry_or_finish(&mut swarm, state, error);
@@ -274,17 +307,37 @@ async fn run_actor(
 
       event = swarm.select_next_some() => {
         match event {
-          SwarmEvent::Behaviour(Event::Message { message, .. }) => {
+          SwarmEvent::Behaviour(Event::Message { peer, message, .. }) => {
             match message {
               Message::Request { request, channel, .. } => {
                 let cache = Arc::clone(&cache);
                 let serve_tx = serve_tx.clone();
+                let authorizer = authorizer.clone();
+                let provider_peer = swarm.local_peer_id().to_string();
+                let requester_peer = peer.to_string();
                 tokio::spawn(async move {
-                  let response = tokio::task::spawn_blocking(move || {
-                    serve_request(&cache, allow_serving, request)
-                  })
-                  .await
-                  .unwrap_or(FetchResponse::Unavailable);
+                  let receipt = if let Some(auth) = authorizer {
+                    auth.check(
+                      &request.work_id,
+                      &request.grant,
+                      &provider_peer,
+                      &requester_peer,
+                      &request.content_hash,
+                    ).await
+                  } else {
+                    #[cfg(test)]
+                    { Ok(String::new()) }
+                    #[cfg(not(test))]
+                    { Err("No Hub authorization".to_string()) }
+                  };
+                  let response = match receipt {
+                    Ok(receipt) => {
+                      tokio::task::spawn_blocking(move || {
+                        serve_request(&cache, allow_serving, request, receipt)
+                      }).await.unwrap_or(FetchResponse::Unavailable)
+                    }
+                    Err(_) => FetchResponse::Denied
+                  };
                   let _ = serve_tx.send((channel, response)).await;
                 });
               }
@@ -345,6 +398,8 @@ fn send_next_request(
     &route.peer_id,
     FetchRequest {
       content_hash: state.content_hash.clone(),
+      work_id: state.work_id.clone(),
+      grant: state.grants.get(state.route_index).cloned().unwrap_or_default(),
     },
     route.addresses.clone(),
   )
@@ -369,6 +424,7 @@ fn serve_request(
   cache: &Arc<Mutex<Cache>>,
   allow_serving: bool,
   request: FetchRequest,
+  receipt: String,
 ) -> FetchResponse {
   if !allow_serving {
     return FetchResponse::Denied;
@@ -383,7 +439,7 @@ fn serve_request(
   };
 
   match cache.read(&request.content_hash) {
-    Ok((manifest, gzip)) => FetchResponse::Found { manifest, gzip },
+    Ok((manifest, gzip)) => FetchResponse::Found { manifest, gzip, receipt },
     Err(_) => FetchResponse::NotFound,
   }
 }
@@ -392,9 +448,9 @@ fn accept_response(
   cache: &Arc<Mutex<Cache>>,
   expected_hash: &str,
   response: FetchResponse,
-) -> Result<(), String> {
+) -> Result<String, String> {
   match response {
-    FetchResponse::Found { manifest, gzip } => {
+    FetchResponse::Found { manifest, gzip, receipt } => {
       if manifest.content_hash != expected_hash {
         return Err("P2P peer returned a different content hash".into());
       }
@@ -404,7 +460,7 @@ fn accept_response(
       cache
         .store(&manifest, &gzip)
         .map_err(|error| format!("rejected P2P content: {error}"))?;
-      Ok(())
+      Ok(receipt)
     }
     FetchResponse::NotFound => Err("P2P peer does not have the requested content".into()),
     FetchResponse::Denied => Err("P2P peer denied the transfer".into()),
