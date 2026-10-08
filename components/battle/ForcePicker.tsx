@@ -6,9 +6,9 @@ import {
   type ForceDefinition,
   type ForceValidationError,
 } from "@/utils/battle/forces";
-import { useI18n } from "@/i18n/I18nProvider";
+import { useI18n, type MessageKey } from "@/i18n/I18nProvider";
 
-const validationKeys: Record<ForceValidationError, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
+const validationKeys: Record<ForceValidationError, MessageKey> = {
   nameRequired: "force.validation.nameRequired",
   nameTooLong: "force.validation.nameTooLong",
   duplicate: "force.validation.duplicate",
