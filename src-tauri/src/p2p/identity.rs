@@ -21,6 +21,7 @@ pub struct InstallationIdentity {
 #[serde(rename_all = "camelCase")]
 pub struct IdentityView {
   pub installation_id: String,
+  pub peer_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,8 +34,12 @@ struct IdentityFile {
 
 impl InstallationIdentity {
   pub fn view(&self) -> IdentityView {
+    let peer_id = super::network::keypair_from_seed(&self.identity_seed)
+      .map(|keypair| keypair.public().to_peer_id().to_string())
+      .unwrap_or_else(|_| "unavailable".to_string());
     IdentityView {
       installation_id: self.installation_id.clone(),
+      peer_id,
     }
   }
 
@@ -184,6 +189,8 @@ mod tests {
     let second = load_or_create(dir.path()).unwrap();
 
     assert_eq!(first.view().installation_id, second.view().installation_id);
+    assert_eq!(first.view().peer_id, second.view().peer_id);
+    assert_ne!(first.view().peer_id, "unavailable");
     assert_eq!(first.identity_seed(), second.identity_seed());
   }
 
