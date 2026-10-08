@@ -524,6 +524,36 @@ mod tests {
   }
 
   #[test]
+  fn malformed_raster_is_neither_accepted_nor_served() {
+    use base64::Engine;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(b"\x89PNG\r\n\x1a\n");
+    let raw = format!(
+      r#"{{"title":"bad image","map":{{"width":100,"height":100,"coordinateOrigin":"center","image":"data:image/png;base64,{encoded}"}},"units":[]}}"#
+    );
+    let (manifest, gzip) = encode(raw.as_bytes()).unwrap();
+    let (_source, source_cache) = test_cache(32 * 1024 * 1024);
+    let (_dest, dest_cache) = test_cache(32 * 1024 * 1024);
+    source_cache.lock().unwrap().store(&manifest, &gzip).unwrap();
+    let request = FetchRequest {
+      content_hash: manifest.content_hash.clone(),
+      work_id: "01234567-89ab-cdef-0123-456789abcdef".into(),
+      grant: "for-test".into(),
+    };
+    assert!(matches!(
+      serve_request(&source_cache, true, request, "receipt".into()),
+      FetchResponse::Denied
+    ));
+    let result = accept_response(
+      &dest_cache,
+      &manifest.content_hash,
+      &manifest.compressed_hash,
+      FetchResponse::Found { manifest, gzip, receipt: "receipt".into() },
+    );
+    assert!(result.is_err());
+    assert!(dest_cache.lock().unwrap().inventory().unwrap().entries.is_empty());
+  }
+
+  #[test]
   fn rejects_compressed_digest_mismatch_without_cache_write() {
     let raw = test_document("compressed representation mismatch");
     let (manifest, gzip) = encode(&raw).unwrap();
