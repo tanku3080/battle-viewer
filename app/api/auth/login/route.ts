@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Battle Hubに接続できません",
+        error: "Cannot connect to Battle Hub",
         details: [
           error instanceof Error ? error.message : "Unknown connection error",
         ],
