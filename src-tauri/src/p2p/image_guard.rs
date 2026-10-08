@@ -132,7 +132,7 @@ mod tests {
   #[test]
   fn decoding_rejects_truncated_signature_only_images() {
     // Valid PNG signature alone must not be treated as an actual image.
-    let bytes = base64::engine::general_purpose::STANDARD.encode(b"\\x89PNG\\r\\n\\x1a\\n");
+    let bytes = base64::engine::general_purpose::STANDARD.encode(b"\x89PNG\r\n\x1a\n");
     let raw = format!(r#"{{"creatorState":{{"items":[{{"icon":"data:image/png;base64,{bytes}"}}]}}}}"#);
     assert!(validate_render_assets(raw.as_bytes()).is_err());
   }
