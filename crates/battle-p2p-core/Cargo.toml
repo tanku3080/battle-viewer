@@ -1,0 +1,19 @@
+[package]
+name = "battle-p2p-core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+description = "Bounded, byte-preserving Battle JSON content and local cache"
+
+[dependencies]
+flate2 = "1"
+fs2 = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+thiserror = "2"
+
+[dev-dependencies]
+
