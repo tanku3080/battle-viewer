@@ -68,12 +68,12 @@ export type P2pSettings = {
 export type P2pStatus = {
   available: boolean;
   networkActive: boolean;
-  settings?: P2pSettings;
-  identity?: {
+  settings: P2pSettings | null;
+  identity: {
     installationId: string;
-  };
-  cacheUsedBytes?: number;
-  initializationError?: string;
+  } | null;
+  cacheUsedBytes: number | null;
+  initializationError: string | null;
 };
 
 export type P2pInventoryEntry = {
