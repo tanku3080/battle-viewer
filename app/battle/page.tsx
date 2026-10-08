@@ -56,7 +56,7 @@ export default function BattlePage() {
 
   return (
     <main className="flex min-h-dvh w-full min-w-0 flex-col overflow-x-hidden bg-[#050816] text-gray-200 md:h-dvh md:overflow-hidden">
-      <header className="w-full shrink-0 border-b border-gray-700 bg-[#0b1020] p-2 sm:p-3">
+      <header className="w-full shrink-0 border-b border-gray-700 bg-[#0b1020]">
         <input
           id="json-input"
           type="file"
@@ -65,7 +65,39 @@ export default function BattlePage() {
           onChange={handleFileChange}
         />
 
-        <div className="grid gap-2">
+        <div className="hidden min-w-0 flex-wrap items-center gap-2 p-3 lg:flex lg:gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              (document.getElementById("json-input") as HTMLInputElement | null)?.click()
+            }
+            className="min-h-11 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            {t("battle.loadJson")}
+          </button>
+          <Link
+            className="min-h-11 rounded-md bg-gray-600 px-4 py-2 text-white hover:bg-gray-500"
+            href="/home"
+          >
+            {t("battle.back")}
+          </Link>
+          <PlaybackControls
+            currentTime={currentTime}
+            isPlaying={isPlaying}
+            onStart={start}
+            onStop={stop}
+          />
+          <ViewModeButtons
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            showGrid={showGrid}
+            setShowGrid={setShowGrid}
+          />
+          <ProductionButton disabled={!battle} onStart={startProduction} />
+          <BattleHubControls battleJson={sourceBattleJson} />
+        </div>
+
+        <div className="grid gap-2 p-2 sm:p-3 lg:hidden">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <Link
               className="min-h-11 shrink-0 rounded-md bg-gray-600 px-4 py-2 text-white hover:bg-gray-500"
