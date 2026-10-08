@@ -53,7 +53,9 @@ export const BattlePlayer: React.FC<Props> = ({
   const [assetVersion, setAssetVersion] = useState(0);
   const [resizeVersion, setResizeVersion] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const dragStart = useRef({ x: 0, y: 0 });
+  const pinchDistanceRef = useRef<number | null>(null);
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -378,16 +380,65 @@ export const BattlePlayer: React.FC<Props> = ({
     onSelectCharacter?.(null);
   };
 
-  const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDragging(false);
-    dragStart.current = { x: event.clientX, y: event.clientY };
+  const getPointerDistance = () => {
+    const points = [...pointersRef.current.values()];
+    if (points.length < 2) return null;
+    const [a, b] = points;
+    return Math.hypot(a.x - b.x, a.y - b.y);
   };
 
-  const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (event.buttons !== 1) return;
+  const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    setIsDragging(false);
 
-    const dx = event.clientX - dragStart.current.x;
-    const dy = event.clientY - dragStart.current.y;
+    if (pointersRef.current.size === 1) {
+      dragStart.current = { x: event.clientX, y: event.clientY };
+      pinchDistanceRef.current = null;
+      return;
+    }
+
+    pinchDistanceRef.current = getPointerDistance();
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const previousPointer = pointersRef.current.get(event.pointerId);
+    if (!previousPointer) return;
+
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    if (pointersRef.current.size >= 2) {
+      const distance = getPointerDistance();
+      const previousDistance = pinchDistanceRef.current;
+
+      if (
+        distance !== null &&
+        previousDistance !== null &&
+        Math.abs(distance - previousDistance) >= 2
+      ) {
+        setIsDragging(true);
+        cameraOverrideRef.current = true;
+        setUserScale((previous) =>
+          getNextZoomScale(
+            previous,
+            distance > previousDistance ? -120 : 120,
+            0.05
+          )
+        );
+      }
+
+      pinchDistanceRef.current = distance;
+      return;
+    }
+
+    const dx = event.clientX - previousPointer.x;
+    const dy = event.clientY - previousPointer.y;
     if (dx === 0 && dy === 0) return;
 
     setIsDragging(true);
@@ -399,7 +450,21 @@ export const BattlePlayer: React.FC<Props> = ({
     dragStart.current = { x: event.clientX, y: event.clientY };
   };
 
-  const stopDrag = () => {
+  const stopPointer = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(event.pointerId);
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    pinchDistanceRef.current =
+      pointersRef.current.size >= 2 ? getPointerDistance() : null;
+
+    if (pointersRef.current.size === 1) {
+      const [point] = pointersRef.current.values();
+      dragStart.current = point;
+    }
+
     window.setTimeout(() => setIsDragging(false), 0);
   };
 
@@ -450,36 +515,19 @@ export const BattlePlayer: React.FC<Props> = ({
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative h-full w-full">
       <canvas
         ref={canvasRef}
-        className="w-full h-full"
+        className="h-full w-full touch-none cursor-grab active:cursor-grabbing"
         tabIndex={0}
-        aria-label={t("canvas.label")}
+        aria-label={t("canvas.touchHelp")}
         onKeyDown={handleCanvasKeyDown}
         onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={stopDrag}
-        onMouseLeave={stopDrag}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={stopPointer}
+        onPointerCancel={stopPointer}
       />
-      {battle && (
-        <div
-          className="absolute bottom-3 left-3 grid grid-cols-3 gap-1 rounded-lg border border-gray-600 bg-black/75 p-2"
-          role="group"
-          aria-label={t("canvas.controls")}
-        >
-          <span />
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(0, 32)} aria-label={t("canvas.up")}>↑</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => zoomView("in")} aria-label={t("canvas.zoomIn")}>＋</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(32, 0)} aria-label={t("canvas.left")}>←</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={resetView} aria-label={t("canvas.reset")}>↺</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(-32, 0)} aria-label={t("canvas.right")}>→</button>
-          <span />
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(0, -32)} aria-label={t("canvas.down")}>↓</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => zoomView("out")} aria-label={t("canvas.zoomOut")}>−</button>
-        </div>
-      )}
     </div>
   );
 };
