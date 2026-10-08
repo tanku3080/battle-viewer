@@ -71,6 +71,7 @@ export type P2pStatus = {
   settings: P2pSettings | null;
   identity: {
     installationId: string;
+    peerId: string;
   } | null;
   cacheUsedBytes: number | null;
   initializationError: string | null;
