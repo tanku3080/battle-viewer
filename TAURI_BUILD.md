@@ -167,15 +167,35 @@ src-tauri/target/x86_64-pc-windows-msvc/
 
 ## Tauri window behavior
 
-`npm run tauri dev` と配布版のどちらも、Battle Viewer は起動時にフルスクリーンで開きます。
-
-設定は `src-tauri/tauri.conf.json` の以下です。
+`npm run tauri dev` と配布版は、OSのネイティブfullscreenではなく
+**最大化された通常ウィンドウ**として起動します。
 
 ```json
 {
-  "fullscreen": true
+  "maximized": true,
+  "fullscreen": false,
+  "decorations": false
 }
 ```
+
+ネイティブfullscreenを常時使用すると、Linux / WSL のWebKitGTK環境で
+OSファイル選択などの別ウィンドウやダイアログとの重なり順・フォーカスに
+環境差が出る可能性があります。そのため通常操作はmaximized windowで行います。
+
+OS標準タイトルバーの代わりに、画面上端へポインターを移動すると
+Battle Viewerのカスタムタイトルバーが表示されます。
+
+- `—`: 最小化
+- `□`: 最大化 / 元のサイズへ戻す
+- `×`: アプリを閉じる
+- タイトル部分のドラッグ: ウィンドウ移動
+- タイトル部分のダブルクリック: 最大化 / 復元
+
+タイトルバーはTauri実行時だけ表示され、通常Web版では表示されません。
+
+この構成ではViewerのJSONファイル選択、Creatorの画像ファイル選択、
+Battle Hub投稿ダイアログなどは通常のmaximized window上で動作し、
+window modeのために機能を無効化しません。
 
 言語切替はメニュー画面（`/home`）だけに表示します。初回は日本語で起動し、
 ユーザーが日本語 / English を選択した後は `battle-viewer:locale` として
