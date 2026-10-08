@@ -9,6 +9,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use super::network_auth::HubTransferAuthorizer;
 use super::settings::P2pSettings;
+use super::image_guard::validate_render_assets;
+use battle_p2p_core::content::decode;
 use tokio::sync::{mpsc, oneshot};
 
 const PROTOCOL: &str = "/battle-viewer/content/1";
@@ -452,7 +454,16 @@ fn serve_request(
   };
 
   match cache.read(&request.content_hash) {
-    Ok((manifest, gzip)) => FetchResponse::Found { manifest, gzip, receipt },
+    Ok((manifest, gzip)) => {
+      // Reject older local cache entries that have not passed image decoding.
+      match decode(&manifest, &gzip)
+        .map_err(|error| error.to_string())
+        .and_then(|raw| validate_render_assets(&raw))
+      {
+        Ok(()) => FetchResponse::Found { manifest, gzip, receipt },
+        Err(_) => FetchResponse::Denied,
+      }
+    }
     Err(_) => FetchResponse::NotFound,
   }
 }
@@ -467,6 +478,10 @@ fn accept_response(
       if manifest.content_hash != expected_hash {
         return Err("P2P peer returned a different content hash".into());
       }
+      // Reject malicious raster payloads *before* publishing to the native cache.
+      let raw = decode(&manifest, &gzip)
+        .map_err(|error| format!("rejected P2P content: {error}"))?;
+      validate_render_assets(&raw)?;
       let mut cache = cache
         .lock()
         .map_err(|_| "failed to lock P2P cache".to_string())?;
