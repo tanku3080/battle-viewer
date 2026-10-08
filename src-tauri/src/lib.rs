@@ -313,7 +313,9 @@ async fn auth_session(
 #[tauri::command]
 async fn auth_logout(
   state: State<'_, AuthState>,
+  p2p_state: State<'_, p2p::P2pState>,
 ) -> Result<CommandResponse<Value>, String> {
+  p2p::stop_on_logout(&p2p_state).await;
   let access = state
     .access_token
     .lock()
