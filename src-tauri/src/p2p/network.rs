@@ -524,6 +524,23 @@ mod tests {
   }
 
   #[test]
+  fn rejects_compressed_digest_mismatch_without_cache_write() {
+    let raw = test_document("compressed representation mismatch");
+    let (manifest, gzip) = encode(&raw).unwrap();
+    let (_dir, cache) = test_cache(32 * 1024 * 1024);
+    let wrong = "f".repeat(64);
+    assert_ne!(manifest.compressed_hash, wrong);
+    let result = accept_response(
+      &cache,
+      &manifest.content_hash,
+      &wrong,
+      FetchResponse::Found { manifest: manifest.clone(), gzip, receipt: "r".into() },
+    );
+    assert!(result.is_err());
+    assert!(cache.lock().unwrap().inventory().unwrap().entries.is_empty());
+  }
+
+  #[test]
   fn deterministic_seed_produces_stable_peer_id() {
     let seed = [7u8; 32];
     let first = keypair_from_seed(&seed).unwrap().public().to_peer_id();
