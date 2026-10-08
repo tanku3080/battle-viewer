@@ -2,15 +2,15 @@ mod p2p;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
 
 const DEFAULT_HUB_URL: &str = "http://localhost:8080";
 
-#[derive(Default)]
-struct AuthState {
-  access_token: Mutex<Option<String>>,
-  refresh_token: Mutex<Option<String>>,
+#[derive(Clone, Default)]
+pub(crate) struct AuthState {
+  access_token: Arc<Mutex<Option<String>>>,
+  refresh_token: Arc<Mutex<Option<String>>>,
 }
 
 #[derive(Deserialize)]
@@ -70,7 +70,7 @@ where
   }
 }
 
-fn hub_base_url() -> String {
+pub(crate) fn hub_base_url() -> String {
   std::env::var("BATTLE_HUB_API_BASE_URL")
     .unwrap_or_else(|_| DEFAULT_HUB_URL.to_string())
     .trim_end_matches('/')
@@ -158,7 +158,7 @@ async fn refresh_access_token(
   Ok(payload.token)
 }
 
-async fn authenticated_request(
+pub(crate) async fn authenticated_request(
   client: &reqwest::Client,
   state: &AuthState,
   method: reqwest::Method,
