@@ -109,7 +109,6 @@
   "selected.force": "Force",
   "selected.position": "Current position",
   "selected.unavailable": "Unavailable",
-  "selected.iconPath": "Icon path",
   "selected.help": "Click the canvas to switch between a unit and a character. Only one can be selected at a time.",
   "selected.details": "Selection details",
   "canvas.label": "Battlefield view. Use arrow keys to pan, plus and minus to zoom, and Home or 0 to reset the view.",
@@ -183,5 +182,8 @@
   "window.maximize": "Maximize",
   "window.restore": "Restore",
   "window.close": "Close",
-  "window.titlebar": "Window controls"
+  "window.titlebar": "Window controls",
+  "hubAccess.panelOpen": "Open Battle Hub panel",
+  "hubAccess.panelClose": "Close Battle Hub panel",
+  "canvas.touchHelp": "Battlefield view. Drag with a finger or mouse to pan, pinch with two fingers or use the mouse wheel to zoom. Keyboard controls remain available with arrow keys, plus/minus, Home, or 0."
 }

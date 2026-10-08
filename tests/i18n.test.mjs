@@ -182,3 +182,62 @@ test("Tauri window tooltips are app-rendered and do not use native title attribu
   assert.match(chrome, /group-hover:opacity-100/);
   assert.match(chrome, /group-focus-within:opacity-100/);
 });
+
+
+test("mobile viewer uses touch gestures instead of an on-screen dpad", () => {
+  const player = fs.readFileSync(
+    path.join(root, "components/battle/BattlePlayer/BattlePlayer.tsx"),
+    "utf8"
+  );
+
+  assert.match(player, /onPointerDown=/);
+  assert.match(player, /onPointerMove=/);
+  assert.match(player, /onPointerUp=/);
+  assert.match(player, /touch-none/);
+  assert.match(player, /getPointerDistance/);
+  assert.doesNotMatch(player, /canvas\.controls/);
+  assert.doesNotMatch(player, /bottom-3 left-3 grid grid-cols-3/);
+});
+
+test("Battle Hub navigation is hidden below desktop while JSON publish remains available", () => {
+  const hubControls = fs.readFileSync(
+    path.join(root, "components/battle/controls/BattleHubControls.tsx"),
+    "utf8"
+  );
+  assert.match(hubControls, /relative hidden lg:block/);
+  assert.match(hubControls, /aria-expanded=\{desktopPanelOpen\}/);
+  assert.match(hubControls, /publish\.open/);
+  assert.match(hubControls, /className="sr-only"/);
+
+  const home = fs.readFileSync(path.join(root, "app/home/page.tsx"), "utf8");
+  assert.match(home, /hidden lg:block/);
+});
+
+test("viewer toolbar follows the mobile priority order", () => {
+  const battle = fs.readFileSync(path.join(root, "app/battle/page.tsx"), "utf8");
+
+  const back = battle.indexOf('t("battle.back")');
+  const grid = battle.indexOf('t("view.grid")');
+  const load = battle.indexOf('t("battle.loadJson")');
+  const publish = battle.indexOf("<BattleHubControls");
+  const playback = battle.indexOf("<PlaybackControls");
+  const viewModes = battle.indexOf("<ViewModeButtons");
+  const production = battle.indexOf("<ProductionButton");
+  const current = battle.indexOf('t("playback.current"');
+
+  assert.ok(back >= 0 && grid > back);
+  assert.ok(load > grid && publish > load);
+  assert.ok(playback > publish && viewModes > playback && production > viewModes);
+  assert.ok(current > production);
+});
+
+test("selected details do not expose icon path or base64 metadata", () => {
+  const panel = fs.readFileSync(
+    path.join(root, "components/SelectedInfoPanel.tsx"),
+    "utf8"
+  );
+  assert.doesNotMatch(panel, /selected\.iconPath/);
+  assert.doesNotMatch(panel, /iconPath \?\? t\("common\.none"\)/);
+  assert.equal("selected.iconPath" in ja, false);
+  assert.equal("selected.iconPath" in en, false);
+});

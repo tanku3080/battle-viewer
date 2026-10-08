@@ -24,7 +24,7 @@ export default function HomePage() {
       <section className="my-auto grid w-full gap-4 text-center sm:mx-auto sm:max-w-md">
         <Link href="/battle" className="px-8 py-3 bg-blue-600 rounded-lg text-white font-semibold hover:bg-blue-700">{t("home.view")}</Link>
         <Link href="/create" className="px-8 py-3 bg-violet-600 rounded-lg text-white font-semibold hover:bg-violet-700">{t("home.create")}</Link>
-        <BattleHubAccessButton className="px-8 py-3 font-semibold" />
+        <div className="hidden lg:block"><BattleHubAccessButton className="w-full px-8 py-3 font-semibold" /></div>
       </section>
 
       <footer className="mt-8 text-center text-xs opacity-60">© {new Date().getFullYear()} {t("home.footer")}</footer></div>
