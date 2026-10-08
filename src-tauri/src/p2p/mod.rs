@@ -3,7 +3,7 @@ mod settings;
 
 use battle_p2p_core::cache::Cache;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
@@ -261,6 +261,7 @@ pub async fn p2p_update_settings(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::path::Path;
 
   #[test]
   fn initialization_failure_does_not_require_app_shutdown() {
