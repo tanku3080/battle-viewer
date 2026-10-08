@@ -12,12 +12,12 @@ export type CoordinatePointLike = {
 };
 
 export function validateCoordinateMap(map: CoordinateMapLike | undefined) {
-  if (!map) throw new Error("map がありません");
+  if (!map) throw new Error("map is required");
   if (!Number.isFinite(map.width) || map.width <= 0) {
-    throw new Error("map.width は 0 より大きい数値である必要があります");
+    throw new Error("map.width must be a number greater than 0");
   }
   if (!Number.isFinite(map.height) || map.height <= 0) {
-    throw new Error("map.height は 0 より大きい数値である必要があります");
+    throw new Error("map.height must be a number greater than 0");
   }
   if (
     map.coordinateOrigin !== undefined &&
@@ -25,7 +25,7 @@ export function validateCoordinateMap(map: CoordinateMapLike | undefined) {
     map.coordinateOrigin !== "center"
   ) {
     throw new Error(
-      'map.coordinateOrigin は "top-left" または "center" を指定してください'
+      'map.coordinateOrigin must be "top-left" or "center"'
     );
   }
 }
