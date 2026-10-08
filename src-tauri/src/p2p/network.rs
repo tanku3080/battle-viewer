@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use super::network_auth::HubTransferAuthorizer;
+use super::settings::P2pSettings;
 use tokio::sync::{mpsc, oneshot};
 
 const PROTOCOL: &str = "/battle-viewer/content/1";
@@ -190,8 +191,9 @@ pub(crate) async fn spawn_authorized_direct_transport(
   cache: Arc<Mutex<Cache>>,
   listen_addr: Multiaddr,
   authorizer: HubTransferAuthorizer,
+  settings: Arc<Mutex<P2pSettings>>,
 ) -> Result<DirectTransport, String> {
-  spawn_transport(identity_seed, cache, true, listen_addr, Some(authorizer)).await
+  spawn_transport(identity_seed, cache, true, listen_addr, Some(authorizer), Some(settings)).await
 }
 
 #[cfg(test)]
@@ -201,7 +203,7 @@ pub(crate) async fn spawn_direct_transport(
   allow_serving: bool,
   listen_addr: Multiaddr,
 ) -> Result<DirectTransport, String> {
-  spawn_transport(identity_seed, cache, allow_serving, listen_addr, None).await
+  spawn_transport(identity_seed, cache, allow_serving, listen_addr, None, None).await
 }
 
 async fn spawn_transport(
@@ -210,6 +212,7 @@ async fn spawn_transport(
   allow_serving: bool,
   listen_addr: Multiaddr,
   authorizer: Option<HubTransferAuthorizer>,
+  settings: Option<Arc<Mutex<P2pSettings>>>,
 ) -> Result<DirectTransport, String> {
   let mut swarm = swarm(keypair_from_seed(identity_seed)?)?;
   swarm
@@ -233,6 +236,7 @@ async fn spawn_transport(
     cache,
     allow_serving,
     authorizer,
+    settings,
     command_rx,
   ));
 
@@ -250,6 +254,7 @@ async fn run_actor(
   cache: Arc<Mutex<Cache>>,
   allow_serving: bool,
   authorizer: Option<HubTransferAuthorizer>,
+  settings: Option<Arc<Mutex<P2pSettings>>>,
   mut command_rx: mpsc::Receiver<Command>,
 ) {
   use request_response::{Event, Message};
@@ -313,10 +318,18 @@ async fn run_actor(
                 let cache = Arc::clone(&cache);
                 let serve_tx = serve_tx.clone();
                 let authorizer = authorizer.clone();
+                let settings = settings.clone();
                 let provider_peer = swarm.local_peer_id().to_string();
                 let requester_peer = peer.to_string();
                 tokio::spawn(async move {
-                  let receipt = if let Some(auth) = authorizer {
+                  let still_consented = settings.as_ref().map(|settings| {
+                    settings.lock().map(|settings| {
+                      settings.participation_enabled && settings.redistribution_enabled
+                    }).unwrap_or(false)
+                  }).unwrap_or(cfg!(test));
+                  let receipt = if !still_consented {
+                    Err("P2P redistribution consent is disabled".to_string())
+                  } else if let Some(auth) = authorizer {
                     auth.check(
                       &request.work_id,
                       &request.grant,
