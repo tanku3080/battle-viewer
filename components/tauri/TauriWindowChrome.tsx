@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isTauriRuntime } from "@/utils/tauri/bridge";
 
@@ -8,13 +8,49 @@ type TauriWindow = Awaited<
   ReturnType<typeof import("@tauri-apps/api/window")["getCurrentWindow"]>
 >;
 
+function WindowControlButton({
+  label,
+  onClick,
+  danger = false,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="group relative flex h-11 items-stretch">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={
+          "flex min-h-11 min-w-12 items-center justify-center text-gray-200 " +
+          (danger
+            ? "hover:bg-red-600 hover:text-white focus-visible:bg-red-600"
+            : "hover:bg-gray-700 focus-visible:bg-gray-700")
+        }
+      >
+        {children}
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute right-0 top-full z-[10000] mt-1 whitespace-nowrap rounded-md border border-gray-600 bg-[#111827] px-2 py-1 text-xs text-gray-100 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export function TauriWindowChrome() {
   const { t } = useI18n();
   const windowRef = useRef<TauriWindow | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(false);
-  const [maximized, setMaximized] = useState(true);
+  const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -28,7 +64,7 @@ export function TauriWindowChrome() {
       const appWindow = getCurrentWindow();
       windowRef.current = appWindow;
 
-      const initialMaximized = await appWindow.isMaximized().catch(() => true);
+      const initialMaximized = await appWindow.isMaximized().catch(() => false);
       if (!disposed) {
         setMaximized(initialMaximized);
         setReady(true);
@@ -85,6 +121,7 @@ export function TauriWindowChrome() {
         aria-hidden="true"
         className="fixed left-0 right-0 top-0 z-[9998] h-2"
         onPointerEnter={reveal}
+        onPointerDown={reveal}
       />
 
       <div
@@ -92,10 +129,12 @@ export function TauriWindowChrome() {
         aria-label={t("window.titlebar")}
         onPointerEnter={reveal}
         onPointerLeave={scheduleHide}
+        onFocusCapture={reveal}
+        onBlurCapture={scheduleHide}
         className={
-          "fixed left-0 right-0 top-0 z-[9999] grid h-10 grid-cols-[1fr_auto] " +
+          "fixed left-0 right-0 top-0 z-[9999] grid h-11 grid-cols-[minmax(0,1fr)_auto] " +
           "select-none border-b border-gray-700 bg-[#0b1020]/95 text-gray-100 shadow-lg " +
-          "backdrop-blur transition-transform duration-150 " +
+          "backdrop-blur transition-transform duration-150 focus-within:translate-y-0 " +
           (visible ? "translate-y-0" : "-translate-y-full")
         }
       >
@@ -109,25 +148,19 @@ export function TauriWindowChrome() {
           </span>
         </div>
 
-        <div className="flex h-10 items-stretch">
-          <button
-            type="button"
-            title={t("window.minimize")}
-            aria-label={t("window.minimize")}
+        <div className="flex h-11 items-stretch">
+          <WindowControlButton
+            label={t("window.minimize")}
             onClick={() => void minimize()}
-            className="flex w-12 items-center justify-center text-gray-200 hover:bg-gray-700"
           >
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18">
               <path d="M3 13.5h12" stroke="currentColor" strokeWidth="1.5" />
             </svg>
-          </button>
+          </WindowControlButton>
 
-          <button
-            type="button"
-            title={maximized ? t("window.restore") : t("window.maximize")}
-            aria-label={maximized ? t("window.restore") : t("window.maximize")}
+          <WindowControlButton
+            label={maximized ? t("window.restore") : t("window.maximize")}
             onClick={() => void toggleMaximize()}
-            className="flex w-12 items-center justify-center text-gray-200 hover:bg-gray-700"
           >
             {maximized ? (
               <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18">
@@ -139,19 +172,17 @@ export function TauriWindowChrome() {
                 <rect x="3.5" y="3.5" width="11" height="11" fill="none" stroke="currentColor" />
               </svg>
             )}
-          </button>
+          </WindowControlButton>
 
-          <button
-            type="button"
-            title={t("window.close")}
-            aria-label={t("window.close")}
+          <WindowControlButton
+            label={t("window.close")}
+            danger
             onClick={() => void close()}
-            className="flex w-12 items-center justify-center text-gray-200 hover:bg-red-600 hover:text-white"
           >
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18">
               <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.5" />
             </svg>
-          </button>
+          </WindowControlButton>
         </div>
       </div>
     </>
