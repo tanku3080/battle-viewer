@@ -40,7 +40,7 @@ export async function desktopLogout(): Promise<DesktopResponse<null>> {
 }
 
 export async function desktopHubGet<T>(
-  resource: "health" | "forces" | "battles"
+  resource: "health" | "forces" | "battles" | "works"
 ): Promise<DesktopResponse<T>> {
   return invoke("hub_get", { resource });
 }
@@ -111,4 +111,24 @@ export async function desktopP2pUpdateSettings(
   request: P2pUpdateSettingsRequest
 ): Promise<P2pStatus> {
   return invoke("p2p_update_settings", { request });
+}
+
+export type DesktopP2pNetwork = { peerId: string; address: string };
+
+export async function desktopP2pStart(advertisedIp: string): Promise<DesktopP2pNetwork> {
+  return invoke("p2p_start", { request: { advertisedIp } });
+}
+
+export async function desktopP2pStop(): Promise<void> {
+  return invoke("p2p_stop");
+}
+
+export async function desktopP2pPublish(
+  raw: string, description: string
+): Promise<import("@/utils/battleHub/works").DistributedWork> {
+  return invoke("p2p_publish", { raw, description });
+}
+
+export async function desktopP2pFetch(workId: string): Promise<string> {
+  return invoke("p2p_fetch", { workId });
 }

@@ -46,7 +46,8 @@ test("Phase 2b exposes settings and inventory IPC without starting networking", 
   assert.match(lib, /p2p::p2p_get_inventory/);
   assert.match(ipc, /spawn_blocking/);
   assert.match(ipc, /network_active:\s*false/);
-  assert.doesNotMatch(lib, /p2p_fetch|p2p_download|p2p_start_network/);
+  assert.match(lib, /p2p::commands::p2p_fetch/);
+  assert.match(lib, /p2p::commands::p2p_start/);
 });
 
 test("installation identity never exposes the private seed through IPC", () => {

@@ -3,134 +3,87 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - develop
+    branches: [develop]
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  p2p-msrv:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.90.0
-      - run: cargo check --manifest-path crates/battle-p2p-core/Cargo.toml --locked --all-targets
-
-  tauri-lockfile:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - uses: dtolnay/rust-toolchain@stable
-      - name: Regenerate Tauri lockfile
-        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-      - name: Verify committed Tauri lockfile
-        run: git diff --exit-code -- src-tauri/Cargo.lock
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+            crates/battle-p2p-core -> target
+      - name: Validate Tauri Cargo.lock
+        run: |
+          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+          git diff --exit-code -- src-tauri/Cargo.lock
+      - run: npm ci
+      - run: npm audit --audit-level=critical
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:tauri
+      - name: Native core checks
+        run: |
+          cargo fmt --manifest-path crates/battle-p2p-core/Cargo.toml --check
+          cargo clippy --manifest-path crates/battle-p2p-core/Cargo.toml --locked --all-targets -- -D warnings
+          cargo test --manifest-path crates/battle-p2p-core/Cargo.toml --locked
+      - run: node scripts/test-p2p-native-roundtrip.mjs
 
-  tauri-rust-windows:
+  native-windows:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Test Tauri Rust state and persistence
-        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
-      - name: Check Tauri Rust warnings
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+            crates/battle-p2p-core -> target
+      - run: cargo test --manifest-path crates/battle-p2p-core/Cargo.toml --locked
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
 
-  p2p-native-core:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+  desktop-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - name: Check native formatting
-        run: cargo fmt --manifest-path crates/battle-p2p-core/Cargo.toml --check
-      - name: Check native warnings
-        run: cargo clippy --manifest-path crates/battle-p2p-core/Cargo.toml --locked --all-targets -- -D warnings
-      - name: Test native content and cache
-        run: cargo test --manifest-path crates/battle-p2p-core/Cargo.toml --locked
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - name: Verify native cache to Viewer and Creator roundtrip
-        run: node scripts/test-p2p-native-roundtrip.mjs
-
-  verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Audit critical vulnerabilities
-        run: npm audit --audit-level=critical
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Unit tests
-        run: npm test
-
-      - name: Build web
-        run: npm run build
-
-      - name: Build static frontend for Tauri
-        run: npm run build:tauri
-
-  tauri-linux:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Linux dependencies
+      - name: Install Tauri native dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Test Tauri Rust state and persistence
-        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
-
-      - name: Build Tauri Debian package
-        run: npm run tauri build -- --bundles deb
-
-      - name: Verify Debian package
-        run: test -n "$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+            crates/battle-p2p-core -> target
+      - run: npm ci
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - run: npm run tauri build -- --bundles deb
+      - run: test -n "$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"

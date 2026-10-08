@@ -226,5 +226,22 @@
   "p2p.saved": "P2P設定を保存しました。",
   "p2p.checkCache": "キャッシュを検査",
   "p2p.checkingCache": "検査中…",
-  "p2p.peerId": "Peer ID"
+  "p2p.peerId": "Peer ID",
+  "p2p.networkDescription": "P2P参加は任意。通信を始めるには明示的に起動し、利用するIPv4を指定する必要がある。",
+  "p2p.networkRunning": "接続待受け中",
+  "p2p.advertisedIp": "他端末から到達できるIPv4アドレス",
+  "p2p.ipHelp": "同一端末のテストは127.0.0.1。別端末の場合はLAN内のアドレスを指定。NAT越えや外部接続は保証されない。",
+  "p2p.startNetwork": "P2P通信を開始",
+  "p2p.stopNetwork": "P2P通信を停止",
+  "p2p.catalogTitle": "分散共有された作品",
+  "p2p.catalogDescription": "Hubは作品メタデータのみ保持。JSON本体は同意済み端末から取得する。",
+  "p2p.searchWorks": "作品を検索",
+  "p2p.search": "検索",
+  "p2p.publishWork": "JSON作品を投稿",
+  "p2p.fileTooLarge": "JSONは32MiBを超えられない。",
+  "p2p.published": "作品を投稿した: {title}",
+  "p2p.replicaCount": "オンライン複製 {count}/{target}",
+  "p2p.openViewer": "閲覧する",
+  "p2p.openCreator": "編集する",
+  "p2p.startFirst": "共有作品を取得または投稿するには、ホーム画面で参加を同意してP2P通信を開始してほしい。"
 }

@@ -226,5 +226,22 @@
   "p2p.saved": "P2P settings saved.",
   "p2p.checkCache": "Inspect cache",
   "p2p.checkingCache": "Inspecting…",
-  "p2p.peerId": "Peer ID"
+  "p2p.peerId": "Peer ID",
+  "p2p.networkDescription": "P2P participation is optional. Start networking explicitly and specify a reachable IPv4 address.",
+  "p2p.networkRunning": "Listening for peers",
+  "p2p.advertisedIp": "Reachable IPv4 address",
+  "p2p.ipHelp": "Use 127.0.0.1 for same-computer tests. Use a LAN address for other computers. NAT traversal and public connectivity are not guaranteed.",
+  "p2p.startNetwork": "Start P2P networking",
+  "p2p.stopNetwork": "Stop P2P networking",
+  "p2p.catalogTitle": "Distributed works",
+  "p2p.catalogDescription": "The Hub stores metadata only. Content is downloaded from consenting peer devices.",
+  "p2p.searchWorks": "Search works",
+  "p2p.search": "Search",
+  "p2p.publishWork": "Publish JSON work",
+  "p2p.fileTooLarge": "JSON may not exceed 32 MiB.",
+  "p2p.published": "Published work: {title}",
+  "p2p.replicaCount": "Online replicas: {count}/{target}",
+  "p2p.openViewer": "Open in Viewer",
+  "p2p.openCreator": "Continue in Creator",
+  "p2p.startFirst": "To download or publish distributed works, enable participation and start networking on Home."
 }

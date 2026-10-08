@@ -1,7 +1,8 @@
 "use client";
+import { consumeDistributedJson } from "@/utils/battleHub/pendingTransfer";
 
 import Link from "next/link";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import type { BattleData } from "@/types/battle";
 import { useBattlePlayback } from "@/hook/useBattlePlayback";
 import { useSelection } from "@/hook/useSelection";
@@ -32,6 +33,29 @@ export default function BattlePage() {
   const {
     selectedUnitId, selectedCharacterId, selectUnit, selectCharacter, panelData,
   } = useSelection(battle, currentTime);
+
+  useEffect(() => {
+    const incoming = consumeDistributedJson();
+    if (!incoming) return;
+    // Parse and validate before mutating current Viewer state.
+    Promise.resolve().then(() => {
+      try {
+        const raw = JSON.parse(incoming) as RawBattleJson;
+        const parsed = loadBattleJson(raw);
+        setBattle(parsed);
+        setSourceBattleJson(raw);
+        setLoadError(null);
+        seek(0);
+        stop();
+        selectUnit(null);
+        selectCharacter(null);
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : t("battle.loadFailed"));
+      }
+    });
+    // Only consume a pending Hub download once per Viewer mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
