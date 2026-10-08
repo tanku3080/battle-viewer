@@ -30,8 +30,8 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative min-h-screen bg-[#050816] text-gray-100 flex items-center justify-center px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-gray-700 bg-[#111827] p-6 shadow-2xl">
+    <main className="relative min-h-dvh bg-[#050816] text-gray-100 flex items-center justify-center px-4 py-6 sm:px-6">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-gray-700 bg-[#111827] p-4 shadow-2xl sm:p-6">
         <h1 className="text-2xl font-semibold mb-2">Battle Viewer</h1>
         <p className="text-sm text-gray-300 mb-6">{t("login.description")}</p>
 
