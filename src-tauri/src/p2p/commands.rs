@@ -31,6 +31,7 @@ pub struct NetworkView {
 struct WorkResponse {
   id: String,
   content_hash: String,
+  compressed_hash: String,
   distribution_state: String,
 }
 
@@ -298,7 +299,7 @@ pub async fn p2p_fetch(
     }).await.map_err(|error| error.to_string())?
   } else {
     // Continue to authorized peer acquisition if no validated local copy exists.
-    fetch_remote(ready, &auth, &work_id, &work.content_hash, &own_peer, handle).await
+    fetch_remote(ready, &auth, &work_id, &work.content_hash, &work.compressed_hash, &own_peer, handle).await
   }
 }
 
@@ -307,6 +308,7 @@ async fn fetch_remote(
   auth: &AuthState,
   work_id: &str,
   expected_hash: &str,
+  expected_compressed_hash: &str,
   own_peer: &str,
   handle: network::DirectTransportHandle,
 ) -> Result<String, String> {
@@ -348,7 +350,7 @@ async fn fetch_remote(
     };
     match handle.fetch_authorized(
       vec![PeerRoute { peer_id: peer, addresses: vec![address] }],
-      hash.clone(), work_id.clone(), vec![grant.token],
+      hash.clone(), work_id.clone(), vec![grant.token], expected_compressed_hash.to_string(),
     ).await {
       Ok(receipt) => {
         let result = {
