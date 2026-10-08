@@ -10,7 +10,7 @@ export default function HomePage() {
   const { t } = useI18n();
   return (
     <main className="min-h-dvh bg-[#0b1020] px-4 py-6 text-[#f5f5f5] sm:px-6 sm:py-8">
-      <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-5xl flex-col"><header className="w-full pt-2 sm:pt-4">
+      <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-5xl flex-col sm:min-h-[calc(100dvh-4rem)]"><header className="w-full pt-2 sm:pt-4">
         <div className="mb-6 flex flex-wrap items-center justify-end gap-3 sm:mb-8">
           <LanguageSwitcher />
           <LogoutButton />
