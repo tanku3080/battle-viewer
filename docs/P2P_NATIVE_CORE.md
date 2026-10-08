@@ -116,8 +116,11 @@ cargo run --locked --manifest-path crates/battle-p2p-core/Cargo.toml --example r
 
 ## Next phases and outstanding gates
 
-2b: Tauri IPC, app-data path, persistent settings, identity, consent/privacy UI in
-ja/en with keyboard/live status support. 3a: maintained libp2p encrypted bounded
+2b: implemented by PR #46. Tauri now opens the Phase 2a cache under app_data_dir,
+persists opt-in settings and a private installation identity, exposes bounded settings/
+inventory IPC, and provides ja/en consent/privacy UI. Phase 2b deliberately reports
+networkActive=false and starts no peer networking. See docs/P2P_PHASE2B.md.
+3a: maintained libp2p encrypted bounded
 direct transfer and peer retry. 3b: authenticated Hub discovery/leases, peer-bound
 short-lived grants, fresh stop/entitlement checks before every transfer. 4: consented
 replication target 3, re-replication, rate limits, source/all-offline states. 5: catalog,

@@ -54,3 +54,60 @@ export async function desktopHubPost<T>(
     body: JSON.stringify(body),
   });
 }
+
+
+export type P2pSettings = {
+  version: number;
+  participationEnabled: boolean;
+  downloadsEnabled: boolean;
+  redistributionEnabled: boolean;
+  cacheQuotaBytes: number;
+  uploadLimitBytesPerSecond: number;
+};
+
+export type P2pStatus = {
+  available: boolean;
+  networkActive: boolean;
+  settings: P2pSettings | null;
+  identity: {
+    installationId: string;
+  } | null;
+  cacheUsedBytes: number | null;
+  initializationError: string | null;
+};
+
+export type P2pInventoryEntry = {
+  contentHash: string;
+  compressedHash: string;
+  compressedSize: number;
+  uncompressedSize: number;
+  storedBytes: number;
+};
+
+export type P2pInventory = {
+  entries: P2pInventoryEntry[];
+  corruptHashes: string[];
+  usedBytes: number;
+};
+
+export type P2pUpdateSettingsRequest = {
+  participationEnabled: boolean;
+  downloadsEnabled: boolean;
+  redistributionEnabled: boolean;
+  cacheQuotaBytes: number;
+  uploadLimitBytesPerSecond: number;
+};
+
+export async function desktopP2pStatus(): Promise<P2pStatus> {
+  return invoke("p2p_get_status");
+}
+
+export async function desktopP2pInventory(): Promise<P2pInventory> {
+  return invoke("p2p_get_inventory");
+}
+
+export async function desktopP2pUpdateSettings(
+  request: P2pUpdateSettingsRequest
+): Promise<P2pStatus> {
+  return invoke("p2p_update_settings", { request });
+}

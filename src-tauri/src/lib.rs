@@ -1,7 +1,9 @@
+mod p2p;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 
 const DEFAULT_HUB_URL: &str = "http://localhost:8080";
 
@@ -465,9 +467,20 @@ pub fn run() {
       auth_session,
       auth_logout,
       hub_get,
-      hub_post
+      hub_post,
+      p2p::p2p_get_status,
+      p2p::p2p_update_settings,
+      p2p::p2p_get_inventory
     ])
     .setup(|app| {
+      let p2p_state = match app.path().app_data_dir() {
+        Ok(app_data_dir) => p2p::P2pState::initialize(app_data_dir.join("p2p")),
+        Err(error) => p2p::P2pState::unavailable(format!(
+          "failed to resolve app data directory: {error}"
+        )),
+      };
+      app.manage(p2p_state);
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()

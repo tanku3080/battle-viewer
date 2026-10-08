@@ -1,3 +1,86 @@
+# 2026-10-08 Phase 2b 更新
+
+この節が本ファイル内の古い「未マージ」「Phase2b未実装」記述より優先される。現行コードを絶対的な正とし、作業開始時にはGitHubの最新develop/PR状態を再確認すること。
+
+## 最新基準
+
+- FE: `tanku3080/battle-viewer`
+  - Phase2b分岐時develop: `fe61a69afacaf3df3deb755d16c9d08201dca6ac`
+- BE: `tanku3080/battle-hub`
+  - 確認develop: `5502070b44a213c54170b1df12d45ba4d0d3ecba`
+- Phase0 FE #44: merged
+- Phase1 BE #7: merged
+- Phase2a FE #45: merged
+- Phase2b FE #46: open
+  - branch: `feat/p2p-phase2b-tauri-settings`
+  - 詳細: `docs/P2P_PHASE2B.md`
+  - mergeは禁止。レビュー/CI後にユーザーが判断する。
+
+## Phase 2b 実装済み
+
+- Phase2a `battle-p2p-core`をTauriへpath dependency接続。
+- Tauriの`app_data_dir/p2p/cache`でprivate Cacheをopen。
+- persistent settings:
+  - P2P参加同意
+  - download同意
+  - redistribution同意
+  - cache quota
+  - upload bandwidth limit
+- 3同意はすべて既定OFF。downloadとredistributionは独立。
+- random installation ID + private 32-byte identity seedを永続化。
+  - seedはIPC/UIへ出さない。
+  - Phase3はこのseedからnetwork identityを導出し、勝手にidentityを作り直さない。
+- Tauri IPC:
+  - `p2p_get_status`
+  - `p2p_update_settings`
+  - `p2p_get_inventory`
+- inventory/used-size検査はblocking workerで実行。
+- Homeへja/en対応・keyboard accessibleなP2P設定UIを追加。
+- IP開示可能性、disk使用、upload帯域を明示。
+- WebではDesktop限定機能と表示し、P2P利用可能と偽装しない。
+- Phase2bではlistener、peer connection、download/uploadを開始しない。networkActive=false。
+- Tauri Cargo.lockの再生成整合check、Windows Tauri Rust test/clippy、Linux Rust testをCIへ追加。
+
+## Phase 2b セキュリティ境界
+
+- rendererからfilesystem pathを指定させない。
+- cacheはPhase2aのhash/size/schema/resource検証を維持。
+- identity secretをrendererへ返さない。
+- 同一app-dataを別プロセスが開く場合、cache lockをidentity生成前に取得しraceをfail closedする。
+- P2P初期化失敗はアプリ全体を落とさず、P2Pのみunavailableとして表示する。
+- 現在の同意設定は将来のnetwork動作条件を保存するだけ。ONでもPhase2bでは通信しない。
+- Hub token / peer address / transfer grantはこのsettings/cache層へ保存しない。
+
+## 次Phase
+
+Phase3は一つの巨大PRにせず分割すること。
+
+### Phase3a: direct transport
+- installation identity seedから安定したlibp2p identity/PeerIdを導出
+- maintained libp2p
+- encrypted direct transport
+- 8MiB圧縮上限を超えてbufferしないbounded codec
+- timeout/retry/backpressure
+- original gzip bytesをそのまま転送
+- A→B→C loopback/integration試験
+- consent OFFではlisten/advertise/upload/downloadを行わない
+
+### Phase3b: Hub discovery / authorization
+- BE migrationでprovider leaseを永続化
+- authenticated provider register/renew/remove/discovery
+- lease expiry
+- transfer grantは短命、requester/provider/作品へbind
+- 転送ごとに最新STOPPED/権利を確認
+- Hub不通・grant失効・権限なしはfail closed
+- anonymous contentHash取得やgrant迂回を作らない
+- IPは必要最小限の短命provider情報として扱い、作品本文と同様にDBへ恒久保存しない設計を検討
+
+Phase4で目標3複製/再複製/bandwidth/quota/all-offline表示、Phase5でHub UI・投稿・取得・直接再生/再編集、Phase6で外部ネットワーク/NAT/resource security/設計書更新。
+
+画像decode/pixel上限は、P2P取得した未信頼JSONをViewer/Creator描画へ接続するPhase5以前に必ず追加する。
+
+---
+
 # Battle Viewer / Battle Hub P2P実装 引き継ぎプロンプト（2026-10-08 JST）
 Battle ViewerとBattle HubのP2P分散Battle JSON共有基盤を段階的に実装せよ。目的は中央サーバーの本文保存容量・配信量・費用の最小化。Hubは認証、作品メタデータ、一覧検索、配信元・発見・転送認可を管理し、JSON本体は明示同意したTauri端末がGzipで保存・転送する。投稿者Aがオフラインでも複製を持つBからCへ取得できることが最終目標。月額0円を優先するが常時可用性・無料NAT越えは保証しない。広告・決済は対象外。有料契約とPR自動マージは禁止。
 
