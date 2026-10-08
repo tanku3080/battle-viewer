@@ -73,6 +73,8 @@ struct PendingFetch {
   reply: oneshot::Sender<Result<(), String>>,
 }
 
+type ResponseChannel = request_response::ResponseChannel<FetchResponse>;
+
 impl DirectTransportHandle {
   pub fn peer_id(&self) -> PeerId {
     self.peer_id
@@ -228,13 +230,19 @@ async fn run_actor(
     request_response::OutboundRequestId,
     PendingFetch,
   )> = None;
+  let mut validating_response = false;
+
+  let (serve_tx, mut serve_rx) =
+    mpsc::channel::<(ResponseChannel, FetchResponse)>(MAX_CONCURRENT_STREAMS);
+  let (accept_tx, mut accept_rx) =
+    mpsc::channel::<(PendingFetch, Result<(), String>)>(1);
 
   loop {
     tokio::select! {
       maybe_command = command_rx.recv() => {
         match maybe_command {
           Some(Command::Fetch { routes, content_hash, reply }) => {
-            if pending.is_some() {
+            if pending.is_some() || validating_response {
               let _ = reply.send(Err("another P2P fetch is already in progress".into()));
               continue;
             }
@@ -250,13 +258,38 @@ async fn run_actor(
           Some(Command::Shutdown) | None => break,
         }
       }
+
+      Some((channel, response)) = serve_rx.recv() => {
+        let _ = swarm.behaviour_mut().send_response(channel, response);
+      }
+
+      Some((state, result)) = accept_rx.recv() => {
+        validating_response = false;
+        match result {
+          Ok(()) => {
+            let _ = state.reply.send(Ok(()));
+          }
+          Err(error) => {
+            pending = retry_or_finish(&mut swarm, state, error);
+          }
+        }
+      }
+
       event = swarm.select_next_some() => {
         match event {
           SwarmEvent::Behaviour(Event::Message { message, .. }) => {
             match message {
               Message::Request { request, channel, .. } => {
-                let response = serve_request(&cache, allow_serving, request);
-                let _ = swarm.behaviour_mut().send_response(channel, response);
+                let cache = Arc::clone(&cache);
+                let serve_tx = serve_tx.clone();
+                tokio::spawn(async move {
+                  let response = tokio::task::spawn_blocking(move || {
+                    serve_request(&cache, allow_serving, request)
+                  })
+                  .await
+                  .unwrap_or(FetchResponse::Unavailable);
+                  let _ = serve_tx.send((channel, response)).await;
+                });
               }
               Message::Response { request_id, response } => {
                 if let Some((expected_id, state)) = pending.take() {
@@ -264,14 +297,21 @@ async fn run_actor(
                     pending = Some((expected_id, state));
                     continue;
                   }
-                  match accept_response(&cache, &state.content_hash, response) {
-                    Ok(()) => {
-                      let _ = state.reply.send(Ok(()));
-                    }
-                    Err(error) => {
-                      pending = retry_or_finish(&mut swarm, state, error);
-                    }
-                  }
+
+                  validating_response = true;
+                  let cache = Arc::clone(&cache);
+                  let accept_tx = accept_tx.clone();
+                  let expected_hash = state.content_hash.clone();
+                  tokio::spawn(async move {
+                    let result = tokio::task::spawn_blocking(move || {
+                      accept_response(&cache, &expected_hash, response)
+                    })
+                    .await
+                    .unwrap_or_else(|error| {
+                      Err(format!("P2P content validation worker failed: {error}"))
+                    });
+                    let _ = accept_tx.send((state, result)).await;
+                  });
                 }
               }
             }
@@ -299,7 +339,6 @@ async fn run_actor(
     let _ = state.reply.send(Err("P2P network task stopped".into()));
   }
 }
-
 fn send_next_request(
   swarm: &mut Swarm<Behaviour>,
   state: &mut PendingFetch,
