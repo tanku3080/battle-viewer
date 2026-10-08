@@ -1,15 +1,36 @@
 export type ForceDefinition = { name: string; color: string };
 
-export function validateForce(name: string, color: string, forces: ForceDefinition[]): string | null {
-  if (!name.trim()) return "force名を入力してください";
-  if (name.length > 64) return "force名は64文字以内で入力してください";
-  if (forces.some((force) => force.name.trim().toLowerCase() === name.trim().toLowerCase())) {
-    return "同じ名前のforceが既に登録されています";
+export type ForceValidationError =
+  | "nameRequired"
+  | "nameTooLong"
+  | "duplicate"
+  | "color";
+
+export function validateForce(
+  name: string,
+  color: string,
+  forces: ForceDefinition[]
+): ForceValidationError | null {
+  if (!name.trim()) return "nameRequired";
+  if (name.length > 64) return "nameTooLong";
+  if (
+    forces.some(
+      (force) =>
+        force.name.trim().toLowerCase() === name.trim().toLowerCase()
+    )
+  ) {
+    return "duplicate";
   }
-  if (!/^#[0-9a-f]{6}$/i.test(color)) return "カラーを選択してください";
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return "color";
   return null;
 }
 
-export function getForceColor(forces: ForceDefinition[], name: string | undefined): string | undefined {
-  return forces.find((force) => force.name === name && /^#[0-9a-f]{6}$/i.test(force.color))?.color;
+export function getForceColor(
+  forces: ForceDefinition[],
+  name: string | undefined
+): string | undefined {
+  return forces.find(
+    (force) =>
+      force.name === name && /^#[0-9a-f]{6}$/i.test(force.color)
+  )?.color;
 }
