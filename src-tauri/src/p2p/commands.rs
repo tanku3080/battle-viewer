@@ -95,7 +95,7 @@ async fn announce(
   peer_id: &str,
   address: &str,
 ) -> Result<(), String> {
-  let endpoint = if reference.replica { "renew" } else { "renew" };
+  let endpoint = "renew";
   let body = serde_json::json!({ "peerId": peer_id, "address": address }).to_string();
   hub(auth, Method::POST,
     &format!("/api/v2/works/{}/peers/{endpoint}", reference.work_id), Some(&body)).await?;
@@ -125,7 +125,7 @@ pub async fn p2p_start(
   auth: State<'_, AuthState>,
 ) -> Result<NetworkView, String> {
   let ready = ready(&state)?;
-  enabled(ready, false, true)?;
+  enabled(ready, false, false)?;
   let _: serde_json::Value = hub(&auth, Method::GET, "/api/auth/session", None)
     .await?.json().await.map_err(|error| error.to_string())?;
   let ip: Ipv4Addr = request.advertised_ip.parse()
@@ -163,7 +163,7 @@ pub async fn p2p_start(
       interval.tick().await;
       if !running.load(Ordering::Acquire) { break; }
       let allowed = settings.lock().map(|settings| {
-        settings.participation_enabled && settings.redistribution_enabled
+        settings.participation_enabled
       }).unwrap_or(false);
       if !allowed { break; }
       let references = refs.lock().map(|refs| refs.clone()).unwrap_or_default();
