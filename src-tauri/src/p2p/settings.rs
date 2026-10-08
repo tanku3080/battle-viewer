@@ -171,6 +171,25 @@ mod tests {
   }
 
   #[test]
+  fn updates_existing_settings_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let original = P2pSettings::default();
+    save(dir.path(), &original).unwrap();
+
+    let updated = P2pSettings {
+      participation_enabled: true,
+      downloads_enabled: true,
+      redistribution_enabled: true,
+      cache_quota_bytes: 512 * 1024 * 1024,
+      upload_limit_bytes_per_second: 512 * 1024,
+      ..original
+    };
+    save(dir.path(), &updated).unwrap();
+
+    assert_eq!(load(dir.path()).unwrap(), updated);
+  }
+
+  #[test]
   fn rejects_invalid_limits_without_overwriting_existing_settings() {
     let dir = tempfile::tempdir().unwrap();
     let original = P2pSettings::default();
