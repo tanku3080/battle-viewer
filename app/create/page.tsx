@@ -1006,7 +1006,7 @@ export default function BattleCreator() {
                         ? ""
                         : item.id.trim()
                           ? " / ID: " + item.id.trim()
-                          : " / ID未設定") +
+                          : " / " + t("creator.idMissing")) +
                       " @ " +
                       current.x.toFixed(1) +
                       "," +
