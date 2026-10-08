@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { TauriWindowChrome } from "@/components/tauri/TauriWindowChrome";
+import { P2pReplicationWorker } from "@/components/p2p/P2pReplicationWorker";
 import "./globals.css";
 
 const notoSansJp = Noto_Sans_JP({
@@ -33,6 +34,7 @@ export default function RootLayout({
       >
         <I18nProvider>
           <TauriWindowChrome />
+          <P2pReplicationWorker />
           {children}
         </I18nProvider>
       </body>
