@@ -92,8 +92,11 @@ impl ReadyState {
     // Acquire the process-wide cache lock before creating or reading the
     // installation identity. A second Battle Viewer process therefore fails
     // closed before it can race settings/identity persistence.
-    let cache = Cache::open(&cache_root, settings.cache_quota_bytes)
+    let mut cache = Cache::open(&cache_root, settings.cache_quota_bytes)
       .map_err(|error| format!("failed to open P2P cache: {error}"))?;
+    cache
+      .set_quota(settings.cache_quota_bytes)
+      .map_err(|error| format!("P2P cache exceeds configured quota: {error}"))?;
     let identity = identity::load_or_create(&root)?;
 
     Ok(Self {
@@ -228,16 +231,17 @@ pub async fn p2p_update_settings(
   let root = ready.root.clone();
   let cache = Arc::clone(&ready.cache);
   let settings_state = Arc::clone(&ready.settings);
-  let previous = settings_state
-    .lock()
-    .map_err(|_| "failed to lock P2P settings".to_string())?
-    .clone();
   let updated_for_worker = updated.clone();
 
   tauri::async_runtime::spawn_blocking(move || {
     let mut cache = cache
       .lock()
       .map_err(|_| "failed to lock P2P cache".to_string())?;
+    let previous = settings_state
+      .lock()
+      .map_err(|_| "failed to lock P2P settings".to_string())?
+      .clone();
+
     cache
       .set_quota(updated_for_worker.cache_quota_bytes)
       .map_err(|error| format!("failed to update P2P cache quota: {error}"))?;
