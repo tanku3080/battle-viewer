@@ -61,7 +61,7 @@ mod tests {
       content_hash: "a".repeat(64),
       replica: false,
     };
-    save(dir.path(), &[r.clone()]).unwrap();
+    save(dir.path(), std::slice::from_ref(&r)).unwrap();
     assert_eq!(load(dir.path()).unwrap(), vec![r]);
   }
 }
