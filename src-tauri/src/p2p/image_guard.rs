@@ -28,7 +28,7 @@ fn legacy_hierarchy<'a>(value: &'a Value, result: &mut Vec<&'a str>) {
   }
 }
 
-fn images<'a>(root: &'a Value) -> Vec<&'a str> {
+fn images(root: &Value) -> Vec<&str> {
   let mut result = Vec::new();
   if let Some(map) = root.get("map") { fields(map, &mut result); }
   for kind in ["units", "characters"] {
