@@ -152,6 +152,7 @@ pub async fn p2p_update_settings(
 
   let updated = P2pSettings {
     version: SETTINGS_VERSION,
+    participation_enabled: request.participation_enabled,
     downloads_enabled: request.downloads_enabled,
     redistribution_enabled: request.redistribution_enabled,
     cache_quota_bytes: request.cache_quota_bytes,
@@ -209,6 +210,7 @@ mod tests {
     let ready = ReadyState::open(dir.path().join("p2p")).unwrap();
     let settings = ready.settings.lock().unwrap().clone();
 
+    assert!(!settings.participation_enabled);
     assert!(!settings.downloads_enabled);
     assert!(!settings.redistribution_enabled);
     assert!(ready.root.ends_with(Path::new("p2p")));
