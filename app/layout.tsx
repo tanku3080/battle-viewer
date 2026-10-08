@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import { I18nProvider } from "@/i18n/I18nProvider";
+import { TauriWindowChrome } from "@/components/tauri/TauriWindowChrome";
 import "./globals.css";
 
 const notoSansJp = Noto_Sans_JP({
@@ -30,7 +31,10 @@ export default function RootLayout({
       <body
         className={`${notoSansJp.variable} ${geistMono.variable} antialiased`}
       >
-        <I18nProvider>{children}</I18nProvider>
+        <I18nProvider>
+          <TauriWindowChrome />
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

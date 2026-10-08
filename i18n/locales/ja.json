@@ -178,5 +178,10 @@
   "creator.palette.corps": "Legion配下の軍団を配置します。",
   "creator.palette.division": "Corps配下の師団を配置します。",
   "creator.palette.regiment": "Division配下でUnitを束ねる連隊を配置します。",
-  "creator.palette.camera": "カメラ中心座標と描画範囲を設定します。赤い四角が現在の描画範囲です。"
+  "creator.palette.camera": "カメラ中心座標と描画範囲を設定します。赤い四角が現在の描画範囲です。",
+  "window.minimize": "最小化",
+  "window.maximize": "最大化",
+  "window.restore": "元のサイズに戻す",
+  "window.close": "閉じる",
+  "window.titlebar": "ウィンドウ操作"
 }

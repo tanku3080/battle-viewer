@@ -90,9 +90,60 @@ test("default locale is Japanese and browser language does not override it", () 
   assert.match(provider, /localStorage\.getItem\(STORAGE_KEY\)/);
 });
 
-test("Tauri starts in fullscreen mode", () => {
+test("Tauri starts maximized without native fullscreen and uses custom chrome", () => {
   const config = JSON.parse(
     fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8")
   );
-  assert.equal(config.app.windows[0].fullscreen, true);
+  const windowConfig = config.app.windows[0];
+  assert.equal(windowConfig.maximized, true);
+  assert.equal(windowConfig.fullscreen, false);
+  assert.equal(windowConfig.decorations, false);
+
+  const chrome = fs.readFileSync(
+    path.join(root, "components/tauri/TauriWindowChrome.tsx"),
+    "utf8"
+  );
+  assert.match(chrome, /\.minimize\(\)/);
+  assert.match(chrome, /\.toggleMaximize\(\)/);
+  assert.match(chrome, /\.close\(\)/);
+  assert.match(chrome, /data-tauri-drag-region/);
+
+  const capabilities = JSON.parse(
+    fs.readFileSync(
+      path.join(root, "src-tauri/capabilities/default.json"),
+      "utf8"
+    )
+  );
+  for (const permission of [
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-start-dragging",
+  ]) {
+    assert.ok(capabilities.permissions.includes(permission));
+  }
+});
+
+test("viewer keeps native file chooser and modal dialogs available in maximized mode", () => {
+  const battlePage = fs.readFileSync(
+    path.join(root, "app/battle/page.tsx"),
+    "utf8"
+  );
+  assert.match(battlePage, /type="file"/);
+
+  const hubControls = fs.readFileSync(
+    path.join(root, "components/battle/controls/BattleHubControls.tsx"),
+    "utf8"
+  );
+  assert.match(hubControls, /<dialog/);
+  assert.match(hubControls, /showModal\(\)/);
+
+  const imagePicker = fs.readFileSync(
+    path.join(root, "components/battle/ImageAssetPicker.tsx"),
+    "utf8"
+  );
+  assert.match(imagePicker, /type="file"/);
+  assert.match(imagePicker, /<dialog/);
+  assert.match(imagePicker, /showModal\(\)/);
 });

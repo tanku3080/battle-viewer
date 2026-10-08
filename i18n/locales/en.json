@@ -178,5 +178,10 @@
   "creator.palette.corps": "Place a corps under a legion.",
   "creator.palette.division": "Place a division under a corps.",
   "creator.palette.regiment": "Place a regiment that groups units under a division.",
-  "creator.palette.camera": "Place a camera keyframe that defines the viewport center and zoom. The red rectangle shows the current frame."
+  "creator.palette.camera": "Place a camera keyframe that defines the viewport center and zoom. The red rectangle shows the current frame.",
+  "window.minimize": "Minimize",
+  "window.maximize": "Maximize",
+  "window.restore": "Restore",
+  "window.close": "Close",
+  "window.titlebar": "Window controls"
 }
