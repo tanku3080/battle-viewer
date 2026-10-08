@@ -59,9 +59,10 @@ fn decode_seed(value: &str) -> Result<[u8; 32], String> {
   }
 
   let mut seed = [0u8; 32];
-  for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
-    let text = std::str::from_utf8(pair).map_err(|_| "invalid P2P identity seed")?;
-    seed[index] = u8::from_str_radix(text, 16).map_err(|_| "invalid P2P identity seed")?;
+  for (index, byte) in seed.iter_mut().enumerate() {
+    let start = index * 2;
+    *byte = u8::from_str_radix(&value[start..start + 2], 16)
+      .map_err(|_| "invalid P2P identity seed")?;
   }
   Ok(seed)
 }
