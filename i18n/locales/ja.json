@@ -109,7 +109,6 @@
   "selected.force": "勢力",
   "selected.position": "現在位置",
   "selected.unavailable": "取得不可",
-  "selected.iconPath": "iconPath",
   "selected.help": "キャンバスをクリックして unit / character を切り替え。どちらか1つだけ選択されます。",
   "selected.details": "選択詳細",
   "canvas.label": "戦場表示。矢印キーで表示位置を移動、プラスとマイナスで拡大縮小、Homeまたは0で表示をリセットできます。",
@@ -183,5 +182,8 @@
   "window.maximize": "最大化",
   "window.restore": "元のサイズに戻す",
   "window.close": "閉じる",
-  "window.titlebar": "ウィンドウ操作"
+  "window.titlebar": "ウィンドウ操作",
+  "hubAccess.panelOpen": "Battle Hubを開く",
+  "hubAccess.panelClose": "Battle Hubを閉じる",
+  "canvas.touchHelp": "戦場表示。指またはマウスでドラッグして移動、2本指のピンチまたはホイールで拡大縮小できます。キーボードでは矢印キー、プラス/マイナス、Homeまたは0が使えます。"
 }
