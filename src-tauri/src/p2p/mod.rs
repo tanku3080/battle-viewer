@@ -7,11 +7,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
-pub use settings::{
-  DEFAULT_UPLOAD_LIMIT_BYTES_PER_SECOND, MAX_CACHE_QUOTA_BYTES,
-  MAX_UPLOAD_LIMIT_BYTES_PER_SECOND, MIN_UPLOAD_LIMIT_BYTES_PER_SECOND, P2pSettings,
-  SETTINGS_VERSION,
-};
+use settings::{P2pSettings, SETTINGS_VERSION};
 
 use identity::{IdentityView, InstallationIdentity};
 
@@ -59,6 +55,7 @@ pub struct P2pStatus {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UpdateSettingsRequest {
+  participation_enabled: bool,
   downloads_enabled: bool,
   redistribution_enabled: bool,
   cache_quota_bytes: u64,
