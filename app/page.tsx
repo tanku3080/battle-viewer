@@ -3,7 +3,6 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/utils/auth/client";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { useI18n } from "@/i18n/I18nProvider";
 
 export default function LoginPage() {
@@ -32,7 +31,6 @@ export default function LoginPage() {
 
   return (
     <main className="relative min-h-screen bg-[#050816] text-gray-100 flex items-center justify-center px-4">
-      <LanguageSwitcher className="absolute right-4 top-4" />
       <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-gray-700 bg-[#111827] p-6 shadow-2xl">
         <h1 className="text-2xl font-semibold mb-2">Battle Viewer</h1>
         <p className="text-sm text-gray-300 mb-6">{t("login.description")}</p>
