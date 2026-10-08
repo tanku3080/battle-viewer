@@ -225,5 +225,6 @@
   "p2p.saving": "Saving…",
   "p2p.saved": "P2P settings saved.",
   "p2p.checkCache": "Inspect cache",
-  "p2p.checkingCache": "Inspecting…"
+  "p2p.checkingCache": "Inspecting…",
+  "p2p.peerId": "Peer ID"
 }
