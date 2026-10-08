@@ -46,7 +46,6 @@ export const SelectedInfoPanel: React.FC<Props> = ({ type, name, id, force, icon
         <div className="flex items-baseline justify-between gap-2"><dt className="text-gray-400 text-xs">timeline length</dt><dd className="text-right">{timelineLength}</dd></div>
         <div className="flex items-baseline justify-between gap-2"><dt className="text-gray-400 text-xs">appearAt</dt><dd className="text-right">{appearAt.toFixed(2)} s</dd></div>
         <div className="flex items-baseline justify-between gap-2"><dt className="text-gray-400 text-xs">disappearAt</dt><dd className="text-right">{disappearAt.toFixed(2)} s</dd></div>
-        <div className="flex flex-col gap-1"><dt className="text-gray-400 text-xs">{t("selected.iconPath")}</dt><dd className="text-xs text-gray-200 break-all">{iconPath ?? t("common.none")}</dd></div>
       </dl>
 
       <div className="mt-auto text-[11px] text-gray-500 leading-relaxed">{t("selected.help")}</div>
