@@ -4,6 +4,8 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   desktopP2pInventory,
+  desktopP2pStart,
+  desktopP2pStop,
   desktopP2pStatus,
   desktopP2pUpdateSettings,
   isTauriRuntime,
@@ -44,6 +46,9 @@ export function P2pSettingsPanel() {
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [advertisedIp, setAdvertisedIp] = useState("127.0.0.1");
+  const [networkBusy, setNetworkBusy] = useState(false);
+  const [networkAddress, setNetworkAddress] = useState("");
 
   useEffect(() => {
     if (!desktop) return;
@@ -100,6 +105,23 @@ export function P2pSettingsPanel() {
     }
   };
 
+  const toggleNetwork = async () => {
+    if (networkBusy) return;
+    setNetworkBusy(true); setError(null); setMessage(null);
+    try {
+      if (status?.networkActive) {
+        await desktopP2pStop();
+        setNetworkAddress("");
+      } else {
+        const result = await desktopP2pStart(advertisedIp.trim());
+        setNetworkAddress(result.address);
+      }
+      setStatus(await desktopP2pStatus());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally { setNetworkBusy(false); }
+  };
+
   const refreshInventory = async () => {
     if (inventoryLoading) return;
     setInventoryLoading(true);
@@ -139,7 +161,7 @@ export function P2pSettingsPanel() {
           <h2 id="p2p-settings-title" className="text-lg font-semibold">
             {t("p2p.title")}
           </h2>
-          <p className="mt-1 text-sm text-gray-400">{t("p2p.phase2Notice")}</p>
+          <p className="mt-1 text-sm text-gray-400">{t("p2p.networkDescription")}</p>
         </div>
         {status?.identity?.installationId && (
           <div className="max-w-full text-right text-xs text-gray-400">
@@ -283,9 +305,28 @@ export function P2pSettingsPanel() {
               {t("p2p.cacheUsed")}: {bytesLabel(status.cacheUsedBytes ?? 0)}
             </span>
             <span>
-              {t("p2p.networkState")}: {t("p2p.networkInactive")}
+              {t("p2p.networkState")}: {status.networkActive ? t("p2p.networkRunning") : t("p2p.networkInactive")}
             </span>
           </div>
+
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="min-w-0 flex-1 text-sm">
+              {t("p2p.advertisedIp")}
+              <input type="text" value={advertisedIp}
+                onChange={(event) => setAdvertisedIp(event.target.value)}
+                disabled={status.networkActive || networkBusy}
+                className="mt-1 min-h-11 w-full rounded border border-gray-600 bg-[#0b1020] px-3"
+                placeholder="192.168.1.10" />
+            </label>
+            <button type="button" onClick={() => void toggleNetwork()}
+              disabled={networkBusy || (!status.networkActive && !status.settings?.participationEnabled)}
+              className="min-h-11 rounded bg-blue-700 px-4 disabled:opacity-40">
+              {status.networkActive ? t("p2p.stopNetwork") : t("p2p.startNetwork")}
+            </button>
+          </div>
+          <p className="mt-2 break-all text-xs text-gray-400">
+            {t("p2p.ipHelp")} {networkAddress}
+          </p>
 
           {inventory && (
             <div className="mt-3 rounded-md border border-gray-700 bg-[#0b1020] p-3 text-sm">
