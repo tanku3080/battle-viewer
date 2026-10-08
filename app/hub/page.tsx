@@ -19,8 +19,8 @@ export default function BattleHubPage() {
   }, [t]);
 
   return (
-    <main className="min-h-screen bg-[#050816] text-gray-100 p-6">
-      <header className="max-w-5xl mx-auto flex items-center gap-3 mb-8">
+    <main className="min-h-dvh bg-[#050816] p-4 text-gray-100 sm:p-6">
+      <header className="mx-auto mb-6 flex max-w-5xl flex-wrap items-center gap-3 sm:mb-8">
         <Link href="/home" className="px-4 py-2 rounded-md bg-gray-700 hover:bg-gray-600">{t("hub.back")}</Link>
         <div>
           <h1 className="text-2xl font-semibold">{t("hub.title")}</h1>
@@ -28,7 +28,7 @@ export default function BattleHubPage() {
         </div>
       </header>
 
-      <section className="max-w-5xl mx-auto">
+      <section className="mx-auto max-w-5xl">
         {loading && <p role="status" aria-live="polite" className="text-gray-300">{t("common.loading")}</p>}
         {error && <div role="alert" className="rounded border border-red-800 bg-red-950 p-4 text-red-200">{error}</div>}
         {!loading && !error && battles.length === 0 && <div className="rounded border border-gray-700 bg-[#111827] p-6 text-gray-400">{t("hub.empty")}</div>}
