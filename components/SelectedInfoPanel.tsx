@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 type Props = {
   type: "unit" | "character";
   name: string;
+  description?: string;
   id: string;
   force?: string;
   iconPath: string | null;
@@ -16,7 +17,7 @@ type Props = {
   dirDeg?: number;
 };
 
-export const SelectedInfoPanel: React.FC<Props> = ({ type, name, id, force, iconPath, currentPosition, timelineLength, appearAt, disappearAt, dirDeg }) => {
+export const SelectedInfoPanel: React.FC<Props> = ({ type, name, description, id, force, iconPath, currentPosition, timelineLength, appearAt, disappearAt, dirDeg }) => {
   const { t } = useI18n();
   return (
     <aside className="w-full h-full rounded-lg bg-[#111827] border border-gray-700 p-3 text-sm flex flex-col gap-3">
@@ -46,6 +47,12 @@ export const SelectedInfoPanel: React.FC<Props> = ({ type, name, id, force, icon
         <div className="flex items-baseline justify-between gap-2"><dt className="text-gray-400 text-xs">timeline length</dt><dd className="text-right">{timelineLength}</dd></div>
         <div className="flex items-baseline justify-between gap-2"><dt className="text-gray-400 text-xs">appearAt</dt><dd className="text-right">{appearAt.toFixed(2)} s</dd></div>
         <div className="flex items-baseline justify-between gap-2"><dt className="text-gray-400 text-xs">disappearAt</dt><dd className="text-right">{disappearAt.toFixed(2)} s</dd></div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-gray-400 text-xs">{t("selected.description")}</dt>
+          <dd className="whitespace-pre-wrap break-words rounded border border-gray-700 bg-[#0b1020] p-2 text-sm text-gray-200">
+            {description?.trim() || t("selected.descriptionEmpty")}
+          </dd>
+        </div>
       </dl>
 
       <div className="mt-auto text-[11px] text-gray-500 leading-relaxed">{t("selected.help")}</div>
