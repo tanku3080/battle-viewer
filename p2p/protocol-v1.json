@@ -1,0 +1,14 @@
+{
+  "protocolVersion": 1,
+  "transferProtocol": "/battle-viewer/content/1",
+  "encoding": "gzip",
+  "hashAlgorithm": "sha256",
+  "maxCompressedBytes": 8388608,
+  "maxUncompressedBytes": 33554432,
+  "maxMetadataRequestBytes": 16384,
+  "targetReplicas": 3,
+  "providerLeaseSeconds": 90,
+  "transferGrantSeconds": 30,
+  "defaultCacheBytes": 268435456,
+  "defaultUploadBytesPerSecond": 262144
+}
