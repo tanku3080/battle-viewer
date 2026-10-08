@@ -94,5 +94,5 @@ test("native cache inventory is explicitly dispatched off the UI thread", () => 
   assert.ok(inventoryStart >= 0);
   const body = ipc.slice(inventoryStart, commandStart);
   assert.match(body, /spawn_blocking/);
-  assert.match(body, /cache\.inventory\(\)/);
+  assert.match(body, /cache\s*\.inventory\(\)/);
 });
