@@ -535,7 +535,11 @@ export default function BattleCreator() {
               currentTime,
               { x: item.x, y: item.y }
             );
+            const previousPoint = item.timeline.find(
+              (entry) => entry.t === currentTime
+            );
             const point: Point = {
+              ...previousPoint,
               t: currentTime,
               x: current.x,
               y: current.y,
@@ -776,7 +780,8 @@ export default function BattleCreator() {
       ...(forces.length ? { forces: forces.map(({ name, color }) => ({ name, color })) } : {}),
       ...(characters.length ? { characters } : {}),
       creatorState: {
-        version: 1,
+        version: 2,
+        coordinateOrigin: "center",
         duration,
         items: validItems.map((item) => ({
           ...item,
