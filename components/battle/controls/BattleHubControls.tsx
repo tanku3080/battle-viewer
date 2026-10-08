@@ -13,6 +13,7 @@ export function BattleHubControls({ battleJson }: Props) {
   const { t } = useI18n();
   const [health, setHealth] = useState<HealthState>("checking");
   const [isOpen, setIsOpen] = useState(false);
+  const [desktopPanelOpen, setDesktopPanelOpen] = useState(false);
   const [authorName, setAuthorName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
@@ -72,23 +73,10 @@ export function BattleHubControls({ battleJson }: Props) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={
-            health === "online"
-              ? "text-xs text-emerald-300"
-              : health === "offline"
-                ? "text-xs text-red-300"
-                : "text-xs text-gray-400"
-          }
-        >
+      <div className="flex items-center gap-2">
+        <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {statusText}
         </span>
-
-        <BattleHubAccessButton />
 
         <button
           type="button"
@@ -97,10 +85,44 @@ export function BattleHubControls({ battleJson }: Props) {
             setMessage(null);
             setIsOpen(true);
           }}
-          className="min-h-11 px-4 py-2 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-h-11 rounded-md bg-violet-600 px-4 py-2 text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {t("publish.open")}
         </button>
+
+        <div className="relative hidden lg:block">
+          <button
+            type="button"
+            aria-expanded={desktopPanelOpen}
+            aria-controls="battle-hub-desktop-panel"
+            aria-label={desktopPanelOpen ? t("hubAccess.panelClose") : t("hubAccess.panelOpen")}
+            onClick={() => setDesktopPanelOpen((value) => !value)}
+            className="min-h-11 rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-gray-200 hover:bg-gray-700"
+          >
+            {desktopPanelOpen ? "Battle Hub ◀" : "Battle Hub ▶"}
+          </button>
+
+          {desktopPanelOpen && (
+            <aside
+              id="battle-hub-desktop-panel"
+              className="absolute right-0 top-full z-40 mt-2 min-w-64 rounded-lg border border-gray-700 bg-[#111827] p-3 shadow-xl"
+            >
+              <div
+                className={
+                  "mb-2 text-xs " +
+                  (health === "online"
+                    ? "text-emerald-300"
+                    : health === "offline"
+                      ? "text-red-300"
+                      : "text-gray-400")
+                }
+              >
+                {statusText}
+              </div>
+              <BattleHubAccessButton className="w-full" />
+            </aside>
+          )}
+        </div>
       </div>
 
       {isOpen && (
@@ -114,12 +136,12 @@ export function BattleHubControls({ battleJson }: Props) {
           className="m-auto max-h-[calc(100dvh-2rem)] w-[min(28rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-gray-700 bg-[#111827] p-0 text-gray-100 shadow-xl backdrop:bg-black/70"
         >
           <form onSubmit={handlePublish} className="w-full p-5">
-            <h2 id="battle-hub-publish-title" className="text-lg font-semibold mb-4">
+            <h2 id="battle-hub-publish-title" className="mb-4 text-lg font-semibold">
               {t("publish.title")}
             </h2>
 
-            <label className="block text-sm mb-3">
-              <span className="block mb-1 text-gray-300">{t("publish.author")}</span>
+            <label className="mb-3 block text-sm">
+              <span className="mb-1 block text-gray-300">{t("publish.author")}</span>
               <input
                 value={authorName}
                 onChange={(event) => setAuthorName(event.target.value)}
@@ -130,8 +152,8 @@ export function BattleHubControls({ battleJson }: Props) {
               />
             </label>
 
-            <label className="block text-sm mb-4">
-              <span className="block mb-1 text-gray-300">{t("publish.description")}</span>
+            <label className="mb-4 block text-sm">
+              <span className="mb-1 block text-gray-300">{t("publish.description")}</span>
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
@@ -147,7 +169,7 @@ export function BattleHubControls({ battleJson }: Props) {
                 role="status"
                 aria-live="polite"
                 aria-atomic="true"
-                className="mb-4 rounded border border-gray-700 bg-[#0b1020] p-3 text-xs break-all"
+                className="mb-4 break-all rounded border border-gray-700 bg-[#0b1020] p-3 text-xs"
               >
                 {message}
               </div>
@@ -158,14 +180,14 @@ export function BattleHubControls({ battleJson }: Props) {
                 type="button"
                 disabled={isPublishing}
                 onClick={() => setIsOpen(false)}
-                className="px-4 py-2 rounded-md bg-gray-600 text-white hover:bg-gray-500 disabled:opacity-40"
+                className="rounded-md bg-gray-600 px-4 py-2 text-white hover:bg-gray-500 disabled:opacity-40"
               >
                 {t("publish.close")}
               </button>
               <button
                 type="submit"
                 disabled={!battleJson || !authorName.trim() || isPublishing}
-                className="px-4 py-2 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="rounded-md bg-violet-600 px-4 py-2 text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isPublishing ? t("publish.submitting") : t("publish.submit")}
               </button>
