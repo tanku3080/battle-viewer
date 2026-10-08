@@ -11,10 +11,10 @@ export function ViewModeButtons({ viewMode, setViewMode }: Props) {
   const { t } = useI18n();
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <button
         type="button"
-        className={`min-h-11 rounded border px-3 py-2 ${viewMode === "map" ? "bg-blue-600" : "bg-gray-700"}`}
+        className={`min-h-11 rounded border px-2.5 py-2 text-sm ${viewMode === "map" ? "bg-blue-600" : "bg-gray-700"}`}
         aria-pressed={viewMode === "map"}
         onClick={() => setViewMode("map")}
       >
@@ -22,7 +22,7 @@ export function ViewModeButtons({ viewMode, setViewMode }: Props) {
       </button>
       <button
         type="button"
-        className={`min-h-11 rounded border px-3 py-2 ${viewMode === "camera" ? "bg-blue-600" : "bg-gray-700"}`}
+        className={`min-h-11 rounded border px-2.5 py-2 text-sm ${viewMode === "camera" ? "bg-blue-600" : "bg-gray-700"}`}
         aria-pressed={viewMode === "camera"}
         onClick={() => setViewMode("camera")}
       >
