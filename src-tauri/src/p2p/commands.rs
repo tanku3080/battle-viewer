@@ -1,5 +1,6 @@
 use super::{P2pState, ReadyState};
 use super::network::{self, PeerRoute};
+use super::image_guard::validate_render_assets;
 use super::network_auth::HubTransferAuthorizer;
 use super::work_refs::{self, WorkRef};
 use crate::{authenticated_request, AuthState};
@@ -224,6 +225,7 @@ pub async fn p2p_publish(
     let title = document.get("title").and_then(|value| value.as_str())
       .filter(|title| !title.trim().is_empty())
       .ok_or_else(|| "Battle title required".to_string())?.to_string();
+    validate_render_assets(raw.as_bytes())?;
     let (manifest, gzip) = content::encode(raw.as_bytes())
       .map_err(|error| error.to_string())?;
     cache.lock().map_err(|_| "P2P cache unavailable".to_string())?
@@ -290,8 +292,30 @@ pub async fn p2p_fetch(
     }).await.map_err(|error| error.to_string())?
   };
   if let Ok(bytes) = already_cached {
-    return String::from_utf8(bytes).map_err(|error| error.to_string());
+    tauri::async_runtime::spawn_blocking(move || {
+      validate_render_assets(&bytes)?;
+      String::from_utf8(bytes).map_err(|error| error.to_string())
+    }).await.map_err(|error| error.to_string())?
+  } else {
+    // Continue to authorized peer acquisition if no validated local copy exists.
+    fetch_remote(ready, &auth, &work_id, &work.content_hash, &own_peer, handle).await
   }
+}
+
+async fn fetch_remote(
+  ready: &ReadyState,
+  auth: &AuthState,
+  work_id: &str,
+  expected_hash: &str,
+  own_peer: &str,
+  handle: network::DirectTransportHandle,
+) -> Result<String, String> {
+  let cache = Arc::clone(&ready.cache);
+  let hash = expected_hash.to_string();
+  let work_id = work_id.to_string();
+
+  // Fresh Hub discovery/grant is mandatory for remote transfer.
+  let _ = &hash;
 
   let providers: Vec<Provider> = hub(&auth, Method::GET,
     &format!("/api/v2/works/{work_id}/peers"), None)
