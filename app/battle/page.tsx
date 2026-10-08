@@ -55,21 +55,23 @@ export default function BattlePage() {
   };
 
   return (
-    <main className="w-screen h-screen overflow-hidden bg-[#050816] text-gray-200 flex flex-col">
-      <div className="w-full flex items-center gap-4 p-3 border-b border-gray-700">
+    <main className="flex min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#050816] text-gray-200">
+      <div className="w-full shrink-0 border-b border-gray-700 bg-[#0b1020] p-2 sm:p-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         <input id="json-input" type="file" accept="application/json,.json" className="hidden" onChange={handleFileChange} />
         <button
           onClick={() => (document.getElementById("json-input") as HTMLInputElement | null)?.click()}
-          className="px-4 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
+          className="min-h-11 px-4 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
         >
           {t("battle.loadJson")}
         </button>
-        <Link className="px-4 py-2 rounded-md bg-gray-600 text-white" href="/home">{t("battle.back")}</Link>
+        <Link className="min-h-11 px-4 py-2 rounded-md bg-gray-600 text-white" href="/home">{t("battle.back")}</Link>
 
         <PlaybackControls currentTime={currentTime} isPlaying={isPlaying} onStart={start} onStop={stop} />
         <ViewModeButtons viewMode={viewMode} setViewMode={setViewMode} showGrid={showGrid} setShowGrid={setShowGrid} />
         <ProductionButton disabled={!battle} onStart={startProduction} />
         <BattleHubControls battleJson={sourceBattleJson} />
+        </div>
       </div>
 
       {loadError && (
@@ -78,8 +80,8 @@ export default function BattlePage() {
         </div>
       )}
 
-      <div className="flex-1 relative overflow-hidden flex pb-[72px]">
-        <div className="flex-1">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+        <div className="min-h-[18rem] min-w-0 flex-1 sm:min-h-[24rem]">
           <BattlePlayer
             battle={battle}
             currentTime={currentTime}
@@ -95,7 +97,7 @@ export default function BattlePage() {
         <PanelContainer panelData={panelData} currentTime={currentTime} />
       </div>
 
-      <div className="w-full fixed bottom-0 left-0 bg-[#111827] border-t border-gray-700 p-4">
+      <div className="w-full shrink-0 border-t border-gray-700 bg-[#111827] p-3 sm:p-4">
         <TimelineBar
           currentTime={currentTime}
           maxTime={maxTime}
