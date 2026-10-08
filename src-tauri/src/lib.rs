@@ -357,6 +357,7 @@ fn resource_path(resource: &str) -> Option<(&'static str, bool)> {
     "health" => Some(("/api/health", false)),
     "forces" => Some(("/api/forces", true)),
     "battles" => Some(("/api/battles", true)),
+    "works" => Some(("/api/v2/works", true)),
     _ => None,
   }
 }
