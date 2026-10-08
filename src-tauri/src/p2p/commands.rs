@@ -38,7 +38,6 @@ struct WorkResponse {
 #[serde(rename_all = "camelCase")]
 struct Provider {
   peer_id: String,
-  address: String,
 }
 
 #[derive(Deserialize)]
@@ -315,7 +314,7 @@ async fn fetch_remote(
   let work_id = work_id.to_string();
 
   // Fresh Hub discovery/grant is mandatory for remote transfer.
-  let providers: Vec<Provider> = hub(&auth, Method::GET,
+  let providers: Vec<Provider> = hub(auth, Method::GET,
     &format!("/api/v2/works/{work_id}/peers"), None)
     .await?.json().await.map_err(|error| error.to_string())?;
 
@@ -325,7 +324,7 @@ async fn fetch_remote(
       "requesterPeerId": own_peer,
       "providerPeerId": provider.peer_id,
     }).to_string();
-    let grant_response = hub(&auth, Method::POST,
+    let grant_response = hub(auth, Method::POST,
       &format!("/api/v2/works/{work_id}/peers/grant"), Some(&grant_body)).await;
     let grant: Grant = match grant_response {
       Ok(response) => match response.json().await {
@@ -374,7 +373,7 @@ async fn fetch_remote(
             let registration = serde_json::json!({
               "peerId": own_peer, "address": address, "receipt": receipt
             }).to_string();
-            let _ = hub(&auth, Method::POST,
+            let _ = hub(auth, Method::POST,
               &format!("/api/v2/works/{work_id}/peers/replica"),
               Some(&registration)).await;
           }
