@@ -165,6 +165,22 @@ src-tauri/target/x86_64-pc-windows-msvc/
 
 通常は初回より大幅に短縮されます。
 
+## Tauri window behavior
+
+`npm run tauri dev` と配布版のどちらも、Battle Viewer は起動時にフルスクリーンで開きます。
+
+設定は `src-tauri/tauri.conf.json` の以下です。
+
+```json
+{
+  "fullscreen": true
+}
+```
+
+言語切替はメニュー画面（`/home`）だけに表示します。初回は日本語で起動し、
+ユーザーが日本語 / English を選択した後は `battle-viewer:locale` として
+`localStorage` に保存し、ユーザーが再度変更するまで同じ言語を使用します。
+
 ## Troubleshooting
 
 ### `.next/dev/types/validator.ts` から app/api が見つからない
