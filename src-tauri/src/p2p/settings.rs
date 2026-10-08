@@ -17,6 +17,7 @@ pub const MAX_UPLOAD_LIMIT_BYTES_PER_SECOND: u64 = 64 * 1024 * 1024;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct P2pSettings {
   pub version: u32,
+  pub participation_enabled: bool,
   pub downloads_enabled: bool,
   pub redistribution_enabled: bool,
   pub cache_quota_bytes: u64,
