@@ -240,3 +240,30 @@ clang-cl --version
 それ自体は Tauri ビルド失敗を意味しません。
 
 依存関係の更新はビルド手順とは分けて検討してください。
+
+
+### WSL / Linux で日本語が豆腐・文字化けして見える
+
+Tauri の Linux 開発実行は WebKitGTK を使用します。WSL / WSLg 環境では
+CJK フォントがホスト側に十分入っておらず、日本語 glyph が欠落して見える場合があります。
+
+現在の Battle Viewer は Next.js の `Noto Sans JP` を Web Font として読み込み、
+アプリ側の第一フォントに指定しているため、通常は OS の日本語フォントへ依存しません。
+
+それでも開発環境で fallback font を確認したい場合は次を追加できます。
+
+```bash
+sudo apt update
+sudo apt install -y fonts-noto-cjk
+fc-cache -f
+```
+
+確認:
+
+```bash
+fc-match "Noto Sans JP"
+fc-match sans-serif:lang=ja
+```
+
+重要: 日本語ソース自体は UTF-8 のため、Web版では正常で Tauri/Linux のみ崩れる場合は、
+文字コード変換ではなく WebKitGTK / Fontconfig の glyph fallback を先に疑います。

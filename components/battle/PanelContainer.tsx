@@ -2,31 +2,20 @@
 
 import { SelectedInfoPanel } from "@/components/SelectedInfoPanel";
 import type { PanelData } from "@/hook/useSelection";
+import { useI18n } from "@/i18n/I18nProvider";
 
-type Props = {
-  panelData: PanelData | null;
-  currentTime: number;
-  viewMode?: "map" | "camera";
-};
+type Props = { panelData: PanelData | null; currentTime: number; viewMode?: "map" | "camera" };
 
-/**
- * 右サイドパネル
- * - 選択されているときだけ表示
- * - 幅260px固定、スクロール可
- */
 export function PanelContainer({ panelData, currentTime }: Props) {
+  const { t } = useI18n();
   if (!panelData) return null;
 
   return (
     <aside className="w-[260px] h-full bg-[#0f1624] border-l border-gray-700 p-3 flex flex-col shrink-0 overflow-y-auto">
       <div className="flex items-center justify-between gap-2 mb-3">
-        <span className="text-gray-300 text-xs">選択詳細</span>
-        <span className="text-[11px] text-gray-500">
-          t = {currentTime.toFixed(2)}s
-        </span>
+        <span className="text-gray-300 text-xs">{t("selected.details")}</span>
+        <span className="text-[11px] text-gray-500">t = {currentTime.toFixed(2)}s</span>
       </div>
-
-      {/* 内容エリア */}
       <div className="flex-1">
         <SelectedInfoPanel
           type={panelData.type}

@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { useI18n } from "@/i18n/I18nProvider";
 
 type Props = {
   label: string;
@@ -35,6 +36,7 @@ export default function ImageAssetPicker({
   onChange,
   compact = false,
 }: Props) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
@@ -106,11 +108,11 @@ export default function ImageAssetPicker({
   const handleFile = (file: File | undefined) => {
     if (!file) return;
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      setError("PNG / JPEG / WebP画像を選択してください。");
+      setError(t("image.invalidType"));
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      setError("画像ファイルは10MB以下にしてください。");
+      setError(t("image.tooLarge"));
       return;
     }
 
@@ -123,7 +125,7 @@ export default function ImageAssetPicker({
       setOffset({ x: 0, y: 0 });
       setError("");
     };
-    reader.onerror = () => setError("画像を読み込めませんでした。");
+    reader.onerror = () => setError(t("image.readFailed"));
     reader.readAsDataURL(file);
   };
 
@@ -196,7 +198,7 @@ export default function ImageAssetPicker({
         type="file"
         accept="image/png,image/jpeg,image/webp"
         className="hidden"
-        aria-label={label + "ファイルを選択"}
+        aria-label={t("image.chooseFile", { label })}
         onChange={(event) => {
           handleFile(event.target.files?.[0]);
           event.currentTarget.value = "";
@@ -207,16 +209,16 @@ export default function ImageAssetPicker({
         <button
           type="button"
           onClick={openFileDialog}
-          title={label + "を選択"}
+          title={t("image.chooseTitle", { label })}
           className="h-10 min-w-24 overflow-hidden rounded border border-gray-600 bg-[#111827] px-2 text-xs hover:border-blue-400"
         >
           {value ? (
             <span className="flex items-center gap-2">
               <img src={value} alt="" className="h-7 w-10 rounded object-cover" />
-              変更
+              {t("image.change")}
             </span>
           ) : (
-            label + "選択"
+            t("image.choose", { label })
           )}
         </button>
       ) : (
@@ -245,9 +247,9 @@ export default function ImageAssetPicker({
               </span>
             )}
             <span className="text-sm">
-              {value ? "画像を変更" : "画像を選択"}
+              {value ? t("image.changeImage") : t("image.chooseImage")}
               <span className="mt-1 block text-[11px] text-gray-300">
-                選択後に位置とズームを調整できます。
+                {t("image.adjustHint")}
               </span>
             </span>
           </button>
@@ -257,7 +259,7 @@ export default function ImageAssetPicker({
               onClick={() => onChange("")}
               className="mt-2 min-h-8 text-xs text-red-300 hover:text-red-200"
             >
-              画像を削除
+              {t("image.remove")}
             </button>
           )}
           {error && (
@@ -280,18 +282,18 @@ export default function ImageAssetPicker({
           className="m-auto max-h-[95vh] max-w-[min(48rem,95vw)] overflow-auto rounded-xl border border-gray-700 bg-[#0b1020] p-5 text-gray-100 shadow-2xl backdrop:bg-black/80"
         >
           <h2 id={titleId} className="text-lg font-semibold">
-            {label}プレビュー
+            {t("image.preview", { label })}
           </h2>
           <p id={helpId} className="mt-1 text-xs text-gray-300">
             {mode === "icon"
-              ? "明るい円の内側が実際に表示される範囲です。ドラッグ、矢印キー、又は移動ボタンで位置を調整できます。"
-              : "ドラッグ、矢印キー、又は移動ボタンで位置を調整し、ズームで表示範囲を決めてください。"}
+              ? t("image.iconHelp")
+              : t("image.mapHelp")}
           </p>
 
           <div className="mt-4 flex justify-center">
             <div
               role="group"
-              aria-label={label + "の位置調整"}
+              aria-label={t("image.positionGroup", { label })}
               tabIndex={0}
               className="relative touch-none overflow-hidden border-2 border-blue-500 bg-black"
               style={{ width: previewWidth, height: previewHeight }}
@@ -323,7 +325,7 @@ export default function ImageAssetPicker({
               <img
                 ref={imageRef}
                 src={source}
-                alt="調整中の画像"
+                alt={t("image.adjustingAlt")}
                 draggable={false}
                 onLoad={(event) => {
                   setImageSize({
@@ -365,28 +367,28 @@ export default function ImageAssetPicker({
           <div
             className="mx-auto mt-3 grid w-fit grid-cols-3 gap-2"
             role="group"
-            aria-label="画像位置をボタンで調整"
+            aria-label={t("image.buttonGroup")}
           >
             <span />
-            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(0, -5)} aria-label="画像を上へ移動">↑</button>
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(0, -5)} aria-label={t("image.up")}>↑</button>
             <span />
-            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(-5, 0)} aria-label="画像を左へ移動">←</button>
-            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => setOffset({ x: 0, y: 0 })} aria-label="画像位置を中央に戻す">中央</button>
-            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(5, 0)} aria-label="画像を右へ移動">→</button>
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(-5, 0)} aria-label={t("image.left")}>←</button>
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => setOffset({ x: 0, y: 0 })} aria-label={t("image.centerAria")}>{t("image.center")}</button>
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(5, 0)} aria-label={t("image.right")}>→</button>
             <span />
-            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(0, 5)} aria-label="画像を下へ移動">↓</button>
+            <button type="button" className="h-10 min-w-10 rounded bg-gray-700 px-3 hover:bg-gray-600" onClick={() => nudge(0, 5)} aria-label={t("image.down")}>↓</button>
             <span />
           </div>
 
           <label className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-            <span>ズーム</span>
+            <span>{t("image.zoom")}</span>
             <input
               type="range"
               min={1}
               max={4}
               step={0.01}
               value={zoom}
-              aria-valuetext={zoom.toFixed(2) + "倍"}
+              aria-valuetext={t("image.zoomValue", { zoom: zoom.toFixed(2) })}
               onChange={(event) => {
                 const nextZoom = Number(event.target.value);
                 setZoom(nextZoom);
@@ -403,7 +405,7 @@ export default function ImageAssetPicker({
               onClick={() => setSource("")}
               className="rounded bg-gray-600 px-4 py-2 hover:bg-gray-500"
             >
-              キャンセル
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -411,7 +413,7 @@ export default function ImageAssetPicker({
               onClick={commit}
               className="rounded bg-blue-600 px-4 py-2 hover:bg-blue-700 disabled:opacity-40"
             >
-              決定
+              {t("common.confirm")}
             </button>
           </div>
         </dialog>

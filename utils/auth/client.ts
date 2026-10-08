@@ -23,7 +23,7 @@ export async function login(
   if (isTauriRuntime()) {
     const result = await desktopLogin({ username, password });
     if (!result.ok || !result.data) {
-      throw new Error(result.error ?? "ログインに失敗しました");
+      throw new Error(result.error ?? "Sign-in failed");
     }
     return result.data;
   }
@@ -35,7 +35,7 @@ export async function login(
   });
 
   if (!response.ok) {
-    throw new Error(await errorMessage(response, "ログインに失敗しました"));
+    throw new Error(await errorMessage(response, "Sign-in failed"));
   }
 
   return response.json() as Promise<DesktopSession>;
@@ -46,7 +46,7 @@ export async function session(): Promise<DesktopSession | null> {
     const result = await desktopSession();
     if (result.status === 401) return null;
     if (!result.ok || !result.data) {
-      throw new Error(result.error ?? "Session確認に失敗しました");
+      throw new Error(result.error ?? "Session check failed");
     }
     return result.data;
   }
@@ -57,7 +57,7 @@ export async function session(): Promise<DesktopSession | null> {
   });
   if (response.status === 401) return null;
   if (!response.ok) {
-    throw new Error(await errorMessage(response, "Session確認に失敗しました"));
+    throw new Error(await errorMessage(response, "Session check failed"));
   }
   return response.json() as Promise<DesktopSession>;
 }

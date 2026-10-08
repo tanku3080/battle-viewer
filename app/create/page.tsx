@@ -4,6 +4,8 @@ import Link from "next/link";
 import { DragEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import ForcePicker from "@/components/battle/ForcePicker";
 import ImageAssetPicker from "@/components/battle/ImageAssetPicker";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { useI18n, type MessageKey } from "@/i18n/I18nProvider";
 import { createBattleHubForce, getBattleHubForces } from "@/utils/battleHub/client";
 import { getForceColor, type ForceDefinition } from "@/utils/battle/forces";
 import {
@@ -72,49 +74,49 @@ const PALETTE: Array<{
   type: SpatialType;
   label: string;
   mark: string;
-  tooltip: string;
+  tooltipKey: MessageKey;
 }> = [
   {
     type: "unit",
     label: "Unit",
     mark: "●",
-    tooltip: "兵士・車両・航空機など、timelineで移動する最小戦闘単位を配置します。",
+    tooltipKey: "creator.palette.unit",
   },
   {
     type: "character",
     label: "Character",
     mark: "◆",
-    tooltip: "指揮官など、軍事階層から独立したキャラクターを配置します。",
+    tooltipKey: "creator.palette.character",
   },
   {
     type: "legion",
     label: "Legion",
     mark: "L",
-    tooltip: "戦場全体を束ねる最上位の軍勢を配置します。",
+    tooltipKey: "creator.palette.legion",
   },
   {
     type: "corps",
     label: "Corps",
     mark: "C",
-    tooltip: "Legion配下の軍団を配置します。",
+    tooltipKey: "creator.palette.corps",
   },
   {
     type: "division",
     label: "Division",
     mark: "D",
-    tooltip: "Corps配下の師団を配置します。",
+    tooltipKey: "creator.palette.division",
   },
   {
     type: "regiment",
     label: "Regiment",
     mark: "R",
-    tooltip: "Division配下でUnitを束ねる連隊を配置します。",
+    tooltipKey: "creator.palette.regiment",
   },
   {
     type: "camera",
     label: "Camera",
     mark: "◎",
-    tooltip: "カメラ中心座標と描画範囲を設定します。赤い四角が現在の描画範囲です。",
+    tooltipKey: "creator.palette.camera",
   },
 ];
 
@@ -191,10 +193,11 @@ function getCreatorOutlineColor(
 }
 
 export default function BattleCreator() {
+  const { t } = useI18n();
   const editorRef = useRef<HTMLDivElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("elements");
-  const [title, setTitle] = useState("バトル");
+  const [title, setTitle] = useState("Battle");
   const [mapImage, setMapImage] = useState("");
   const [mapWidth, setMapWidth] = useState(1200);
   const [mapHeight, setMapHeight] = useState(700);
@@ -219,12 +222,12 @@ export default function BattleCreator() {
     getBattleHubForces(controller.signal).then((registered) => {
       setForces(registered); setForcesError("");
     }).catch((error) => {
-      if (!controller.signal.aborted) setForcesError(error instanceof Error ? error.message : "force一覧を取得できません");
+      if (!controller.signal.aborted) setForcesError(error instanceof Error ? error.message : t("force.loadFailed"));
     }).finally(() => {
       if (!controller.signal.aborted) setForcesLoading(false);
     });
     return () => controller.abort();
-  }, [forceLoadVersion]);
+  }, [forceLoadVersion, t]);
 
   const retryForces = () => { setForcesLoading(true); setForceLoadVersion((version) => version + 1); };
   const createForce = async (force: ForceDefinition) => {
@@ -720,17 +723,17 @@ export default function BattleCreator() {
           href="/home"
           className="px-3 py-2 rounded bg-gray-700"
         >
-          戻る
+          {t("creator.back")}
         </Link>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="戦闘名"
-          aria-label="戦闘名"
+          placeholder={t("creator.battleName")}
+          aria-label={t("creator.battleName")}
           className="w-52 rounded border border-gray-600 bg-[#111827] px-3 py-2"
         />
         <ImageAssetPicker
-          label="Map画像"
+          label={t("creator.mapImage")}
           value={mapImage}
           aspectRatio={mapWidth / mapHeight}
           mode="map"
@@ -745,7 +748,7 @@ export default function BattleCreator() {
             setMapWidth(Math.max(1, Number(e.target.value)))
           }
           title="map.width"
-          aria-label="マップ幅"
+          aria-label={t("creator.mapWidth")}
           className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
         />
         <input
@@ -756,23 +759,24 @@ export default function BattleCreator() {
             setMapHeight(Math.max(1, Number(e.target.value)))
           }
           title="map.height"
-          aria-label="マップ高さ"
+          aria-label={t("creator.mapHeight")}
           className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
         />
         <span className="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-300">
-          原点: center / 上方向 +Y
+          {t("creator.origin")}
         </span>
+        <LanguageSwitcher className="ml-auto" />
         <button
           onClick={requestJsonPreview}
-          className="ml-auto px-3 py-2 rounded bg-slate-600"
+          className="px-3 py-2 rounded bg-slate-600"
         >
-          JSON確認
+          {t("creator.previewJson")}
         </button>
         <button
           onClick={requestJsonSave}
           className="px-3 py-2 rounded bg-emerald-600"
         >
-          JSON保存
+          {t("creator.saveJson")}
         </button>
       </header>
 
@@ -787,12 +791,12 @@ export default function BattleCreator() {
             onClick={() => setSidebarOpen((value) => !value)}
             className="w-full h-10 border-b border-gray-700"
           >
-            {sidebarOpen ? "サイドパネル ◀" : "▶"}
+            {sidebarOpen ? t("creator.sidebarOpen") : t("creator.sidebarClosed")}
           </button>
 
           {sidebarOpen && (
             <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-              <div className="shrink-0 grid grid-cols-2 border-b border-gray-700" role="tablist" aria-label="Creatorサイドパネル">
+              <div className="shrink-0 grid grid-cols-2 border-b border-gray-700" role="tablist" aria-label={t("creator.sidebarLabel")}>
                 <button
                   type="button"
                   role="tab"
@@ -806,7 +810,7 @@ export default function BattleCreator() {
                       : "bg-[#111827] text-gray-400")
                   }
                 >
-                  要素パネル
+                  {t("creator.elements")}
                 </button>
                 <button
                   type="button"
@@ -821,7 +825,7 @@ export default function BattleCreator() {
                       : "bg-[#111827] text-gray-400")
                   }
                 >
-                  階層
+                  {t("creator.hierarchy")}
                 </button>
               </div>
 
@@ -838,7 +842,7 @@ export default function BattleCreator() {
                         onClick={() =>
                           selectPalette(palette.type)
                         }
-                        title={palette.tooltip}
+                        title={t(palette.tooltipKey)}
                         className="min-h-20 rounded-lg border border-gray-700 bg-[#111827] hover:border-blue-400 p-2 text-left"
                       >
                         <span className="block text-2xl font-bold">
@@ -853,7 +857,7 @@ export default function BattleCreator() {
                 </div>
               ) : (
                 <HierarchyPanel
-                  title={title || "バトル"}
+                  title={title || t("creator.defaultTitle")}
                   items={hierarchyItems}
                   roots={rootHierarchyItems}
                   selectedKey={selectedKey}
@@ -879,7 +883,7 @@ export default function BattleCreator() {
               placeDraftAt(toLogical(event.clientX, event.clientY));
             }}
             role="region"
-            aria-label="戦場編集エリア。要素パネルで要素を選択した後、この領域をクリックして配置できます。"
+            aria-label={t("creator.editorLabel")}
             className="relative flex-1 m-4 overflow-hidden border border-gray-600 bg-[#0a1020]"
             style={{
               backgroundImage: mapImage
@@ -962,7 +966,7 @@ export default function BattleCreator() {
                         transform:
                           "translate(-50%, -50%)",
                       }}
-                      title="Camera描画範囲"
+                      title={t("creator.cameraRange")}
                     />
                   )}
                   <button
@@ -1002,7 +1006,7 @@ export default function BattleCreator() {
                         ? ""
                         : item.id.trim()
                           ? " / ID: " + item.id.trim()
-                          : " / ID未設定") +
+                          : " / " + t("creator.idMissing")) +
                       " @ " +
                       current.x.toFixed(1) +
                       "," +
@@ -1041,14 +1045,14 @@ export default function BattleCreator() {
                 }}
                 className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700"
               >
-                再生
+                {t("creator.play")}
               </button>
               <button
                 type="button"
                 onClick={() => setIsPlaying(false)}
                 className="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500"
               >
-                ストップ
+                {t("creator.stop")}
               </button>
               <span className="w-20 text-sm">
                 {currentTime.toFixed(1)}s
@@ -1066,7 +1070,7 @@ export default function BattleCreator() {
                 className="flex-1"
               />
               <label className="text-xs flex items-center gap-2">
-                最大秒数
+                {t("creator.maxSeconds")}
                 <input
                   type="number"
                   min={1}
@@ -1081,7 +1085,7 @@ export default function BattleCreator() {
               </label>
             </div>
             <p className="mt-1 text-xs text-gray-400">
-              配置時刻が出現時刻です。要素パネルで種類を選択後、戦場をクリックしても配置できます。破壊フラグの指定時刻から0.5秒かけてフェードアウトします。
+              {t("creator.timelineHelp")}
             </p>
           </div>
         </section>
@@ -1110,12 +1114,12 @@ export default function BattleCreator() {
         <div className="fixed inset-0 z-[60] bg-black/70 p-8 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="creator-validation-title">
           <div className="w-full max-w-xl rounded-xl border border-red-800 bg-[#111827] p-6 shadow-2xl">
             <h2 id="creator-validation-title" className="text-lg font-semibold mb-4">
-              入力必須項目の確認
+              {t("creator.validationTitle")}
             </h2>
             <p className="text-sm leading-7 text-gray-200">
               {validationDialog === "preview"
-                ? "現在画面上に配置された要素の内、赤いアウトラインが表示されている要素に入力必須のプロパティが空です。空の場合JSON確認の際、当該要素はJSONに表示されません。"
-                : "画面上に配置されている要素のプロパティに入力必須な入力欄が空の要素があります。要素を削除するか、入力必須欄に記入してください"}
+                ? t("creator.validationPreview")
+                : t("creator.validationSave")}
             </p>
             <div className="mt-6 flex justify-end gap-2">
               <button
@@ -1145,12 +1149,12 @@ export default function BattleCreator() {
         <div className="fixed inset-0 z-50 bg-black/70 p-8 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="creator-json-title">
           <div className="w-full max-w-4xl max-h-full flex flex-col rounded-xl border border-gray-700 bg-[#0b1020]">
             <div className="flex items-center border-b border-gray-700 p-3">
-              <strong id="creator-json-title">生成JSON</strong>
+              <strong id="creator-json-title">{t("creator.generatedJson")}</strong>
               <button
                 className="ml-auto px-3 py-1 rounded bg-gray-700"
                 onClick={() => setJsonOpen(false)}
               >
-                閉じる
+                {t("common.close")}
               </button>
             </div>
             <pre className="overflow-auto p-4 text-xs">
@@ -1181,6 +1185,7 @@ function HierarchyPanel({
     parentKey: string | null
   ) => void;
 }) {
+  const { t } = useI18n();
   const childrenOf = (parent: EditorItem) =>
     items.filter((item) => isCreatorParentOf(parent, item));
 
@@ -1217,9 +1222,7 @@ function HierarchyPanel({
         </div>
 
         <p className="mt-3 text-[11px] leading-5 text-gray-500">
-          D&amp;Dで Legion → Corps → Division → Regiment → Unit
-          の順に親子関係を設定できます。Characterは戦闘名直下固定です。
-          戦闘名へドロップすると親子関係を解除します。
+          {t("creator.hierarchyHelp")}
         </p>
       </div>
     </div>
@@ -1244,6 +1247,7 @@ function HierarchyNodeRow({
     parentKey: string | null
   ) => void;
 }) {
+  const { t } = useI18n();
   const children = childrenOf(item);
   const parentable =
     ["legion", "corps", "division", "regiment"].includes(
@@ -1290,7 +1294,7 @@ function HierarchyNodeRow({
           "] / " +
           (item.id.trim()
             ? "ID: " + item.id.trim()
-            : "ID未設定")
+            : t("creator.idMissing"))
         }
       >
         <span className="font-medium text-gray-100">
@@ -1302,11 +1306,11 @@ function HierarchyNodeRow({
         <span className="ml-2 text-gray-500">
           {item.id.trim()
             ? "ID: " + item.id.trim()
-            : "ID未設定"}
+            : t("creator.idMissing")}
         </span>
         {item.destroyEnabled && (
           <span className="ml-2 text-red-400">
-            [破壊]
+            {t("creator.destroyed")}
           </span>
         )}
       </div>
@@ -1345,6 +1349,7 @@ function Field({
   help?: string;
   coordinate?: boolean;
 }) {
+  const { t } = useI18n();
   const inputId = useId();
   const helpId = useId();
   const describedBy = invalid || help ? helpId : undefined;
@@ -1369,7 +1374,7 @@ function Field({
             type="button"
             onClick={() => step(-1)}
             className="min-h-9 min-w-9 rounded border border-gray-600 bg-gray-700 px-2 hover:bg-gray-600"
-            aria-label={label + "を1減らす"}
+            aria-label={t("creator.decrement", { label })}
           >
             −
           </button>
@@ -1402,7 +1407,7 @@ function Field({
             type="button"
             onClick={() => step(1)}
             className="min-h-9 min-w-9 rounded border border-gray-600 bg-gray-700 px-2 hover:bg-gray-600"
-            aria-label={label + "を1増やす"}
+            aria-label={t("creator.increment", { label })}
           >
             ＋
           </button>
@@ -1417,7 +1422,7 @@ function Field({
             (required && invalid ? "text-red-300" : "text-gray-300")
           }
         >
-          {required && invalid ? "必須入力フォームです" : help}
+          {required && invalid ? t("creator.required") : help}
         </span>
       ) : null}
     </div>
@@ -1449,6 +1454,7 @@ function ItemProperties({
   onRetryForces: () => void;
   onCreateForce: (force: ForceDefinition) => Promise<ForceDefinition>;
 }) {
+  const { t } = useI18n();
   const expected = expectedCreatorParentType(item.type);
   const parent =
     item.parentId.trim() === ""
@@ -1483,10 +1489,10 @@ function ItemProperties({
   return (
     <div className="p-4">
       <h2 className="font-semibold mb-1">
-        プロパティ
+        {t("creator.properties")}
       </h2>
       <p className="text-xs text-gray-500 mb-4">
-        {item.type} / {placed ? "配置済み" : "未配置"}
+        {item.type} / {placed ? t("creator.placed") : t("creator.unplaced")}
       </p>
 
       {item.type !== "camera" && (
@@ -1500,7 +1506,7 @@ function ItemProperties({
       )}
 
       <Field
-        label={item.type === "camera" ? "name（表示用）" : "name"}
+        label={item.type === "camera" ? t("creator.displayName") : "name"}
         value={item.name}
         onChange={(name) => onChange({ name })}
       />
@@ -1530,7 +1536,7 @@ function ItemProperties({
       {(item.type === "unit" ||
         item.type === "character") && (
         <Field
-          label="dir（rad・任意）"
+          label={t("creator.direction")}
           type="number"
           value={
             Number.isFinite(item.dir) ? item.dir : ""
@@ -1549,7 +1555,7 @@ function ItemProperties({
       {canCreatorHaveManualParent(item.type) && (
         <>
           <label className="block mb-3 text-xs text-gray-300">
-            親を選択
+            {t("creator.selectParent")}
             <select
               value={selectedParentValue}
               onChange={(event) => {
@@ -1559,7 +1565,7 @@ function ItemProperties({
               }}
               className="mt-1 w-full rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm"
             >
-              <option value="">親なし</option>
+              <option value="">{t("creator.noParent")}</option>
               {parentOptions.map((candidate) => (
                 <option key={candidate.key} value={candidate.id.trim()}>
                   {getCreatorDisplayName(candidate)} ({candidate.id.trim()})
@@ -1567,7 +1573,7 @@ function ItemProperties({
               ))}
               {selectedParentValue === "__manual__" && (
                 <option value="__manual__" disabled>
-                  現在の入力: {item.parentId}
+                  {t("creator.currentInput", { value: item.parentId })}
                 </option>
               )}
             </select>
@@ -1579,8 +1585,8 @@ function ItemProperties({
             invalid={parentInvalid}
             help={
               parentInvalid
-                ? "指定できる親は " + String(expected) + " のIDです。"
-                : "親選択、階層タブのD&D、手入力は双方向で同期します。"
+                ? t("creator.parentInvalid", { type: String(expected) })
+                : t("creator.parentHelp")
             }
           />
         </>
@@ -1588,7 +1594,7 @@ function ItemProperties({
 
       {isCreatorBattleRootOnly(item.type) && (
         <div className="mb-3 rounded border border-gray-700 bg-[#111827] p-3 text-xs text-gray-400">
-          親: バトル（固定）
+          {t("creator.rootParent")}
         </div>
       )}
 
@@ -1596,11 +1602,10 @@ function ItemProperties({
         <div className="mb-3 rounded border border-gray-700 bg-[#111827] p-3">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={item.groupMove} onChange={(event) => onChange({ groupMove: event.target.checked })} />
-            グループ移動
+            {t("creator.groupMove")}
           </label>
           <p className="mt-2 text-[11px] leading-5 text-gray-500">
-            オン・オフは現在時刻に記録され、切り替え前の移動経路は保持されます。
-            最上位の有効な親の移動に配下が追従します。個別に記録した位置・経路が優先され、最後の個別指定以降は親の移動分に追従します。
+            {t("creator.groupMoveHelp")}
           </p>
         </div>
       )}
@@ -1654,7 +1659,7 @@ function ItemProperties({
             !Number.isFinite(item.zoom) ||
             item.zoom <= 0
           }
-          help="赤い四角の描画範囲がzoomに応じて収縮・拡大します。"
+          help={t("creator.cameraZoomHelp")}
         />
       )}
 
@@ -1680,17 +1685,17 @@ function ItemProperties({
                 })
               }
             />
-            破壊フラグ
+            {t("creator.destroyFlag")}
           </label>
 
           <p className="mt-2 text-[11px] leading-5 text-gray-500">
-            指定秒数から0.5秒かけてフェードアウトし、その後は表示されません。
+            {t("creator.destroyHelp")}
           </p>
 
           {item.destroyEnabled && (
             <div className="mt-3">
               <Field
-                label="破壊秒数"
+                label={t("creator.destroyAt")}
                 type="number"
                 value={
                   Number.isFinite(item.destroyAt)
@@ -1717,15 +1722,11 @@ function ItemProperties({
       )}
 
       <div className="rounded border border-gray-700 bg-[#111827] p-3 text-xs">
-        現在時刻: {currentTime.toFixed(1)}s
+        {t("creator.currentTime", { time: currentTime.toFixed(1) })}
         <br />
-        出現時刻:{" "}
-        {Number.isFinite(item.appearAt)
-          ? item.appearAt.toFixed(1)
-          : "-"}
-        s
+        {t("creator.appearAt", { time: Number.isFinite(item.appearAt) ? item.appearAt.toFixed(1) : "-" })}
         <br />
-        記録済みkeyframe: {item.timeline.length}
+        {t("creator.keyframes", { count: item.timeline.length })}
       </div>
 
       {placed && (
@@ -1734,7 +1735,7 @@ function ItemProperties({
           onClick={onDelete}
           className="mt-4 w-full rounded bg-red-700 py-2 hover:bg-red-800"
         >
-          要素を削除
+          {t("creator.delete")}
         </button>
       )}
     </div>

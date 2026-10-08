@@ -12,6 +12,7 @@ import {
   getNextZoomScale,
   getVisibleWorldBoundsCentered,
 } from "@/utils/battle/viewTransform";
+import { useI18n } from "@/i18n/I18nProvider";
 
 type Props = {
   battle: BattleData | null;
@@ -38,6 +39,7 @@ export const BattlePlayer: React.FC<Props> = ({
   enableSelection = false,
   cameraTarget = null,
 }) => {
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const transformRef = useRef<RenderTransform | null>(null);
   const cameraScaleRef = useRef(1);
@@ -453,7 +455,7 @@ export const BattlePlayer: React.FC<Props> = ({
         ref={canvasRef}
         className="w-full h-full"
         tabIndex={0}
-        aria-label="戦場表示。矢印キーで表示位置を移動、プラスとマイナスで拡大縮小、Homeまたは0で表示をリセットできます。"
+        aria-label={t("canvas.label")}
         onKeyDown={handleCanvasKeyDown}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
@@ -465,17 +467,17 @@ export const BattlePlayer: React.FC<Props> = ({
         <div
           className="absolute bottom-3 left-3 grid grid-cols-3 gap-1 rounded-lg border border-gray-600 bg-black/75 p-2"
           role="group"
-          aria-label="戦場表示の移動と拡大縮小"
+          aria-label={t("canvas.controls")}
         >
           <span />
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(0, 32)} aria-label="上へ移動">↑</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => zoomView("in")} aria-label="拡大">＋</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(32, 0)} aria-label="左へ移動">←</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={resetView} aria-label="表示をリセット">↺</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(-32, 0)} aria-label="右へ移動">→</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(0, 32)} aria-label={t("canvas.up")}>↑</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => zoomView("in")} aria-label={t("canvas.zoomIn")}>＋</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(32, 0)} aria-label={t("canvas.left")}>←</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={resetView} aria-label={t("canvas.reset")}>↺</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(-32, 0)} aria-label={t("canvas.right")}>→</button>
           <span />
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(0, -32)} aria-label="下へ移動">↓</button>
-          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => zoomView("out")} aria-label="縮小">−</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => panView(0, -32)} aria-label={t("canvas.down")}>↓</button>
+          <button type="button" className="h-9 w-9 rounded bg-gray-700 hover:bg-gray-600" onClick={() => zoomView("out")} aria-label={t("canvas.zoomOut")}>−</button>
         </div>
       )}
     </div>
