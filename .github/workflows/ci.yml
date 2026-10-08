@@ -26,6 +26,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Regenerate Tauri lockfile
         run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+      - name: Upload generated Tauri lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-lockfile-generated
+          path: src-tauri/Cargo.lock
+          if-no-files-found: error
       - name: Verify committed Tauri lockfile
         run: git diff --exit-code -- src-tauri/Cargo.lock
 
