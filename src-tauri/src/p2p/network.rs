@@ -180,14 +180,11 @@ pub(crate) async fn spawn_direct_transport(
   identity_seed: &[u8; 32],
   cache: Arc<Mutex<Cache>>,
   allow_serving: bool,
+  listen_addr: Multiaddr,
 ) -> Result<DirectTransport, String> {
   let mut swarm = swarm(keypair_from_seed(identity_seed)?)?;
   swarm
-    .listen_on(
-      "/ip4/127.0.0.1/tcp/0"
-        .parse()
-        .map_err(|error| format!("invalid loopback listen address: {error}"))?,
-    )
+    .listen_on(listen_addr)
     .map_err(|error| format!("failed to start P2P listener: {error}"))?;
 
   let listen_addr = loop {
@@ -450,10 +447,20 @@ mod tests {
     a_cache.lock().unwrap().store(&manifest, &gzip).unwrap();
     let (_b_dir, b_cache) = test_cache(32 * 1024 * 1024);
 
-    let a = spawn_direct_transport(&[1u8; 32], a_cache, false)
+    let a = spawn_direct_transport(
+      &[1u8; 32],
+      a_cache,
+      false,
+      "/ip4/127.0.0.1/tcp/0".parse().unwrap(),
+    )
       .await
       .unwrap();
-    let b = spawn_direct_transport(&[2u8; 32], b_cache, true)
+    let b = spawn_direct_transport(
+      &[2u8; 32],
+      b_cache,
+      true,
+      "/ip4/127.0.0.1/tcp/0".parse().unwrap(),
+    )
       .await
       .unwrap();
 
@@ -483,13 +490,28 @@ mod tests {
     let (_b_dir, b_cache) = test_cache(32 * 1024 * 1024);
     let (_c_dir, c_cache) = test_cache(32 * 1024 * 1024);
 
-    let a = spawn_direct_transport(&[11u8; 32], Arc::clone(&a_cache), true)
+    let a = spawn_direct_transport(
+      &[11u8; 32],
+      Arc::clone(&a_cache),
+      true,
+      "/ip4/127.0.0.1/tcp/0".parse().unwrap(),
+    )
       .await
       .unwrap();
-    let b = spawn_direct_transport(&[12u8; 32], Arc::clone(&b_cache), true)
+    let b = spawn_direct_transport(
+      &[12u8; 32],
+      Arc::clone(&b_cache),
+      true,
+      "/ip4/127.0.0.1/tcp/0".parse().unwrap(),
+    )
       .await
       .unwrap();
-    let c = spawn_direct_transport(&[13u8; 32], Arc::clone(&c_cache), false)
+    let c = spawn_direct_transport(
+      &[13u8; 32],
+      Arc::clone(&c_cache),
+      false,
+      "/ip4/127.0.0.1/tcp/0".parse().unwrap(),
+    )
       .await
       .unwrap();
 
@@ -553,10 +575,20 @@ mod tests {
     a_cache.lock().unwrap().store(&manifest, &gzip).unwrap();
     let (_b_dir, b_cache) = test_cache(32 * 1024 * 1024);
 
-    let a = spawn_direct_transport(&[21u8; 32], a_cache, true)
+    let a = spawn_direct_transport(
+      &[21u8; 32],
+      a_cache,
+      true,
+      "/ip4/127.0.0.1/tcp/0".parse().unwrap(),
+    )
       .await
       .unwrap();
-    let b = spawn_direct_transport(&[22u8; 32], Arc::clone(&b_cache), false)
+    let b = spawn_direct_transport(
+      &[22u8; 32],
+      Arc::clone(&b_cache),
+      false,
+      "/ip4/127.0.0.1/tcp/0".parse().unwrap(),
+    )
       .await
       .unwrap();
 
