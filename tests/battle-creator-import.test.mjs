@@ -189,7 +189,8 @@ test("Creator import refreshes force catalog after a successful sync", () => {
   );
   const commitIndex = source.indexOf("setForces(synced)");
   const refreshIndex = source.indexOf(
-    "setForceLoadVersion((version) => version + 1)"
+    "setForceLoadVersion((version) => version + 1)",
+    commitIndex
   );
 
   assert.ok(commitIndex >= 0);
