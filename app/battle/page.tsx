@@ -55,7 +55,7 @@ export default function BattlePage() {
   };
 
   return (
-    <main className="flex min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#050816] text-gray-200">
+    <main className="flex min-h-dvh w-full min-w-0 flex-col overflow-x-hidden bg-[#050816] text-gray-200 md:h-dvh md:overflow-hidden">
       <div className="w-full shrink-0 border-b border-gray-700 bg-[#0b1020] p-2 sm:p-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         <input id="json-input" type="file" accept="application/json,.json" className="hidden" onChange={handleFileChange} />
@@ -80,8 +80,8 @@ export default function BattlePage() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-        <div className="min-h-[18rem] min-w-0 flex-1 sm:min-h-[24rem]">
+      <div className="flex min-h-[20rem] flex-1 flex-col md:min-h-0 md:overflow-hidden md:flex-row">
+        <div className="min-h-[18rem] min-w-0 flex-1 sm:min-h-[22rem] md:min-h-0">
           <BattlePlayer
             battle={battle}
             currentTime={currentTime}
