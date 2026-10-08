@@ -287,9 +287,14 @@ pub async fn p2p_fetch(
   let already_cached = {
     let cache = Arc::clone(&cache);
     let hash = hash.clone();
+    let compressed_hash = work.compressed_hash.clone();
     tauri::async_runtime::spawn_blocking(move || {
-      cache.lock().map_err(|_| "P2P cache unavailable".to_string())?
-        .read_raw(&hash).map_err(|error| error.to_string())
+      let cache = cache.lock().map_err(|_| "P2P cache unavailable".to_string())?;
+      let (manifest, gzip) = cache.read(&hash).map_err(|error| error.to_string())?;
+      if manifest.compressed_hash != compressed_hash {
+        return Err("Local compressed representation differs from Hub metadata".to_string());
+      }
+      content::decode(&manifest, &gzip).map_err(|error| error.to_string())
     }).await.map_err(|error| error.to_string())?
   };
   if let Ok(bytes) = already_cached {
