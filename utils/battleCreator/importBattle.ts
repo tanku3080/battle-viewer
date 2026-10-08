@@ -305,6 +305,15 @@ function makeFallbackItem(args: {
 function fallbackItems(raw: RawBattleJson): CreatorEditorItem[] {
   const items: CreatorEditorItem[] = [];
   let index = 0;
+  const hierarchyNodes = raw.hierarchy?.nodes ?? {};
+  const unitParents = new Map<string, string>();
+
+  for (const [nodeId, node] of Object.entries(hierarchyNodes)) {
+    if (node.level !== "regiment") continue;
+    for (const unitId of node.unitIds ?? []) {
+      if (!unitParents.has(unitId)) unitParents.set(unitId, nodeId);
+    }
+  }
 
   for (const unit of raw.units ?? []) {
     items.push(
@@ -316,6 +325,7 @@ function fallbackItems(raw: RawBattleJson): CreatorEditorItem[] {
         force: unit.force,
         color: unit.color,
         icon: unit.icon,
+        parentId: unitParents.get(unit.id) ?? "",
         timeline: rawTimeline(raw, "units", unit.id, unit.timeline),
         destroyAt: unit.destroyAt,
         index: index++,
@@ -345,7 +355,6 @@ function fallbackItems(raw: RawBattleJson): CreatorEditorItem[] {
     );
   }
 
-  const hierarchyNodes = raw.hierarchy?.nodes ?? {};
   for (const [id, node] of Object.entries(hierarchyNodes)) {
     const level = node.level as HierarchyLevel | undefined;
     if (
@@ -475,4 +484,31 @@ export function importCreatorBattleJson(
     forceDefinitions: definitions,
     referencedForces,
   };
+}
+
+
+export function planCreatorForceSync(
+  imported: CreatorImportState,
+  registered: ForceDefinition[]
+) {
+  const registeredNames = new Set(
+    registered.map((force) => force.name.trim().toLowerCase())
+  );
+  const definitions = new Map(
+    imported.forceDefinitions.map((force) => [
+      force.name.trim().toLowerCase(),
+      force,
+    ])
+  );
+
+  const unresolvedForces = imported.referencedForces.filter((name) => {
+    const key = name.trim().toLowerCase();
+    return !registeredNames.has(key) && !definitions.has(key);
+  });
+
+  const missingDefinitions = imported.forceDefinitions.filter(
+    (force) => !registeredNames.has(force.name.trim().toLowerCase())
+  );
+
+  return { missingDefinitions, unresolvedForces };
 }
