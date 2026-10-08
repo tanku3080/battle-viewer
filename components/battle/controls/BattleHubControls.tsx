@@ -2,19 +2,15 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import type { RawBattleJson } from "@/utils/battle/loadBattleJson";
-import {
-  getBattleHubHealth,
-  publishBattleToHub,
-} from "@/utils/battleHub/client";
+import { getBattleHubHealth, publishBattleToHub } from "@/utils/battleHub/client";
 import { BattleHubAccessButton } from "@/components/battleHub/BattleHubAccessButton";
+import { useI18n } from "@/i18n/I18nProvider";
 
-type Props = {
-  battleJson: RawBattleJson | null;
-};
-
+type Props = { battleJson: RawBattleJson | null };
 type HealthState = "checking" | "online" | "offline";
 
 export function BattleHubControls({ battleJson }: Props) {
+  const { t } = useI18n();
   const [health, setHealth] = useState<HealthState>("checking");
   const [isOpen, setIsOpen] = useState(false);
   const [authorName, setAuthorName] = useState("");
@@ -25,15 +21,11 @@ export function BattleHubControls({ battleJson }: Props) {
 
   useEffect(() => {
     const controller = new AbortController();
-
     getBattleHubHealth(controller.signal)
-      .then((result) => {
-        setHealth(result.status === "ok" ? "online" : "offline");
-      })
+      .then((result) => setHealth(result.status === "ok" ? "online" : "offline"))
       .catch(() => {
         if (!controller.signal.aborted) setHealth("offline");
       });
-
     return () => controller.abort();
   }, []);
 
@@ -61,14 +53,11 @@ export function BattleHubControls({ battleJson }: Props) {
         description: description.trim(),
         battleJson,
       });
-
       setHealth("online");
-      setMessage(`投稿完了: ${result.title} (${result.id})`);
+      setMessage(t("publish.success", { title: result.title, id: result.id }));
     } catch (error) {
       setHealth("offline");
-      setMessage(
-        error instanceof Error ? error.message : "Battle Hubへの投稿に失敗しました"
-      );
+      setMessage(error instanceof Error ? error.message : t("publish.failed"));
     } finally {
       setIsPublishing(false);
     }
@@ -76,10 +65,10 @@ export function BattleHubControls({ battleJson }: Props) {
 
   const statusText =
     health === "checking"
-      ? "Hub確認中"
+      ? t("publish.statusChecking")
       : health === "online"
-        ? "Hub接続中"
-        : "Hub未接続";
+        ? t("publish.statusOnline")
+        : t("publish.statusOffline");
 
   return (
     <>
@@ -110,7 +99,7 @@ export function BattleHubControls({ battleJson }: Props) {
           }}
           className="px-4 py-2 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          JSONを投稿
+          {t("publish.open")}
         </button>
       </div>
 
@@ -124,14 +113,13 @@ export function BattleHubControls({ battleJson }: Props) {
           }}
           className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-gray-700 bg-[#111827] p-0 text-gray-100 shadow-xl backdrop:bg-black/70"
         >
-          <form
-            onSubmit={handlePublish}
-            className="w-full p-5"
-          >
-            <h2 id="battle-hub-publish-title" className="text-lg font-semibold mb-4">Battle Hubへ投稿</h2>
+          <form onSubmit={handlePublish} className="w-full p-5">
+            <h2 id="battle-hub-publish-title" className="text-lg font-semibold mb-4">
+              {t("publish.title")}
+            </h2>
 
             <label className="block text-sm mb-3">
-              <span className="block mb-1 text-gray-300">投稿者名</span>
+              <span className="block mb-1 text-gray-300">{t("publish.author")}</span>
               <input
                 value={authorName}
                 onChange={(event) => setAuthorName(event.target.value)}
@@ -143,19 +131,24 @@ export function BattleHubControls({ battleJson }: Props) {
             </label>
 
             <label className="block text-sm mb-4">
-              <span className="block mb-1 text-gray-300">説明</span>
+              <span className="block mb-1 text-gray-300">{t("publish.description")}</span>
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 maxLength={1000}
                 rows={4}
                 className="w-full resize-none rounded-md border border-gray-600 bg-[#0b1020] px-3 py-2 outline-none focus:border-violet-400"
-                placeholder="このBattleの説明"
+                placeholder={t("publish.descriptionPlaceholder")}
               />
             </label>
 
             {message && (
-              <div role="status" aria-live="polite" aria-atomic="true" className="mb-4 rounded border border-gray-700 bg-[#0b1020] p-3 text-xs break-all">
+              <div
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                className="mb-4 rounded border border-gray-700 bg-[#0b1020] p-3 text-xs break-all"
+              >
                 {message}
               </div>
             )}
@@ -167,14 +160,14 @@ export function BattleHubControls({ battleJson }: Props) {
                 onClick={() => setIsOpen(false)}
                 className="px-4 py-2 rounded-md bg-gray-600 text-white hover:bg-gray-500 disabled:opacity-40"
               >
-                閉じる
+                {t("publish.close")}
               </button>
               <button
                 type="submit"
                 disabled={!battleJson || !authorName.trim() || isPublishing}
                 className="px-4 py-2 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {isPublishing ? "投稿中..." : "投稿する"}
+                {isPublishing ? t("publish.submitting") : t("publish.submit")}
               </button>
             </div>
           </form>
