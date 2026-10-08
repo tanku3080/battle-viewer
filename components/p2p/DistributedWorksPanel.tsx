@@ -1,5 +1,5 @@
-import { stageDistributedJson } from "@/utils/battleHub/pendingTransfer";
 "use client";
+import { stageDistributedJson } from "@/utils/battleHub/pendingTransfer";
 
 import { ChangeEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
