@@ -8,7 +8,7 @@ export type Locale = "ja" | "en";
 export type MessageKey = keyof typeof ja;
 type Params = Record<string, string | number>;
 
-const messages = { ja, en } as const;
+const messages: Record<Locale, Record<MessageKey, string>> = { ja, en };
 const STORAGE_KEY = "battle-viewer:locale";
 
 function format(template: string, params?: Params) {
