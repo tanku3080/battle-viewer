@@ -41,14 +41,12 @@ test("download and redistribution consent remain independent", () => {
 test("Phase 2b exposes settings and inventory IPC without starting networking", () => {
   const lib = read("src-tauri/src/lib.rs");
   const ipc = read("src-tauri/src/p2p/mod.rs");
-  const cargo = read("src-tauri/Cargo.toml");
-
   assert.match(lib, /p2p::p2p_get_status/);
   assert.match(lib, /p2p::p2p_update_settings/);
   assert.match(lib, /p2p::p2p_get_inventory/);
   assert.match(ipc, /spawn_blocking/);
   assert.match(ipc, /network_active:\s*false/);
-  assert.doesNotMatch(cargo, /libp2p/i);
+  assert.doesNotMatch(lib, /p2p_fetch|p2p_download|p2p_start_network/);
 });
 
 test("installation identity never exposes the private seed through IPC", () => {
