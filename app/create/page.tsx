@@ -1,3 +1,4 @@
+import { consumeDistributedJson } from "@/utils/battleHub/pendingTransfer";
 "use client";
 
 import Link from "next/link";
@@ -341,10 +342,9 @@ export default function BattleCreator() {
   };
 
   useEffect(() => {
-    const pending = sessionStorage.getItem("battle-viewer:incoming-json");
+    const pending = consumeDistributedJson();
     if (pending) {
-      sessionStorage.removeItem("battle-viewer:incoming-json");
-      void importBattleText(pending);
+        void importBattleText(pending);
     }
     // Runs once on initial Creator mount; the import itself remains transactional.
     // eslint-disable-next-line react-hooks/exhaustive-deps
