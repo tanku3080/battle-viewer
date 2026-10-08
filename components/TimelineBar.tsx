@@ -10,7 +10,7 @@ export const TimelineBar: React.FC<Props> = ({ currentTime, maxTime, onChange })
   const safeValue = Math.min(currentTime, safeMax);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="flex min-w-0 flex-col gap-2">
       <label htmlFor="battle-timeline" className="sr-only">{t("playback.position")}</label>
       <input
         id="battle-timeline"
@@ -22,7 +22,7 @@ export const TimelineBar: React.FC<Props> = ({ currentTime, maxTime, onChange })
         aria-valuetext={t("playback.value", { current: safeValue.toFixed(1), max: safeMax.toFixed(1) })}
         onChange={(e) => onChange(Number(e.target.value))}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+      <div className="flex justify-between text-xs">
         <span>0 s</span>
         <span>{safeMax.toFixed(1)} s</span>
       </div>
