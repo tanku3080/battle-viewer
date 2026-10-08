@@ -72,7 +72,7 @@ export function BattleHubControls({ battleJson }: Props) {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span
           role="status"
           aria-live="polite"
@@ -97,7 +97,7 @@ export function BattleHubControls({ battleJson }: Props) {
             setMessage(null);
             setIsOpen(true);
           }}
-          className="px-4 py-2 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-h-11 px-4 py-2 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {t("publish.open")}
         </button>
@@ -111,7 +111,7 @@ export function BattleHubControls({ battleJson }: Props) {
             event.preventDefault();
             if (!isPublishing) setIsOpen(false);
           }}
-          className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-gray-700 bg-[#111827] p-0 text-gray-100 shadow-xl backdrop:bg-black/70"
+          className="m-auto max-h-[calc(100dvh-2rem)] w-[min(28rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-gray-700 bg-[#111827] p-0 text-gray-100 shadow-xl backdrop:bg-black/70"
         >
           <form onSubmit={handlePublish} className="w-full p-5">
             <h2 id="battle-hub-publish-title" className="text-lg font-semibold mb-4">
