@@ -20,6 +20,7 @@ export function PanelContainer({ panelData, currentTime }: Props) {
         <SelectedInfoPanel
           type={panelData.type}
           name={panelData.name}
+          description={panelData.description}
           id={panelData.id}
           force={panelData.force}
           iconPath={panelData.iconPath}
