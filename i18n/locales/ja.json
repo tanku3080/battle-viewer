@@ -225,5 +225,6 @@
   "p2p.saving": "保存中…",
   "p2p.saved": "P2P設定を保存しました。",
   "p2p.checkCache": "キャッシュを検査",
-  "p2p.checkingCache": "検査中…"
+  "p2p.checkingCache": "検査中…",
+  "p2p.peerId": "Peer ID"
 }
