@@ -52,6 +52,7 @@ type EditorItem = {
   type: SpatialType;
   id: string;
   name: string;
+  description: string;
   force: string;
   color: string;
   icon: string;
@@ -136,6 +137,7 @@ function emptyItem(type: SpatialType): EditorItem {
     type,
     id: "",
     name: "",
+    description: "",
     force: "",
     color: "",
     icon: "",
@@ -527,6 +529,9 @@ export default function BattleCreator() {
         ...(item.name.trim()
           ? { name: item.name.trim() }
           : {}),
+        ...(item.description.trim()
+          ? { description: item.description.trim() }
+          : {}),
         ...(getForceColor(forces, item.force) || item.color.trim()
           ? { color: getForceColor(forces, item.force) || item.color.trim() }
           : {}),
@@ -543,6 +548,9 @@ export default function BattleCreator() {
         id: item.id.trim(),
         ...(item.name.trim()
           ? { name: item.name.trim() }
+          : {}),
+        ...(item.description.trim()
+          ? { description: item.description.trim() }
           : {}),
         icon: item.icon.trim() || null,
         ...(item.destroyEnabled &&
@@ -584,6 +592,9 @@ export default function BattleCreator() {
           {
             level: item.type,
             name: item.name.trim() || item.id.trim(),
+            ...(item.description.trim()
+              ? { description: item.description.trim() }
+              : {}),
             ...(item.icon.trim() ? { icon: item.icon.trim() } : {}),
             parentId:
               item.type === "legion"
@@ -1512,6 +1523,23 @@ function ItemProperties({
         value={item.name}
         onChange={(name) => onChange({ name })}
       />
+
+      {item.type !== "camera" && (
+        <label className="mb-3 block text-xs text-gray-300">
+          {t("creator.description")}
+          <textarea
+            value={item.description}
+            onChange={(event) => onChange({ description: event.target.value })}
+            rows={5}
+            maxLength={2000}
+            placeholder={t("creator.descriptionPlaceholder")}
+            className="mt-1 block w-full resize-y rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm leading-5"
+          />
+          <span className="mt-1 block text-[11px] text-gray-500">
+            {t("creator.descriptionHelp")}
+          </span>
+        </label>
+      )}
 
       {item.type === "unit" && (
         <ForcePicker
