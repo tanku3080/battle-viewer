@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getBattleHubBattles, type BattleHubBattleSummary } from "@/utils/battleHub/client";
 import { useI18n } from "@/i18n/I18nProvider";
+import { DistributedWorksPanel } from "@/components/p2p/DistributedWorksPanel";
 
 export default function BattleHubPage() {
   const { locale, t } = useI18n();
@@ -43,6 +44,7 @@ export default function BattleHubPage() {
             </article>
           ))}
         </div>
+        <DistributedWorksPanel />
       </section>
     </main>
   );
