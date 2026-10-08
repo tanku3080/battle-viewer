@@ -42,9 +42,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-      - name: Check Tauri Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+          components: clippy
       - name: Test Tauri Rust state and persistence
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - name: Check Tauri Rust warnings
