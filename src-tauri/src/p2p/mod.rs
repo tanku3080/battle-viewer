@@ -3,11 +3,15 @@ mod identity;
 mod network;
 mod network_auth;
 mod settings;
+mod work_refs;
 
 use battle_p2p_core::cache::Cache;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use tokio::sync::Mutex as AsyncMutex;
+use network::DirectTransport;
+use work_refs::WorkRef;
 use tauri::State;
 
 use settings::{P2pSettings, SETTINGS_VERSION};
@@ -19,6 +23,9 @@ struct ReadyState {
   cache: Arc<Mutex<Cache>>,
   settings: Arc<Mutex<P2pSettings>>,
   identity: InstallationIdentity,
+  network: AsyncMutex<Option<DirectTransport>>,
+  advertised_address: Arc<Mutex<Option<String>>>,
+  work_refs: Arc<Mutex<Vec<WorkRef>>>,
 }
 
 pub struct P2pState {
@@ -101,12 +108,16 @@ impl ReadyState {
       .set_quota(settings.cache_quota_bytes)
       .map_err(|error| format!("P2P cache exceeds configured quota: {error}"))?;
     let identity = identity::load_or_create(&root)?;
+    let work_refs = work_refs::load(&root)?;
 
     Ok(Self {
       root,
       cache: Arc::new(Mutex::new(cache)),
       settings: Arc::new(Mutex::new(settings)),
       identity,
+      network: AsyncMutex::new(None),
+      advertised_address: Arc::new(Mutex::new(None)),
+      work_refs: Arc::new(Mutex::new(work_refs)),
     })
   }
 }
@@ -146,7 +157,7 @@ async fn status(state: &P2pState) -> Result<P2pStatus, String> {
   Ok(P2pStatus {
     available: true,
     // Phase 2b stores consent/settings only. No listener or peer connection exists yet.
-    network_active: false,
+    network_active: ready.network.lock().await.is_some(),
     settings: Some(settings),
     identity: Some(ready.identity.view()),
     cache_used_bytes: Some(used),
