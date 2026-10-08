@@ -4,11 +4,13 @@ mod network;
 mod network_auth;
 mod settings;
 mod work_refs;
+pub mod commands;
 
 use battle_p2p_core::cache::Cache;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicBool;
 use tokio::sync::Mutex as AsyncMutex;
 use network::DirectTransport;
 use work_refs::WorkRef;
@@ -26,6 +28,7 @@ struct ReadyState {
   network: AsyncMutex<Option<DirectTransport>>,
   advertised_address: Arc<Mutex<Option<String>>>,
   work_refs: Arc<Mutex<Vec<WorkRef>>>,
+  running: Arc<AtomicBool>,
 }
 
 pub struct P2pState {
@@ -118,6 +121,7 @@ impl ReadyState {
       network: AsyncMutex::new(None),
       advertised_address: Arc::new(Mutex::new(None)),
       work_refs: Arc::new(Mutex::new(work_refs)),
+      running: Arc::new(AtomicBool::new(false)),
     })
   }
 }
