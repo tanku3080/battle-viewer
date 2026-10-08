@@ -14,7 +14,7 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
   return (
     <div
       className={
-        "inline-flex items-center gap-2 rounded-lg border border-gray-700 bg-[#111827] p-1 shadow-sm " +
+        "flex max-w-full flex-wrap items-center gap-2 rounded-lg border border-gray-700 bg-[#111827] p-1 shadow-sm " +
         className
       }
     >

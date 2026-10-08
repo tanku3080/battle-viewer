@@ -716,11 +716,12 @@ export default function BattleCreator() {
   };
 
   return (
-    <main className="h-screen bg-[#050816] text-gray-100 flex flex-col overflow-hidden">
-      <header className="h-16 shrink-0 border-b border-gray-700 bg-[#0b1020] flex items-center gap-3 px-4">
+    <main className="flex min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#050816] text-gray-100">
+      <header className="shrink-0 border-b border-gray-700 bg-[#0b1020] px-2 py-2 sm:px-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         <Link
           href="/home"
-          className="px-3 py-2 rounded bg-gray-700"
+          className="min-h-11 px-3 py-2 rounded bg-gray-700"
         >
           {t("creator.back")}
         </Link>
@@ -729,7 +730,7 @@ export default function BattleCreator() {
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t("creator.battleName")}
           aria-label={t("creator.battleName")}
-          className="w-52 rounded border border-gray-600 bg-[#111827] px-3 py-2"
+          className="min-h-11 min-w-0 flex-1 basis-48 rounded border border-gray-600 bg-[#111827] px-3 py-2 sm:max-w-60"
         />
         <ImageAssetPicker
           label={t("creator.mapImage")}
@@ -748,7 +749,7 @@ export default function BattleCreator() {
           }
           title="map.width"
           aria-label={t("creator.mapWidth")}
-          className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
+          className="min-h-11 w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
         />
         <input
           type="number"
@@ -759,35 +760,38 @@ export default function BattleCreator() {
           }
           title="map.height"
           aria-label={t("creator.mapHeight")}
-          className="w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
+          className="min-h-11 w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
         />
         <span className="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-300">
           {t("creator.origin")}
         </span>
         <button
           onClick={requestJsonPreview}
-          className="px-3 py-2 rounded bg-slate-600"
+          className="min-h-11 px-3 py-2 rounded bg-slate-600"
         >
           {t("creator.previewJson")}
         </button>
         <button
           onClick={requestJsonSave}
-          className="px-3 py-2 rounded bg-emerald-600"
+          className="min-h-11 px-3 py-2 rounded bg-emerald-600"
         >
           {t("creator.saveJson")}
         </button>
+        </div>
       </header>
 
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto lg:flex-row lg:overflow-hidden">
         <aside
           className={
-            "h-full min-h-0 shrink-0 border-r border-gray-700 bg-[#0b1020] transition-all flex flex-col overflow-hidden " +
-            (sidebarOpen ? "w-80" : "w-12")
+            "min-h-0 shrink-0 border-b border-gray-700 bg-[#0b1020] transition-all flex flex-col overflow-hidden lg:h-full lg:border-b-0 lg:border-r " +
+            (sidebarOpen
+              ? "w-full max-h-[40dvh] lg:max-h-none lg:w-80"
+              : "h-11 w-full lg:h-full lg:w-12")
           }
         >
           <button
             onClick={() => setSidebarOpen((value) => !value)}
-            className="w-full h-10 border-b border-gray-700"
+            className="min-h-11 w-full border-b border-gray-700"
           >
             {sidebarOpen ? t("creator.sidebarOpen") : t("creator.sidebarClosed")}
           </button>
@@ -841,7 +845,7 @@ export default function BattleCreator() {
                           selectPalette(palette.type)
                         }
                         title={t(palette.tooltipKey)}
-                        className="min-h-20 rounded-lg border border-gray-700 bg-[#111827] hover:border-blue-400 p-2 text-left"
+                        className="min-h-20 rounded-lg border border-gray-700 bg-[#111827] hover:border-blue-400 p-2 text-left focus-visible:border-yellow-300"
                       >
                         <span className="block text-2xl font-bold">
                           {palette.mark}
@@ -870,7 +874,7 @@ export default function BattleCreator() {
           )}
         </aside>
 
-        <section className="flex-1 min-w-0 flex flex-col">
+        <section className="flex min-h-[30rem] min-w-0 flex-1 flex-col lg:min-h-0">
           <div
             ref={editorRef}
             onDragOver={(e) => e.preventDefault()}
@@ -882,7 +886,7 @@ export default function BattleCreator() {
             }}
             role="region"
             aria-label={t("creator.editorLabel")}
-            className="relative flex-1 m-4 overflow-hidden border border-gray-600 bg-[#0a1020]"
+            className="relative m-2 min-h-[20rem] flex-1 overflow-hidden border border-gray-600 bg-[#0a1020] sm:m-3 sm:min-h-[24rem] lg:m-4 lg:min-h-0"
             style={{
               backgroundImage: mapImage
                 ? `linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px), url("${mapImage}")`
@@ -1031,8 +1035,8 @@ export default function BattleCreator() {
             })}
           </div>
 
-          <div className="shrink-0 border-t border-gray-700 bg-[#111827] px-5 py-3">
-            <div className="flex items-center gap-3">
+          <div className="shrink-0 border-t border-gray-700 bg-[#111827] px-3 py-3 sm:px-5">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -1041,18 +1045,18 @@ export default function BattleCreator() {
                   }
                   setIsPlaying(true);
                 }}
-                className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700"
+                className="min-h-11 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700"
               >
                 {t("creator.play")}
               </button>
               <button
                 type="button"
                 onClick={() => setIsPlaying(false)}
-                className="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500"
+                className="min-h-11 px-3 py-2 rounded bg-gray-600 hover:bg-gray-500"
               >
                 {t("creator.stop")}
               </button>
-              <span className="w-20 text-sm">
+              <span className="min-w-20 text-sm" role="status" aria-live="polite">
                 {currentTime.toFixed(1)}s
               </span>
               <input
@@ -1065,9 +1069,9 @@ export default function BattleCreator() {
                   setIsPlaying(false);
                   setCurrentTime(Number(e.target.value));
                 }}
-                className="flex-1"
+                className="min-w-40 flex-1 basis-48"
               />
-              <label className="text-xs flex items-center gap-2">
+              <label className="flex min-h-11 items-center gap-2 text-xs">
                 {t("creator.maxSeconds")}
                 <input
                   type="number"
@@ -1078,7 +1082,7 @@ export default function BattleCreator() {
                       Math.max(1, Number(e.target.value))
                     )
                   }
-                  className="w-20 rounded border border-gray-600 bg-[#0b1020] px-2 py-1"
+                  className="min-h-9 w-20 rounded border border-gray-600 bg-[#0b1020] px-2 py-1"
                 />
               </label>
             </div>
@@ -1088,7 +1092,7 @@ export default function BattleCreator() {
           </div>
         </section>
 
-        <aside className="w-80 shrink-0 border-l border-gray-700 bg-[#0b1020] overflow-y-auto">
+        <aside className="max-h-[45dvh] w-full shrink-0 overflow-y-auto border-t border-gray-700 bg-[#0b1020] lg:h-full lg:max-h-none lg:w-80 lg:border-l lg:border-t-0">
           {selected ? (
             <ItemProperties
               key={selected.key}
@@ -1109,8 +1113,8 @@ export default function BattleCreator() {
       </div>
 
       {validationDialog && (
-        <div className="fixed inset-0 z-[60] bg-black/70 p-8 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="creator-validation-title">
-          <div className="w-full max-w-xl rounded-xl border border-red-800 bg-[#111827] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-3 sm:p-8" role="dialog" aria-modal="true" aria-labelledby="creator-validation-title">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-auto rounded-xl border border-red-800 bg-[#111827] p-4 shadow-2xl sm:p-6">
             <h2 id="creator-validation-title" className="text-lg font-semibold mb-4">
               {t("creator.validationTitle")}
             </h2>
@@ -1144,8 +1148,8 @@ export default function BattleCreator() {
       )}
 
       {jsonOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 p-8 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="creator-json-title">
-          <div className="w-full max-w-4xl max-h-full flex flex-col rounded-xl border border-gray-700 bg-[#0b1020]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-8" role="dialog" aria-modal="true" aria-labelledby="creator-json-title">
+          <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col rounded-xl border border-gray-700 bg-[#0b1020]">
             <div className="flex items-center border-b border-gray-700 p-3">
               <strong id="creator-json-title">{t("creator.generatedJson")}</strong>
               <button
