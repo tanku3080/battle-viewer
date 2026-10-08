@@ -4,7 +4,6 @@ import Link from "next/link";
 import { DragEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import ForcePicker from "@/components/battle/ForcePicker";
 import ImageAssetPicker from "@/components/battle/ImageAssetPicker";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { useI18n, type MessageKey } from "@/i18n/I18nProvider";
 import { createBattleHubForce, getBattleHubForces } from "@/utils/battleHub/client";
 import { getForceColor, type ForceDefinition } from "@/utils/battle/forces";
@@ -765,7 +764,6 @@ export default function BattleCreator() {
         <span className="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-300">
           {t("creator.origin")}
         </span>
-        <LanguageSwitcher className="ml-auto" />
         <button
           onClick={requestJsonPreview}
           className="px-3 py-2 rounded bg-slate-600"

@@ -56,3 +56,43 @@ test("React UI source has no hard-coded Japanese text outside locale files", () 
 
   assert.deepEqual(violations, []);
 });
+
+
+test("language switcher is menu-only and avoids native select rendering", () => {
+  const switcher = fs.readFileSync(
+    path.join(root, "components/i18n/LanguageSwitcher.tsx"),
+    "utf8"
+  );
+  assert.doesNotMatch(switcher, /<select\b/);
+  assert.match(switcher, /aria-pressed/);
+
+  const home = fs.readFileSync(path.join(root, "app/home/page.tsx"), "utf8");
+  assert.match(home, /LanguageSwitcher/);
+
+  for (const relativePath of [
+    "app/page.tsx",
+    "app/battle/page.tsx",
+    "app/create/page.tsx",
+    "app/hub/page.tsx",
+  ]) {
+    const source = fs.readFileSync(path.join(root, relativePath), "utf8");
+    assert.doesNotMatch(source, /LanguageSwitcher/);
+  }
+});
+
+test("default locale is Japanese and browser language does not override it", () => {
+  const provider = fs.readFileSync(
+    path.join(root, "i18n/I18nProvider.tsx"),
+    "utf8"
+  );
+  assert.match(provider, /useState<Locale>\("ja"\)/);
+  assert.doesNotMatch(provider, /navigator\.language/);
+  assert.match(provider, /localStorage\.getItem\(STORAGE_KEY\)/);
+});
+
+test("Tauri starts in fullscreen mode", () => {
+  const config = JSON.parse(
+    fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8")
+  );
+  assert.equal(config.app.windows[0].fullscreen, true);
+});

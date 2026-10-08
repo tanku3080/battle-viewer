@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getBattleHubBattles, type BattleHubBattleSummary } from "@/utils/battleHub/client";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { useI18n } from "@/i18n/I18nProvider";
 
 export default function BattleHubPage() {
@@ -27,7 +26,6 @@ export default function BattleHubPage() {
           <h1 className="text-2xl font-semibold">{t("hub.title")}</h1>
           <p className="text-sm text-gray-400">{t("hub.description")}</p>
         </div>
-        <LanguageSwitcher className="ml-auto" />
       </header>
 
       <section className="max-w-5xl mx-auto">

@@ -14,7 +14,6 @@ import { TimelineBar } from "@/components/TimelineBar";
 import { BattlePlayer } from "@/components/battle/BattlePlayer/BattlePlayer";
 import { PanelContainer } from "@/components/battle/PanelContainer";
 import { ProductionModal } from "@/components/ProductionModal/ProductionModal";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { useI18n } from "@/i18n/I18nProvider";
 
 export default function BattlePage() {
@@ -71,7 +70,6 @@ export default function BattlePage() {
         <ViewModeButtons viewMode={viewMode} setViewMode={setViewMode} showGrid={showGrid} setShowGrid={setShowGrid} />
         <ProductionButton disabled={!battle} onStart={startProduction} />
         <BattleHubControls battleJson={sourceBattleJson} />
-        <LanguageSwitcher className="ml-auto" />
       </div>
 
       {loadError && (
