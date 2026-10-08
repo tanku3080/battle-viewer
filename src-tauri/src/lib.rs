@@ -470,7 +470,11 @@ pub fn run() {
       hub_post,
       p2p::p2p_get_status,
       p2p::p2p_update_settings,
-      p2p::p2p_get_inventory
+      p2p::p2p_get_inventory,
+      p2p::commands::p2p_start,
+      p2p::commands::p2p_stop,
+      p2p::commands::p2p_publish,
+      p2p::commands::p2p_fetch
     ])
     .setup(|app| {
       let p2p_state = match app.path().app_data_dir() {
