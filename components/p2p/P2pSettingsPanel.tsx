@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   desktopP2pInventory,
@@ -30,7 +30,11 @@ function bytesLabel(bytes: number) {
 
 export function P2pSettingsPanel() {
   const { t } = useI18n();
-  const desktop = useMemo(() => isTauriRuntime(), []);
+  const desktop = useSyncExternalStore(
+    () => () => {},
+    isTauriRuntime,
+    () => false
+  );
   const [status, setStatus] = useState<P2pStatus | null>(null);
   const [inventory, setInventory] = useState<P2pInventory | null>(null);
   const [draft, setDraft] = useState<P2pSettings | null>(null);
