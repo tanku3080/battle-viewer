@@ -90,12 +90,15 @@ test("default locale is Japanese and browser language does not override it", () 
   assert.match(provider, /localStorage\.getItem\(STORAGE_KEY\)/);
 });
 
-test("Tauri starts maximized without native fullscreen and uses custom chrome", () => {
+test("Tauri starts at normal size without native fullscreen and uses custom chrome", () => {
   const config = JSON.parse(
     fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8")
   );
   const windowConfig = config.app.windows[0];
-  assert.equal(windowConfig.maximized, true);
+  assert.equal(windowConfig.maximized, false);
+  assert.equal(windowConfig.width, 1280);
+  assert.equal(windowConfig.height, 800);
+  assert.equal(windowConfig.minWidth, 360);
   assert.equal(windowConfig.fullscreen, false);
   assert.equal(windowConfig.decorations, false);
 
@@ -146,4 +149,36 @@ test("viewer keeps native file chooser and modal dialogs available in maximized 
   assert.match(imagePicker, /type="file"/);
   assert.match(imagePicker, /<dialog/);
   assert.match(imagePicker, /showModal\(\)/);
+});
+
+
+test("responsive layouts cover mobile, tablet, and desktop without fixed viewport width", () => {
+  const battle = fs.readFileSync(path.join(root, "app/battle/page.tsx"), "utf8");
+  assert.match(battle, /min-h-dvh/);
+  assert.match(battle, /md:flex-row/);
+  assert.doesNotMatch(battle, /w-screen/);
+  assert.doesNotMatch(battle, /fixed bottom-0/);
+
+  const creator = fs.readFileSync(path.join(root, "app/create/page.tsx"), "utf8");
+  assert.match(creator, /lg:flex-row/);
+  assert.match(creator, /w-full max-h-\[40dvh\]/);
+  assert.match(creator, /lg:w-80/);
+
+  const panel = fs.readFileSync(
+    path.join(root, "components/battle/PanelContainer.tsx"),
+    "utf8"
+  );
+  assert.match(panel, /w-full/);
+  assert.match(panel, /md:w-\[260px\]/);
+});
+
+test("Tauri window tooltips are app-rendered and do not use native title attributes", () => {
+  const chrome = fs.readFileSync(
+    path.join(root, "components/tauri/TauriWindowChrome.tsx"),
+    "utf8"
+  );
+  assert.match(chrome, /role="tooltip"/);
+  assert.doesNotMatch(chrome, /title=\{/);
+  assert.match(chrome, /group-hover:opacity-100/);
+  assert.match(chrome, /group-focus-within:opacity-100/);
 });
