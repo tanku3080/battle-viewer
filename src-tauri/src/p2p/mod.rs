@@ -1,6 +1,7 @@
 mod identity;
 #[allow(dead_code)]
 mod network;
+mod network_auth;
 mod settings;
 
 use battle_p2p_core::cache::Cache;
