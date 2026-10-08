@@ -70,6 +70,7 @@ enum Command {
     content_hash: String,
     work_id: String,
     grants: Vec<String>,
+    expected_compressed_hash: String,
     reply: oneshot::Sender<Result<String, String>>,
   },
   Shutdown,
@@ -81,6 +82,7 @@ struct PendingFetch {
   content_hash: String,
   work_id: String,
   grants: Vec<String>,
+  expected_compressed_hash: String,
   reply: oneshot::Sender<Result<String, String>>,
 }
 
@@ -96,7 +98,7 @@ impl DirectTransportHandle {
     routes: Vec<PeerRoute>,
     content_hash: String,
   ) -> Result<String, String> {
-    self.fetch_authorized(routes, content_hash, String::new(), Vec::new()).await
+    self.fetch_authorized(routes, content_hash, String::new(), Vec::new(), String::new()).await
   }
 
   pub async fn fetch_authorized(
@@ -105,6 +107,7 @@ impl DirectTransportHandle {
     content_hash: String,
     work_id: String,
     grants: Vec<String>,
+    expected_compressed_hash: String,
   ) -> Result<String, String> {
     if routes.is_empty() || (!grants.is_empty() && grants.len() != routes.len()) {
       return Err("invalid P2P peer routes".into());
@@ -113,7 +116,7 @@ impl DirectTransportHandle {
     let (reply_tx, reply_rx) = oneshot::channel();
     self.command_tx
       .send(Command::Fetch {
-        routes, content_hash, work_id, grants, reply: reply_tx,
+        routes, content_hash, work_id, grants, expected_compressed_hash, reply: reply_tx,
       }).await.map_err(|_| "P2P network task is not running".to_string())?;
     reply_rx.await.map_err(|_| "P2P network task stopped".to_string())?
   }
@@ -276,7 +279,7 @@ async fn run_actor(
     tokio::select! {
       maybe_command = command_rx.recv() => {
         match maybe_command {
-          Some(Command::Fetch { routes, content_hash, work_id, grants, reply }) => {
+          Some(Command::Fetch { routes, content_hash, work_id, grants, expected_compressed_hash, reply }) => {
             if pending.is_some() || validating_response {
               let _ = reply.send(Err("another P2P fetch is already in progress".into()));
               continue;
@@ -287,6 +290,7 @@ async fn run_actor(
               content_hash,
               work_id,
               grants,
+              expected_compressed_hash,
               reply,
             };
             let request_id = send_next_request(&mut swarm, &mut state);
@@ -367,9 +371,10 @@ async fn run_actor(
                   let cache = Arc::clone(&cache);
                   let accept_tx = accept_tx.clone();
                   let expected_hash = state.content_hash.clone();
+                  let expected_compressed_hash = state.expected_compressed_hash.clone();
                   tokio::spawn(async move {
                     let result = tokio::task::spawn_blocking(move || {
-                      accept_response(&cache, &expected_hash, response)
+                      accept_response(&cache, &expected_hash, &expected_compressed_hash, response)
                     })
                     .await
                     .unwrap_or_else(|error| {
@@ -471,12 +476,16 @@ fn serve_request(
 fn accept_response(
   cache: &Arc<Mutex<Cache>>,
   expected_hash: &str,
+  expected_compressed_hash: &str,
   response: FetchResponse,
 ) -> Result<String, String> {
   match response {
     FetchResponse::Found { manifest, gzip, receipt } => {
       if manifest.content_hash != expected_hash {
         return Err("P2P peer returned a different content hash".into());
+      }
+      if !expected_compressed_hash.is_empty() && manifest.compressed_hash != expected_compressed_hash {
+        return Err("P2P peer returned a compressed representation that does not match Hub".into());
       }
       // Reject malicious raster payloads *before* publishing to the native cache.
       let raw = decode(&manifest, &gzip)
