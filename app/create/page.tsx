@@ -905,6 +905,9 @@ export default function BattleCreator() {
               backgroundSize: mapImage
                 ? "50px 50px, 50px 50px, 100% 100%"
                 : "50px 50px",
+              backgroundPosition: mapImage
+                ? "calc(50% + 25px) calc(50% + 25px), calc(50% + 25px) calc(50% + 25px), center center"
+                : "calc(50% + 25px) calc(50% + 25px)",
               backgroundRepeat: mapImage ? "repeat, repeat, no-repeat" : "repeat",
             }}
           >
