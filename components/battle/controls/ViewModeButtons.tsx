@@ -5,9 +5,11 @@ import { useI18n } from "@/i18n/I18nProvider";
 type Props = {
   viewMode: "map" | "camera";
   setViewMode: (mode: "map" | "camera") => void;
+  showGrid?: boolean;
+  setShowGrid?: (value: boolean) => void;
 };
 
-export function ViewModeButtons({ viewMode, setViewMode }: Props) {
+export function ViewModeButtons({ viewMode, setViewMode, showGrid, setShowGrid }: Props) {
   const { t } = useI18n();
 
   return (
@@ -28,6 +30,16 @@ export function ViewModeButtons({ viewMode, setViewMode }: Props) {
       >
         {t("view.camera")}
       </button>
+      {showGrid !== undefined && setShowGrid && (
+        <label className="flex min-h-11 items-center gap-2 sm:ml-2">
+          <input
+            type="checkbox"
+            checked={showGrid}
+            onChange={(event) => setShowGrid(event.target.checked)}
+          />
+          <span>{t("view.grid")}</span>
+        </label>
+      )}
     </div>
   );
 }

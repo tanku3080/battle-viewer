@@ -185,5 +185,10 @@
   "window.titlebar": "ウィンドウ操作",
   "hubAccess.panelOpen": "Battle Hubを開く",
   "hubAccess.panelClose": "Battle Hubを閉じる",
-  "canvas.touchHelp": "戦場表示。指またはマウスでドラッグして移動、2本指のピンチまたはホイールで拡大縮小できます。キーボードでは矢印キー、プラス/マイナス、Homeまたは0が使えます。"
+  "canvas.touchHelp": "戦場表示。指またはマウスでドラッグして移動、2本指のピンチまたはホイールで拡大縮小できます。キーボードでは矢印キー、プラス/マイナス、Homeまたは0が使えます。",
+  "creator.description": "解説",
+  "creator.descriptionPlaceholder": "この要素の背景や役割、フレーバーテキストを入力",
+  "creator.descriptionHelp": "任意項目です。JSONと閲覧画面の詳細表示にそのまま反映されます。",
+  "selected.description": "解説",
+  "selected.descriptionEmpty": "解説はありません。"
 }

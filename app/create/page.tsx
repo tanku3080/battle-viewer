@@ -52,6 +52,7 @@ type EditorItem = {
   type: SpatialType;
   id: string;
   name: string;
+  description: string;
   force: string;
   color: string;
   icon: string;
@@ -136,6 +137,7 @@ function emptyItem(type: SpatialType): EditorItem {
     type,
     id: "",
     name: "",
+    description: "",
     force: "",
     color: "",
     icon: "",
@@ -527,6 +529,9 @@ export default function BattleCreator() {
         ...(item.name.trim()
           ? { name: item.name.trim() }
           : {}),
+        ...(item.description.trim()
+          ? { description: item.description.trim() }
+          : {}),
         ...(getForceColor(forces, item.force) || item.color.trim()
           ? { color: getForceColor(forces, item.force) || item.color.trim() }
           : {}),
@@ -543,6 +548,9 @@ export default function BattleCreator() {
         id: item.id.trim(),
         ...(item.name.trim()
           ? { name: item.name.trim() }
+          : {}),
+        ...(item.description.trim()
+          ? { description: item.description.trim() }
           : {}),
         icon: item.icon.trim() || null,
         ...(item.destroyEnabled &&
@@ -584,6 +592,9 @@ export default function BattleCreator() {
           {
             level: item.type,
             name: item.name.trim() || item.id.trim(),
+            ...(item.description.trim()
+              ? { description: item.description.trim() }
+              : {}),
             ...(item.icon.trim() ? { icon: item.icon.trim() } : {}),
             parentId:
               item.type === "legion"
@@ -716,12 +727,12 @@ export default function BattleCreator() {
   };
 
   return (
-    <main className="flex min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#050816] text-gray-100">
-      <header className="shrink-0 border-b border-gray-700 bg-[#0b1020] px-2 py-2 sm:px-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+    <main className="flex min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#050816] text-gray-100 lg:h-screen lg:min-h-0">
+      <header className="shrink-0 border-b border-gray-700 bg-[#0b1020] px-2 py-2 sm:px-4 lg:flex lg:h-16 lg:items-center lg:px-4 lg:py-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 lg:w-full lg:flex-nowrap lg:gap-3">
         <Link
           href="/home"
-          className="min-h-11 px-3 py-2 rounded bg-gray-700"
+          className="min-h-11 px-3 py-2 rounded bg-gray-700 lg:min-h-0"
         >
           {t("creator.back")}
         </Link>
@@ -730,7 +741,7 @@ export default function BattleCreator() {
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t("creator.battleName")}
           aria-label={t("creator.battleName")}
-          className="min-h-11 min-w-0 flex-1 basis-48 rounded border border-gray-600 bg-[#111827] px-3 py-2 sm:max-w-60"
+          className="min-h-11 min-w-0 flex-1 basis-48 rounded border border-gray-600 bg-[#111827] px-3 py-2 sm:max-w-60 lg:min-h-0 lg:w-52 lg:flex-none lg:basis-auto"
         />
         <ImageAssetPicker
           label={t("creator.mapImage")}
@@ -749,7 +760,7 @@ export default function BattleCreator() {
           }
           title="map.width"
           aria-label={t("creator.mapWidth")}
-          className="min-h-11 w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
+          className="min-h-11 w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2 lg:min-h-0"
         />
         <input
           type="number"
@@ -760,20 +771,20 @@ export default function BattleCreator() {
           }
           title="map.height"
           aria-label={t("creator.mapHeight")}
-          className="min-h-11 w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2"
+          className="min-h-11 w-24 rounded border border-gray-600 bg-[#111827] px-2 py-2 lg:min-h-0"
         />
         <span className="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-300">
           {t("creator.origin")}
         </span>
         <button
           onClick={requestJsonPreview}
-          className="min-h-11 px-3 py-2 rounded bg-slate-600"
+          className="min-h-11 px-3 py-2 rounded bg-slate-600 lg:min-h-0"
         >
           {t("creator.previewJson")}
         </button>
         <button
           onClick={requestJsonSave}
-          className="min-h-11 px-3 py-2 rounded bg-emerald-600"
+          className="min-h-11 px-3 py-2 rounded bg-emerald-600 lg:min-h-0"
         >
           {t("creator.saveJson")}
         </button>
@@ -791,7 +802,7 @@ export default function BattleCreator() {
         >
           <button
             onClick={() => setSidebarOpen((value) => !value)}
-            className="min-h-11 w-full border-b border-gray-700"
+            className="min-h-11 w-full border-b border-gray-700 lg:h-10 lg:min-h-0"
           >
             {sidebarOpen ? t("creator.sidebarOpen") : t("creator.sidebarClosed")}
           </button>
@@ -894,6 +905,9 @@ export default function BattleCreator() {
               backgroundSize: mapImage
                 ? "50px 50px, 50px 50px, 100% 100%"
                 : "50px 50px",
+              backgroundPosition: mapImage
+                ? "calc(50% + 25px) calc(50% + 25px), calc(50% + 25px) calc(50% + 25px), center center"
+                : "calc(50% + 25px) calc(50% + 25px)",
               backgroundRepeat: mapImage ? "repeat, repeat, no-repeat" : "repeat",
             }}
           >
@@ -1036,7 +1050,7 @@ export default function BattleCreator() {
           </div>
 
           <div className="shrink-0 border-t border-gray-700 bg-[#111827] px-3 py-3 sm:px-5">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:flex-nowrap lg:gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -1045,18 +1059,18 @@ export default function BattleCreator() {
                   }
                   setIsPlaying(true);
                 }}
-                className="min-h-11 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700"
+                className="min-h-11 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 lg:min-h-0 lg:py-1"
               >
                 {t("creator.play")}
               </button>
               <button
                 type="button"
                 onClick={() => setIsPlaying(false)}
-                className="min-h-11 px-3 py-2 rounded bg-gray-600 hover:bg-gray-500"
+                className="min-h-11 px-3 py-2 rounded bg-gray-600 hover:bg-gray-500 lg:min-h-0 lg:py-1"
               >
                 {t("creator.stop")}
               </button>
-              <span className="min-w-20 text-sm" role="status" aria-live="polite">
+              <span className="min-w-20 text-sm lg:w-20" role="status" aria-live="polite">
                 {currentTime.toFixed(1)}s
               </span>
               <input
@@ -1069,9 +1083,9 @@ export default function BattleCreator() {
                   setIsPlaying(false);
                   setCurrentTime(Number(e.target.value));
                 }}
-                className="min-w-40 flex-1 basis-48"
+                className="min-w-40 flex-1 basis-48 lg:basis-auto"
               />
-              <label className="flex min-h-11 items-center gap-2 text-xs">
+              <label className="flex min-h-11 items-center gap-2 text-xs lg:min-h-0">
                 {t("creator.maxSeconds")}
                 <input
                   type="number"
@@ -1082,7 +1096,7 @@ export default function BattleCreator() {
                       Math.max(1, Number(e.target.value))
                     )
                   }
-                  className="min-h-9 w-20 rounded border border-gray-600 bg-[#0b1020] px-2 py-1"
+                  className="min-h-9 w-20 rounded border border-gray-600 bg-[#0b1020] px-2 py-1 lg:min-h-0"
                 />
               </label>
             </div>
@@ -1512,6 +1526,23 @@ function ItemProperties({
         value={item.name}
         onChange={(name) => onChange({ name })}
       />
+
+      {item.type !== "camera" && (
+        <label className="mb-3 block text-xs text-gray-300">
+          {t("creator.description")}
+          <textarea
+            value={item.description}
+            onChange={(event) => onChange({ description: event.target.value })}
+            rows={5}
+            maxLength={2000}
+            placeholder={t("creator.descriptionPlaceholder")}
+            className="mt-1 block w-full resize-y rounded border border-gray-600 bg-[#111827] px-3 py-2 text-sm leading-5"
+          />
+          <span className="mt-1 block text-[11px] text-gray-500">
+            {t("creator.descriptionHelp")}
+          </span>
+        </label>
+      )}
 
       {item.type === "unit" && (
         <ForcePicker

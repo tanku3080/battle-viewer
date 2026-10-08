@@ -3,12 +3,13 @@
 import { useI18n } from "@/i18n/I18nProvider";
 
 type PlaybackProps = {
+  currentTime?: number;
   isPlaying: boolean;
   onStart: () => void;
   onStop: () => void;
 };
 
-export function PlaybackControls({ isPlaying, onStart, onStop }: PlaybackProps) {
+export function PlaybackControls({ currentTime, isPlaying, onStart, onStop }: PlaybackProps) {
   const { t } = useI18n();
 
   return (
@@ -28,6 +29,11 @@ export function PlaybackControls({ isPlaying, onStart, onStop }: PlaybackProps) 
       >
         {t("playback.stop")}
       </button>
+      {currentTime !== undefined && (
+        <span className="text-sm opacity-80" role="status" aria-live="polite" aria-atomic="true">
+          {t("playback.current", { time: currentTime.toFixed(1) })}
+        </span>
+      )}
     </div>
   );
 }

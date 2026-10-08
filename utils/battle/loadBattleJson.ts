@@ -37,6 +37,7 @@ type RawUnit = Partial<Omit<UnitDefinition, "id">> & {
 type RawCharacter = {
   id: string;
   name?: string;
+  description?: string;
   icon?: string | null;
   destroyAt?: number;
   timeline?: TimelinePoint[];
@@ -109,6 +110,7 @@ function buildUnitDefinitions(units: RawUnit[], forces: ForceDefinition[]) {
       id: unit.id,
       force: unit.force,
       name: unit.name ?? unit.id,
+      description: typeof unit.description === "string" ? unit.description : undefined,
       color: getForceColor(forces, unit.force) ?? unit.color ?? fallbackColor(unit.id),
       icon: unit.icon ?? null,
       destroyAt:
@@ -193,6 +195,7 @@ function buildCharacters(
     return {
       id,
       name: def?.name ?? id,
+      description: typeof def?.description === "string" ? def.description : undefined,
       icon: def?.icon ?? null,
       destroyAt:
         typeof def?.destroyAt === "number" && Number.isFinite(def.destroyAt)
@@ -230,6 +233,7 @@ function normalizeHierarchy(
       id,
       level: value.level,
       name: value.name ?? id,
+      description: typeof value.description === "string" ? value.description : undefined,
       icon: value.icon ?? null,
       parentId: value.parentId ?? null,
       childrenIds: [...(value.childrenIds ?? [])],

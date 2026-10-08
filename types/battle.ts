@@ -12,6 +12,7 @@ export type UnitDefinition = {
   id: string;
   force?: string;
   name: string;
+  description?: string;
   color: string;
   icon: string | null;
   destroyAt?: number;
@@ -26,6 +27,7 @@ export type Unit = UnitDefinition & {
 export type Character = {
   id: string;
   name: string;
+  description?: string;
   icon?: string | null;
   destroyAt?: number;
   timeline: TimelinePoint[];
@@ -42,6 +44,7 @@ export type HierarchyNode = {
   id: string;
   level: HierarchyLevel;
   name: string;
+  description?: string;
   icon?: string | null;
   parentId: string | null;
   childrenIds: string[];

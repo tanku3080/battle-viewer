@@ -17,6 +17,7 @@ export type PanelData = {
   type: "unit" | "character";
   id: string;
   name: string;
+  description?: string;
   iconPath: string | null;
   currentPosition: { x: number; y: number } | null;
   dirDeg?: number;
@@ -83,6 +84,7 @@ export function useSelection(battle: BattleData | null, currentTime: number) {
         type: "unit",
         id: unit.id,
         name: unit.name,
+        description: unit.description,
         iconPath: unit.icon ?? null,
         force: unit.force,
         ...meta,
@@ -101,6 +103,7 @@ export function useSelection(battle: BattleData | null, currentTime: number) {
       type: "character",
       id: character.id,
       name: character.name,
+      description: character.description,
       iconPath: character.icon ?? null,
       ...meta,
     };

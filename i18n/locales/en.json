@@ -185,5 +185,10 @@
   "window.titlebar": "Window controls",
   "hubAccess.panelOpen": "Open Battle Hub panel",
   "hubAccess.panelClose": "Close Battle Hub panel",
-  "canvas.touchHelp": "Battlefield view. Drag with a finger or mouse to pan, pinch with two fingers or use the mouse wheel to zoom. Keyboard controls remain available with arrow keys, plus/minus, Home, or 0."
+  "canvas.touchHelp": "Battlefield view. Drag with a finger or mouse to pan, pinch with two fingers or use the mouse wheel to zoom. Keyboard controls remain available with arrow keys, plus/minus, Home, or 0.",
+  "creator.description": "Description",
+  "creator.descriptionPlaceholder": "Add background, role, or flavor text for this element",
+  "creator.descriptionHelp": "Optional. This text is exported to JSON and shown read-only in the viewer.",
+  "selected.description": "Description",
+  "selected.descriptionEmpty": "No description provided."
 }

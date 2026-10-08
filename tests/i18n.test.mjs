@@ -213,17 +213,27 @@ test("Battle Hub navigation is hidden below desktop while JSON publish remains a
   assert.match(home, /hidden lg:block/);
 });
 
-test("viewer toolbar follows the mobile priority order", () => {
+test("viewer keeps legacy desktop toolbar while mobile/tablet use priority layout", () => {
   const battle = fs.readFileSync(path.join(root, "app/battle/page.tsx"), "utf8");
 
-  const back = battle.indexOf('t("battle.back")');
-  const grid = battle.indexOf('t("view.grid")');
-  const load = battle.indexOf('t("battle.loadJson")');
-  const publish = battle.indexOf("<BattleHubControls");
-  const playback = battle.indexOf("<PlaybackControls");
-  const viewModes = battle.indexOf("<ViewModeButtons");
-  const production = battle.indexOf("<ProductionButton");
-  const current = battle.indexOf('t("playback.current"');
+  const desktopStart = battle.indexOf('className="hidden min-w-0 flex-wrap items-center gap-2 p-3 lg:flex');
+  const mobileStart = battle.indexOf('className="grid gap-2 p-2 sm:p-3 lg:hidden"');
+  assert.ok(desktopStart >= 0 && mobileStart > desktopStart);
+
+  const desktop = battle.slice(desktopStart, mobileStart);
+  assert.ok(desktop.indexOf('t("battle.loadJson")') < desktop.indexOf('t("battle.back")'));
+  assert.ok(desktop.includes("currentTime={currentTime}"));
+  assert.ok(desktop.includes("showGrid={showGrid}"));
+
+  const mobile = battle.slice(mobileStart);
+  const back = mobile.indexOf('t("battle.back")');
+  const grid = mobile.indexOf('t("view.grid")');
+  const load = mobile.indexOf('t("battle.loadJson")');
+  const publish = mobile.indexOf("<BattleHubControls");
+  const playback = mobile.indexOf("<PlaybackControls");
+  const viewModes = mobile.indexOf("<ViewModeButtons");
+  const production = mobile.indexOf("<ProductionButton");
+  const current = mobile.indexOf('t("playback.current"');
 
   assert.ok(back >= 0 && grid > back);
   assert.ok(load > grid && publish > load);
@@ -240,4 +250,51 @@ test("selected details do not expose icon path or base64 metadata", () => {
   assert.doesNotMatch(panel, /iconPath \?\? t\("common\.none"\)/);
   assert.equal("selected.iconPath" in ja, false);
   assert.equal("selected.iconPath" in en, false);
+});
+
+
+test("Creator desktop layout keeps the legacy three-column structure", () => {
+  const creator = fs.readFileSync(path.join(root, "app/create/page.tsx"), "utf8");
+  assert.match(creator, /lg:h-screen/);
+  assert.match(creator, /lg:h-16/);
+  assert.match(creator, /lg:flex-row/);
+  assert.match(creator, /lg:w-80/);
+  assert.match(creator, /lg:border-r/);
+  assert.match(creator, /lg:border-l/);
+});
+
+test("element description flows from Creator JSON to read-only Viewer details", () => {
+  const creator = fs.readFileSync(path.join(root, "app/create/page.tsx"), "utf8");
+  assert.match(creator, /description: item\.description\.trim\(\)/);
+  assert.match(creator, /creator\.description/);
+  assert.match(creator, /<textarea/);
+
+  const loader = fs.readFileSync(path.join(root, "utils/battle/loadBattleJson.ts"), "utf8");
+  assert.match(loader, /unit\.description/);
+  assert.match(loader, /def\?\.description/);
+  assert.match(loader, /value\.description/);
+
+  const selection = fs.readFileSync(path.join(root, "hook/useSelection.ts"), "utf8");
+  assert.match(selection, /description: unit\.description/);
+  assert.match(selection, /description: character\.description/);
+
+  const panel = fs.readFileSync(
+    path.join(root, "components/SelectedInfoPanel.tsx"),
+    "utf8"
+  );
+  assert.match(panel, /selected\.description/);
+  assert.match(panel, /whitespace-pre-wrap/);
+  assert.doesNotMatch(panel, /<textarea/);
+});
+
+
+test("Creator grid origin stays centered when property panel changes editor width", () => {
+  const creator = fs.readFileSync(path.join(root, "app/create/page.tsx"), "utf8");
+
+  assert.match(
+    creator,
+    /backgroundPosition: mapImage[\s\S]*calc\(50% \+ 25px\) calc\(50% \+ 25px\)/
+  );
+  assert.match(creator, /left-1\/2 top-0 bottom-0/);
+  assert.match(creator, /top-1\/2 left-0 right-0/);
 });
