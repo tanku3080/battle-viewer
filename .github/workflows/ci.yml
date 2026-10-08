@@ -18,6 +18,32 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.90.0
       - run: cargo check --manifest-path crates/battle-p2p-core/Cargo.toml --locked --all-targets
 
+  tauri-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Regenerate Tauri lockfile
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+      - name: Verify committed Tauri lockfile
+        run: git diff --exit-code -- src-tauri/Cargo.lock
+
+  tauri-rust-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check Tauri Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - name: Test Tauri Rust state and persistence
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - name: Check Tauri Rust warnings
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+
   p2p-native-core:
     strategy:
       matrix:
@@ -101,6 +127,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Test Tauri Rust state and persistence
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
 
       - name: Build Tauri Debian package
         run: npm run tauri build -- --bundles deb
