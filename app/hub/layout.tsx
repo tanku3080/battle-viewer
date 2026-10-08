@@ -3,13 +3,9 @@ import { AuthActivityGuard } from "@/components/auth/AuthActivityGuard";
 
 export const metadata: Metadata = {
   title: "Battle Viewer | Battle Hub",
-  description: "Battle Hubに投稿されたBattleを確認します。",
+  description: "Browse battles published to Battle Hub.",
 };
 
-export default function HubLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function HubLayout({ children }: { children: React.ReactNode }) {
   return <AuthActivityGuard>{children}</AuthActivityGuard>;
 }
