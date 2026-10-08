@@ -40,7 +40,7 @@ export async function desktopLogout(): Promise<DesktopResponse<null>> {
 }
 
 export async function desktopHubGet<T>(
-  resource: "health" | "forces" | "battles"
+  resource: "health" | "forces" | "battles" | "works"
 ): Promise<DesktopResponse<T>> {
   return invoke("hub_get", { resource });
 }
