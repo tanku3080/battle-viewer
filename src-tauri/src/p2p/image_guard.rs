@@ -14,9 +14,8 @@ pub fn validate_render_assets(raw: &[u8]) -> Result<(), String> {
   let mut assets: Vec<&str> = Vec::new();
 
   fn push<'a>(list: &mut Vec<&'a str>, icon: Option<&'a Value>) {
-    if let Some(text) = icon.and_then(Value::as_str) {
-      if !text.is_empty() { list.push(text); }
-    }
+    if let Some(text) = icon.and_then(Value::as_str)
+      && !text.is_empty() { list.push(text); }
   }
 
   push(&mut assets, root.pointer("/map/image"));
