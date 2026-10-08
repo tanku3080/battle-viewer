@@ -1,3 +1,4 @@
+import { consumeDistributedJson } from "@/utils/battleHub/pendingTransfer";
 "use client";
 
 import Link from "next/link";
@@ -34,9 +35,8 @@ export default function BattlePage() {
   } = useSelection(battle, currentTime);
 
   useEffect(() => {
-    const incoming = sessionStorage.getItem("battle-viewer:incoming-json");
+    const incoming = consumeDistributedJson();
     if (!incoming) return;
-    sessionStorage.removeItem("battle-viewer:incoming-json");
     // Parse and validate before mutating current Viewer state.
     Promise.resolve().then(() => {
       try {
