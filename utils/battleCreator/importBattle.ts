@@ -82,7 +82,7 @@ function importedKey(type: CreatorSpatialType, id: string, index: number) {
   return `import:${type}:${id || index}`;
 }
 
-function toCreatorPoint<T extends TimelinePoint>(
+function toCreatorPoint<T extends { x: number; y: number }>(
   point: T,
   map: RawBattleJson["map"]
 ): T {
@@ -181,12 +181,17 @@ function parseSnapshotItem(
         )
       : undefined;
 
-  const fallbackX = finite(value.x, first?.x ?? 0);
-  const fallbackY = finite(value.y, first?.y ?? 0);
-  const normalizedFallback = toCreatorPoint(
-    { x: fallbackX, y: fallbackY },
-    map
-  );
+  const hasRawFallback =
+    typeof value.x === "number" &&
+    Number.isFinite(value.x) &&
+    typeof value.y === "number" &&
+    Number.isFinite(value.y);
+  const normalizedFallback = hasRawFallback
+    ? toCreatorPoint(
+        { x: Number(value.x), y: Number(value.y) },
+        map
+      )
+    : { x: first?.x ?? 0, y: first?.y ?? 0 };
 
   return {
     key: stringValue(value.key, importedKey(type, id, index)),
@@ -261,13 +266,9 @@ function makeFallbackItem(args: {
 }): CreatorEditorItem {
   const timeline = normalizeTimeline(args.timeline ?? [], args.map);
   const first = timeline[0];
-  const fallback = toCreatorPoint(
-    args.fallback ?? {
-      x: first?.x ?? 0,
-      y: first?.y ?? 0,
-    },
-    args.map
-  );
+  const fallback = args.fallback
+    ? toCreatorPoint(args.fallback, args.map)
+    : { x: first?.x ?? 0, y: first?.y ?? 0 };
 
   return {
     key: importedKey(args.type, args.id, args.index),
