@@ -97,7 +97,7 @@ export default function BattlePage() {
             <BattleHubControls battleJson={sourceBattleJson} />
           </div>
 
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <PlaybackControls
               isPlaying={isPlaying}
               onStart={start}
