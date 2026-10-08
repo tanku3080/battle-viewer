@@ -29,6 +29,24 @@ pub struct P2pState {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CacheEntryView {
+  pub content_hash: String,
+  pub compressed_hash: String,
+  pub compressed_size: u64,
+  pub uncompressed_size: u64,
+  pub stored_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct P2pInventoryView {
+  pub entries: Vec<CacheEntryView>,
+  pub corrupt_hashes: Vec<String>,
+  pub used_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct P2pStatus {
   available: bool,
   network_active: bool,
@@ -130,9 +148,56 @@ async fn status(state: &P2pState) -> Result<P2pStatus, String> {
   })
 }
 
+async fn inventory(ready: &ReadyState) -> Result<P2pInventoryView, String> {
+  let cache = Arc::clone(&ready.cache);
+  tauri::async_runtime::spawn_blocking(move || {
+    let cache = cache
+      .lock()
+      .map_err(|_| "failed to lock P2P cache".to_string())?;
+    let inventory = cache
+      .inventory()
+      .map_err(|error| format!("failed to inspect P2P cache: {error}"))?;
+
+    Ok::<P2pInventoryView, String>(P2pInventoryView {
+      entries: inventory
+        .entries
+        .into_iter()
+        .map(|entry| CacheEntryView {
+          content_hash: entry.manifest.content_hash,
+          compressed_hash: entry.manifest.compressed_hash,
+          compressed_size: entry.manifest.compressed_size,
+          uncompressed_size: entry.manifest.uncompressed_size,
+          stored_bytes: entry.stored_bytes,
+        })
+        .collect(),
+      corrupt_hashes: inventory.corrupt_hashes,
+      used_bytes: inventory.used_bytes,
+    })
+  })
+  .await
+  .map_err(|error| format!("P2P inventory worker failed: {error}"))?
+}
+
 #[tauri::command]
 pub async fn p2p_get_status(state: State<'_, P2pState>) -> Result<P2pStatus, String> {
   status(&state).await
+}
+
+
+#[tauri::command]
+pub async fn p2p_get_inventory(
+  state: State<'_, P2pState>,
+) -> Result<P2pInventoryView, String> {
+  let ready = state
+    .ready
+    .as_ref()
+    .ok_or_else(|| {
+      state
+        .initialization_error
+        .clone()
+        .unwrap_or_else(|| "P2P is unavailable".to_string())
+    })?;
+  inventory(ready).await
 }
 
 #[tauri::command]
