@@ -30,10 +30,8 @@ jobs:
           workspaces: |
             src-tauri -> target
             crates/battle-p2p-core -> target
-      - name: Validate Tauri Cargo.lock
-        run: |
-          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-          git diff --exit-code -- src-tauri/Cargo.lock
+      - name: Verify locked dependency graph without upgrades
+        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
       - run: npm ci
       - run: npm audit --audit-level=critical
       - run: npm run lint
