@@ -17,6 +17,7 @@ const KIB = 1024;
 const MIN_UPLOAD_KIB = 16;
 const MAX_UPLOAD_KIB = 64 * 1024;
 const MAX_CACHE_MIB = 64 * 1024;
+const subscribeRuntime = () => () => {};
 
 function bytesLabel(bytes: number) {
   if (!Number.isFinite(bytes) || bytes < 0) return "-";
@@ -31,14 +32,14 @@ function bytesLabel(bytes: number) {
 export function P2pSettingsPanel() {
   const { t } = useI18n();
   const desktop = useSyncExternalStore(
-    () => () => {},
+    subscribeRuntime,
     isTauriRuntime,
     () => false
   );
   const [status, setStatus] = useState<P2pStatus | null>(null);
   const [inventory, setInventory] = useState<P2pInventory | null>(null);
   const [draft, setDraft] = useState<P2pSettings | null>(null);
-  const [loading, setLoading] = useState(desktop);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
