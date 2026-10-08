@@ -10,6 +10,13 @@ const { prepareFrameState } = loadTs("components/battle/BattlePlayer/runtime.ts"
 const { getBattleDuration } = loadTs("utils/battle/getBattleDuration.ts");
 const { validateForce } = loadTs("utils/battle/forces.ts");
 const ForcePicker = loadTs("components/battle/ForcePicker.tsx").default;
+const { I18nProvider } = loadTs("i18n/I18nProvider.tsx");
+
+function renderWithI18n(element) {
+  return renderToStaticMarkup(
+    React.createElement(I18nProvider, null, element)
+  );
+}
 
 function item(type, id, x = 0, y = 0, parentId = "", groupMove = false, t = 0) {
   return { type, id, key: id || crypto.randomUUID(), parentId, groupMove, x, y, appearAt: t, timeline: [{ t, x, y, explicit: false }] };
@@ -245,10 +252,10 @@ test("force validation rejects blanks, long names, duplicates and malformed colo
 
 test("force picker shows only creation when empty and registered names when available", () => {
   const props = { value: "", forces: [], loading: false, loadError: "", onRetry() {}, onChange() {}, async onCreate(force) { return force; } };
-  const empty = renderToStaticMarkup(React.createElement(ForcePicker, props));
+  const empty = renderWithI18n(React.createElement(ForcePicker, props));
   assert.ok(empty.includes("＋ 新しいforceを作成"));
   assert.ok(!empty.includes("<select"));
-  const registered = renderToStaticMarkup(React.createElement(ForcePicker, { ...props, value: "Blue", forces: [{ name: "Blue", color: "#123456" }] }));
+  const registered = renderWithI18n(React.createElement(ForcePicker, { ...props, value: "Blue", forces: [{ name: "Blue", color: "#123456" }] }));
   assert.ok(registered.includes("<select"));
   assert.ok(registered.includes("Blue"));
   assert.ok(registered.includes("#123456"));
