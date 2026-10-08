@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { DragEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import ForcePicker from "@/components/battle/ForcePicker";
 import ImageAssetPicker from "@/components/battle/ImageAssetPicker";
 import { useI18n, type MessageKey } from "@/i18n/I18nProvider";
 import { createBattleHubForce, getBattleHubForces } from "@/utils/battleHub/client";
 import { getForceColor, type ForceDefinition } from "@/utils/battle/forces";
+import type { RawBattleJson } from "@/utils/battle/loadBattleJson";
+import {
+  importCreatorBattleJson,
+  planCreatorForceSync,
+} from "@/utils/battleCreator/importBattle";
 import {
   buildCreatorWorldTimeline,
   getCreatorItemPositionAt,
@@ -217,6 +222,11 @@ export default function BattleCreator() {
   const [forcesLoading, setForcesLoading] = useState(true);
   const [forcesError, setForcesError] = useState("");
   const [forceLoadVersion, setForceLoadVersion] = useState(0);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importNotice, setImportNotice] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -235,6 +245,95 @@ export default function BattleCreator() {
     const registered = await createBattleHubForce(force);
     setForces((old) => [...old.filter((entry) => entry.name !== registered.name), registered]);
     return registered;
+  };
+
+  const importBattleJson = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || isImporting) return;
+
+    setIsImporting(true);
+    setImportNotice(null);
+
+    try {
+      const parsed = JSON.parse(await file.text()) as RawBattleJson;
+      const imported = importCreatorBattleJson(parsed);
+
+      // Validate the full sync plan before changing Creator state.
+      const registered = await getBattleHubForces();
+      const plan = planCreatorForceSync(imported, registered);
+      if (plan.unresolvedForces.length) {
+        throw new Error(
+          t("creator.importForceMissingColor", {
+            names: plan.unresolvedForces.join(", "),
+          })
+        );
+      }
+
+      const synced = [...registered];
+      for (const definition of plan.missingDefinitions) {
+        const created = await createBattleHubForce(definition);
+        const key = created.name.trim().toLowerCase();
+        const existingIndex = synced.findIndex(
+          (force) => force.name.trim().toLowerCase() === key
+        );
+        if (existingIndex >= 0) synced[existingIndex] = created;
+        else synced.push(created);
+      }
+
+      const canonicalForceNames = new Map(
+        synced.map((force) => [
+          force.name.trim().toLowerCase(),
+          force.name,
+        ])
+      );
+      const importedItems: EditorItem[] = imported.items.map((item) => ({
+        ...item,
+        force:
+          item.type === "unit" && item.force.trim()
+            ? canonicalForceNames.get(item.force.trim().toLowerCase()) ??
+              item.force
+            : item.force,
+      }));
+
+      // Commit all editor state only after parse + force sync has succeeded.
+      setTitle(imported.title);
+      setMapImage(imported.mapImage);
+      setMapWidth(imported.mapWidth);
+      setMapHeight(imported.mapHeight);
+      setDuration(imported.duration);
+      setCurrentTime(0);
+      setIsPlaying(false);
+      setItems(importedItems);
+      setSelectedKey(null);
+      setDraftItem(null);
+      setJsonOpen(false);
+      setValidationDialog(null);
+      setShowValidationErrors(false);
+      setForces(synced);
+      setForcesError("");
+
+      setImportNotice({
+        kind: "success",
+        message: t("creator.importSuccess", {
+          count: plan.missingDefinitions.length,
+        }),
+      });
+    } catch (error) {
+      setImportNotice({
+        kind: "error",
+        message: t("creator.importFailed", {
+          message:
+            error instanceof Error
+              ? error.message
+              : t("creator.importUnknownError"),
+        }),
+      });
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const invalidItems = useMemo(
@@ -673,6 +772,24 @@ export default function BattleCreator() {
       units,
       ...(forces.length ? { forces: forces.map(({ name, color }) => ({ name, color })) } : {}),
       ...(characters.length ? { characters } : {}),
+      creatorState: {
+        version: 1,
+        duration,
+        items: validItems.map((item) => ({
+          ...item,
+          timeline: item.timeline.map((point) => ({ ...point })),
+          ...(item.groupMoveTimeline
+            ? {
+                groupMoveTimeline: item.groupMoveTimeline.map((point) => ({
+                  ...point,
+                })),
+              }
+            : {}),
+          ...(item.groupOrigin
+            ? { groupOrigin: { ...item.groupOrigin } }
+            : {}),
+        })),
+      },
       timeline: {
         ...(camera.length ? { camera } : {}),
         units: unitTimeline,
@@ -682,7 +799,7 @@ export default function BattleCreator() {
           : {}),
       },
     };
-  }, [items, forces, title, mapImage, mapWidth, mapHeight]);
+  }, [items, forces, title, mapImage, mapWidth, mapHeight, duration]);
 
   const saveJson = () => {
     const blob = new Blob(
@@ -776,6 +893,29 @@ export default function BattleCreator() {
         <span className="rounded border border-gray-700 bg-[#111827] px-3 py-2 text-xs text-gray-300">
           {t("creator.origin")}
         </span>
+        <input
+          id="creator-json-import"
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={importBattleJson}
+        />
+        <button
+          type="button"
+          disabled={isImporting}
+          onClick={() =>
+            (
+              document.getElementById(
+                "creator-json-import"
+              ) as HTMLInputElement | null
+            )?.click()
+          }
+          className="min-h-11 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 lg:min-h-0"
+        >
+          {isImporting
+            ? t("creator.importingJson")
+            : t("creator.importJson")}
+        </button>
         <button
           onClick={requestJsonPreview}
           className="min-h-11 px-3 py-2 rounded bg-slate-600 lg:min-h-0"
@@ -790,6 +930,21 @@ export default function BattleCreator() {
         </button>
         </div>
       </header>
+
+      {importNotice && (
+        <div
+          role={importNotice.kind === "error" ? "alert" : "status"}
+          aria-live="polite"
+          className={
+            "shrink-0 border-b px-4 py-2 text-sm " +
+            (importNotice.kind === "error"
+              ? "border-red-800 bg-red-950 text-red-200"
+              : "border-emerald-800 bg-emerald-950 text-emerald-200")
+          }
+        >
+          {importNotice.message}
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-auto lg:flex-row lg:overflow-hidden">
         <aside
