@@ -168,11 +168,15 @@ src-tauri/target/x86_64-pc-windows-msvc/
 ## Tauri window behavior
 
 `npm run tauri dev` と配布版は、OSのネイティブfullscreenではなく
-**最大化された通常ウィンドウ**として起動します。
+**1280 x 800 の通常ウィンドウ**として起動します。ユーザー操作で最大化できます。
 
 ```json
 {
-  "maximized": true,
+  "width": 1280,
+  "height": 800,
+  "minWidth": 360,
+  "minHeight": 520,
+  "maximized": false,
   "fullscreen": false,
   "decorations": false
 }
@@ -192,6 +196,8 @@ Battle Viewerのカスタムタイトルバーが表示されます。
 - タイトル部分のダブルクリック: 最大化 / 復元
 
 タイトルバーはTauri実行時だけ表示され、通常Web版では表示されません。
+
+レスポンシブ確認のため最小幅は360pxまで許可しています。PC / Tablet / SP幅へ縮小しても、主要画面は横スクロールに依存せず再配置されます。
 
 この構成ではViewerのJSONファイル選択、Creatorの画像ファイル選択、
 Battle Hub投稿ダイアログなどは通常のmaximized window上で動作し、
