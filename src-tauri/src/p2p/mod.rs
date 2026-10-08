@@ -278,7 +278,25 @@ pub async fn p2p_update_settings(
   .await
   .map_err(|error| format!("P2P settings worker failed: {error}"))??;
 
+  if !updated.participation_enabled {
+    ready.running.store(false, std::sync::atomic::Ordering::Release);
+    if let Some(transport) = ready.network.lock().await.take() {
+      transport.handle().shutdown().await;
+    }
+    if let Ok(mut address) = ready.advertised_address.lock() { *address = None; }
+  }
+
   status(&state).await
+}
+
+pub(crate) async fn stop_on_logout(state: &P2pState) {
+  if let Some(ready) = &state.ready {
+    ready.running.store(false, std::sync::atomic::Ordering::Release);
+    if let Some(transport) = ready.network.lock().await.take() {
+      transport.handle().shutdown().await;
+    }
+    if let Ok(mut address) = ready.advertised_address.lock() { *address = None; }
+  }
 }
 
 #[cfg(test)]
