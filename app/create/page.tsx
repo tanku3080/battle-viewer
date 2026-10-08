@@ -247,18 +247,13 @@ export default function BattleCreator() {
     return registered;
   };
 
-  const importBattleJson = async (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || isImporting) return;
-
+  const importBattleText = async (source: string) => {
+    if (isImporting) return;
     setIsImporting(true);
     setImportNotice(null);
 
     try {
-      const parsed = JSON.parse(await file.text()) as RawBattleJson;
+      const parsed = JSON.parse(source) as RawBattleJson;
       const imported = importCreatorBattleJson(parsed);
 
       // Validate the full sync plan before changing Creator state.
@@ -338,6 +333,23 @@ export default function BattleCreator() {
       setIsImporting(false);
     }
   };
+  const importBattleJson = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    await importBattleText(await file.text());
+  };
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem("battle-viewer:incoming-json");
+    if (pending) {
+      sessionStorage.removeItem("battle-viewer:incoming-json");
+      void importBattleText(pending);
+    }
+    // Runs once on initial Creator mount; the import itself remains transactional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const invalidItems = useMemo(
     () => items.filter((item) => hasMissingRequiredFields(item)),
