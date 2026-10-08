@@ -10,6 +10,7 @@ type PlaybackProps = {
 
 export function PlaybackControls({ isPlaying, onStart, onStop }: PlaybackProps) {
   const { t } = useI18n();
+
   return (
     <div className="flex items-center gap-2">
       <button
