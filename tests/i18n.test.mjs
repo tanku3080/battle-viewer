@@ -286,3 +286,15 @@ test("element description flows from Creator JSON to read-only Viewer details", 
   assert.match(panel, /whitespace-pre-wrap/);
   assert.doesNotMatch(panel, /<textarea/);
 });
+
+
+test("Creator grid origin stays centered when property panel changes editor width", () => {
+  const creator = fs.readFileSync(path.join(root, "app/create/page.tsx"), "utf8");
+
+  assert.match(
+    creator,
+    /backgroundPosition: mapImage[\s\S]*calc\(50% \+ 25px\) calc\(50% \+ 25px\)/
+  );
+  assert.match(creator, /left-1\/2 top-0 bottom-0/);
+  assert.match(creator, /top-1\/2 left-0 right-0/);
+});
