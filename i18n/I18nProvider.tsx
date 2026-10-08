@@ -31,12 +31,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    const detected: Locale = saved === "ja" || saved === "en"
-      ? saved
-      : navigator.language.toLowerCase().startsWith("ja")
-        ? "ja"
-        : "en";
-    const timer = window.setTimeout(() => setLocaleState(detected), 0);
+    if (saved !== "ja" && saved !== "en") return;
+
+    const timer = window.setTimeout(() => setLocaleState(saved), 0);
     return () => window.clearTimeout(timer);
   }, []);
 
