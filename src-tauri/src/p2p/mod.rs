@@ -91,10 +91,13 @@ impl ReadyState {
   fn open(root: PathBuf) -> Result<Self, String> {
     settings::ensure_private_dir(&root)?;
     let settings = settings::load(&root)?;
-    let identity = identity::load_or_create(&root)?;
     let cache_root = root.join("cache");
+    // Acquire the process-wide cache lock before creating or reading the
+    // installation identity. A second Battle Viewer process therefore fails
+    // closed before it can race settings/identity persistence.
     let cache = Cache::open(&cache_root, settings.cache_quota_bytes)
       .map_err(|error| format!("failed to open P2P cache: {error}"))?;
+    let identity = identity::load_or_create(&root)?;
 
     Ok(Self {
       root,
