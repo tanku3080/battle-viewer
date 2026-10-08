@@ -147,6 +147,10 @@ export function P2pSettingsPanel() {
             <code className="break-all text-gray-200">
               {status.identity.installationId}
             </code>
+            <div className="mt-2">{t("p2p.peerId")}</div>
+            <code className="break-all text-gray-200">
+              {status.identity.peerId}
+            </code>
           </div>
         )}
       </div>
