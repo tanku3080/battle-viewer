@@ -314,6 +314,9 @@ export default function BattleCreator() {
       setShowValidationErrors(false);
       setForces(synced);
       setForcesError("");
+      // Abort/refetch any older force-list request that may have started
+      // before this import and could otherwise overwrite the synced catalog.
+      setForceLoadVersion((version) => version + 1);
 
       setImportNotice({
         kind: "success",
