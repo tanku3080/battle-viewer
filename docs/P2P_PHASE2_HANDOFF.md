@@ -11,10 +11,12 @@
 - Phase0 FE #44: merged
 - Phase1 BE #7: merged
 - Phase2a FE #45: merged
-- Phase2b FE #46: open
-  - branch: `feat/p2p-phase2b-tauri-settings`
+- Phase2b FE #46: merged
+  - PR head: `2a87e7f4b14c6088008a1ea625d17c271f263c40`
+  - merge commit / FE develop: `a83bcb88d2611ca6b43fa829d34f945cbb7987ee`
+  - final CI: `37749964084` success
+  - branch `feat/p2p-phase2b-tauri-settings` はmerge後に削除済み
   - 詳細: `docs/P2P_PHASE2B.md`
-  - mergeは禁止。レビュー/CI後にユーザーが判断する。
 
 ## Phase 2b 実装済み
 
