@@ -64,6 +64,8 @@ export type RawBattleJson = {
   characters?: RawCharacter[];
   events?: RawBattleEvent[];
   timeline?: Partial<BattleTimeline>;
+  /** Creator専用の編集状態。Viewerは無視する。 */
+  creatorState?: unknown;
   /** @deprecated 旧JSON互換。新規JSONでは timeline.camera を使用 */
   camera?: BattleTimeline["camera"];
 };

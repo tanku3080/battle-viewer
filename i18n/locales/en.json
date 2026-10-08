@@ -190,5 +190,11 @@
   "creator.descriptionPlaceholder": "Add background, role, or flavor text for this element",
   "creator.descriptionHelp": "Optional. This text is exported to JSON and shown read-only in the viewer.",
   "selected.description": "Description",
-  "selected.descriptionEmpty": "No description provided."
+  "selected.descriptionEmpty": "No description provided.",
+  "creator.importJson": "Import JSON",
+  "creator.importingJson": "Importing…",
+  "creator.importSuccess": "JSON imported. Registered {count} missing force(s).",
+  "creator.importFailed": "Failed to import JSON: {message}",
+  "creator.importUnknownError": "Unknown error",
+  "creator.importForceMissingColor": "Force(s) \"{names}\" do not exist in Battle Hub and the JSON does not include a color that can be used to register them."
 }

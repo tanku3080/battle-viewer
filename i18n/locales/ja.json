@@ -190,5 +190,11 @@
   "creator.descriptionPlaceholder": "この要素の背景や役割、フレーバーテキストを入力",
   "creator.descriptionHelp": "任意項目です。JSONと閲覧画面の詳細表示にそのまま反映されます。",
   "selected.description": "解説",
-  "selected.descriptionEmpty": "解説はありません。"
+  "selected.descriptionEmpty": "解説はありません。",
+  "creator.importJson": "JSONを取り込む",
+  "creator.importingJson": "取り込み中…",
+  "creator.importSuccess": "JSONを取り込みました。不足していたForceを{count}件登録しました。",
+  "creator.importFailed": "JSONの取り込みに失敗しました: {message}",
+  "creator.importUnknownError": "不明なエラー",
+  "creator.importForceMissingColor": "Force「{names}」がBattle Hubに存在せず、JSONにも登録用カラーがありません。"
 }
