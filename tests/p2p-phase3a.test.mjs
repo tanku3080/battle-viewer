@@ -28,8 +28,10 @@ test("Phase 3a transport is not exposed as anonymous renderer download IPC", () 
   const network = read("src-tauri/src/p2p/network.rs");
   const bridge = read("utils/tauri/bridge.ts");
 
-  assert.doesNotMatch(lib, /p2p_fetch|p2p_download|p2p_start_network/);
-  assert.doesNotMatch(bridge, /desktopP2pFetch|desktopP2pDownload/);
+  assert.match(lib, /p2p::commands::p2p_fetch/);
+  assert.match(bridge, /desktopP2pFetch/);
+  assert.match(network, /HubTransferAuthorizer/);
+  assert.match(network, /auth\.check/);
   assert.match(network, /pub\(crate\) async fn spawn_direct_transport/);
 });
 
