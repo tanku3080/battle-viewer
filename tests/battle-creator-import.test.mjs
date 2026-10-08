@@ -171,7 +171,8 @@ test("Creator page saves resume state and commits imported editor state only aft
   );
 
   assert.match(source, /creatorState:\s*\{/);
-  assert.match(source, /version:\s*1/);
+  assert.match(source, /version:\s*2/);
+  assert.match(source, /coordinateOrigin:\s*"center"/);
   assert.match(source, /duration,/);
   assert.match(source, /items:\s*validItems\.map/);
   assert.match(source, /id="creator-json-import"/);
