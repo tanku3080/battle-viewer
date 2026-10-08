@@ -118,20 +118,20 @@ async fn refresh_access_token(
   let refresh_token = state
     .refresh_token
     .lock()
-    .map_err(|_| "認証状態のロックに失敗しました")?
+    .map_err(|_| "Failed to lock authentication state")?
     .clone()
-    .ok_or_else(|| "Refresh Tokenがありません".to_string())?;
+    .ok_or_else(|| "Refresh token is not available".to_string())?;
 
   let response = client
     .post(format!("{}/api/auth/refresh", hub_base_url()))
     .json(&serde_json::json!({ "refreshToken": refresh_token }))
     .send()
     .await
-    .map_err(|error| format!("Battle Hubに接続できません: {error}"))?;
+    .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))?;
 
   if !response.status().is_success() {
     return Err(format!(
-      "Refresh Tokenの更新に失敗しました: HTTP {}",
+      "Failed to refresh the access token: HTTP {}",
       response.status().as_u16()
     ));
   }
@@ -139,18 +139,18 @@ async fn refresh_access_token(
   let payload = response
     .json::<HubAuthResponse>()
     .await
-    .map_err(|error| format!("認証レスポンスを読み込めません: {error}"))?;
+    .map_err(|error| format!("Failed to read authentication response: {error}"))?;
 
   *state
     .access_token
     .lock()
-    .map_err(|_| "認証状態のロックに失敗しました")? = Some(payload.token.clone());
+    .map_err(|_| "Failed to lock authentication state")? = Some(payload.token.clone());
 
   if let Some(rotated) = payload.refresh_token {
     *state
       .refresh_token
       .lock()
-      .map_err(|_| "認証状態のロックに失敗しました")? = Some(rotated);
+      .map_err(|_| "Failed to lock authentication state")? = Some(rotated);
   }
 
   Ok(payload.token)
@@ -166,9 +166,9 @@ async fn authenticated_request(
   let token = state
     .access_token
     .lock()
-    .map_err(|_| "認証状態のロックに失敗しました")?
+    .map_err(|_| "Failed to lock authentication state")?
     .clone()
-    .ok_or_else(|| "ログインしていません".to_string())?;
+    .ok_or_else(|| "Not signed in".to_string())?;
 
   let build = |token: &str| {
     let mut request = client
@@ -187,7 +187,7 @@ async fn authenticated_request(
   let response = build(&token)
     .send()
     .await
-    .map_err(|error| format!("Battle Hubに接続できません: {error}"))?;
+    .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))?;
 
   if response.status() != reqwest::StatusCode::UNAUTHORIZED {
     return Ok(response);
@@ -197,7 +197,7 @@ async fn authenticated_request(
   build(&refreshed)
     .send()
     .await
-    .map_err(|error| format!("Battle Hubに接続できません: {error}"))
+    .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))
 }
 
 #[tauri::command]
@@ -220,7 +220,7 @@ async fn auth_login(
     Err(error) => {
       return Ok(CommandResponse::failure(
         502,
-        format!("Battle Hubに接続できません: {error}"),
+        format!("Cannot connect to Battle Hub: {error}"),
       ));
     }
   };
@@ -231,7 +231,7 @@ async fn auth_login(
       error.status,
       error
         .error
-        .unwrap_or_else(|| "ログインに失敗しました".to_string()),
+        .unwrap_or_else(|| "Sign-in failed".to_string()),
     ));
   }
 
@@ -240,7 +240,7 @@ async fn auth_login(
     Err(error) => {
       return Ok(CommandResponse::failure(
         502,
-        format!("認証レスポンスを読み込めません: {error}"),
+        format!("Failed to read authentication response: {error}"),
       ));
     }
   };
@@ -248,13 +248,13 @@ async fn auth_login(
   *state
     .access_token
     .lock()
-    .map_err(|_| "認証状態のロックに失敗しました".to_string())? =
+    .map_err(|_| "Failed to lock authentication state".to_string())? =
     Some(payload.token);
 
   *state
     .refresh_token
     .lock()
-    .map_err(|_| "認証状態のロックに失敗しました".to_string())? =
+    .map_err(|_| "Failed to lock authentication state".to_string())? =
     payload.refresh_token;
 
   Ok(CommandResponse::success(
@@ -303,7 +303,7 @@ async fn auth_session(
     )),
     Err(error) => Ok(CommandResponse::failure(
       502,
-      format!("Sessionレスポンスを読み込めません: {error}"),
+      format!("Failed to read session response: {error}"),
     )),
   }
 }
@@ -393,7 +393,7 @@ async fn hub_get(
       Err(error) => {
         return Ok(CommandResponse::failure(
           502,
-          format!("Battle Hubに接続できません: {error}"),
+          format!("Cannot connect to Battle Hub: {error}"),
         ));
       }
     }
@@ -409,7 +409,7 @@ async fn hub_get(
     Ok(value) => Ok(CommandResponse::success(status, value)),
     Err(error) => Ok(CommandResponse::failure(
       502,
-      format!("レスポンスを読み込めません: {error}"),
+      format!("Failed to read response: {error}"),
     )),
   }
 }
@@ -451,7 +451,7 @@ async fn hub_post(
     Ok(value) => Ok(CommandResponse::success(status, value)),
     Err(error) => Ok(CommandResponse::failure(
       502,
-      format!("レスポンスを読み込めません: {error}"),
+      format!("Failed to read response: {error}"),
     )),
   }
 }
