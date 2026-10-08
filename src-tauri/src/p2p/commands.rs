@@ -224,9 +224,10 @@ pub async fn p2p_publish(
     let title = document.get("title").and_then(|value| value.as_str())
       .filter(|title| !title.trim().is_empty())
       .ok_or_else(|| "Battle title required".to_string())?.to_string();
-    validate_render_assets(raw.as_bytes())?;
+    // Validate deep JSON structure and size before walking image resources.
     let (manifest, gzip) = content::encode(raw.as_bytes())
       .map_err(|error| error.to_string())?;
+    validate_render_assets(raw.as_bytes())?;
     cache.lock().map_err(|_| "P2P cache unavailable".to_string())?
       .store(&manifest, &gzip).map_err(|error| error.to_string())?;
     Ok::<_, String>((manifest, title))
