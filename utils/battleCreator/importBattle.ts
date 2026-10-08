@@ -50,8 +50,9 @@ export type CreatorImportState = {
   referencedForces: string[];
 };
 
-type CreatorStateV1 = {
-  version: 1;
+type CreatorStateSnapshot = {
+  version: 1 | 2;
+  coordinateOrigin?: "center";
   duration?: number;
   items: unknown[];
 };
@@ -96,7 +97,8 @@ function toCreatorPoint<T extends { x: number; y: number }>(
 
 function normalizeTimeline(
   value: unknown,
-  map: RawBattleJson["map"]
+  map: RawBattleJson["map"],
+  source: "battle" | "creatorState" = "battle"
 ): CreatorMovementPoint[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -111,10 +113,16 @@ function normalizeTimeline(
       ...(typeof point.zoom === "number" && Number.isFinite(point.zoom)
         ? { zoom: point.zoom }
         : {}),
-      explicit:
-        typeof point.explicit === "boolean" ? point.explicit : true,
-      inherited:
-        typeof point.inherited === "boolean" ? point.inherited : false,
+      ...(typeof point.explicit === "boolean"
+        ? { explicit: point.explicit }
+        : source === "battle"
+          ? { explicit: true }
+          : {}),
+      ...(typeof point.inherited === "boolean"
+        ? { inherited: point.inherited }
+        : source === "battle"
+          ? { inherited: false }
+          : {}),
     }))
     .filter(
       (point) =>
@@ -122,7 +130,9 @@ function normalizeTimeline(
         Number.isFinite(point.x) &&
         Number.isFinite(point.y)
     )
-    .map((point) => toCreatorPoint(point, map))
+    .map((point) =>
+      source === "creatorState" ? point : toCreatorPoint(point, map)
+    )
     .sort((a, b) => a.t - b.t);
 }
 
@@ -163,7 +173,7 @@ function parseSnapshotItem(
 
   const type = value.type as CreatorSpatialType;
   const id = stringValue(value.id);
-  const timeline = normalizeTimeline(value.timeline, map);
+  const timeline = normalizeTimeline(value.timeline, map, "creatorState");
   const first = timeline[0];
   const rawOrigin = isRecord(value.groupOrigin) ? value.groupOrigin : null;
   const origin =
@@ -171,14 +181,11 @@ function parseSnapshotItem(
     typeof rawOrigin.key === "string" &&
     Number.isFinite(rawOrigin.x) &&
     Number.isFinite(rawOrigin.y)
-      ? toCreatorPoint(
-          {
-            key: rawOrigin.key,
-            x: Number(rawOrigin.x),
-            y: Number(rawOrigin.y),
-          },
-          map
-        )
+      ? {
+          key: rawOrigin.key,
+          x: Number(rawOrigin.x),
+          y: Number(rawOrigin.y),
+        }
       : undefined;
 
   const hasRawFallback =
@@ -187,10 +194,7 @@ function parseSnapshotItem(
     typeof value.y === "number" &&
     Number.isFinite(value.y);
   const normalizedFallback = hasRawFallback
-    ? toCreatorPoint(
-        { x: Number(value.x), y: Number(value.y) },
-        map
-      )
+    ? { x: Number(value.x), y: Number(value.y) }
     : { x: first?.x ?? 0, y: first?.y ?? 0 };
 
   return {
@@ -219,16 +223,22 @@ function parseSnapshotItem(
   };
 }
 
-function parseCreatorState(value: unknown): CreatorStateV1 | null {
-  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.items)) {
+function parseCreatorState(value: unknown): CreatorStateSnapshot | null {
+  if (
+    !isRecord(value) ||
+    (value.version !== 1 && value.version !== 2) ||
+    !Array.isArray(value.items)
+  ) {
     return null;
   }
   return {
-    version: 1,
+    version: value.version,
     duration:
       typeof value.duration === "number" && Number.isFinite(value.duration)
         ? value.duration
         : undefined,
+    coordinateOrigin:
+      value.coordinateOrigin === "center" ? "center" : undefined,
     items: value.items,
   };
 }
