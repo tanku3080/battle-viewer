@@ -1,4 +1,5 @@
 mod identity;
+mod image_guard;
 #[allow(dead_code)]
 mod network;
 mod network_auth;
