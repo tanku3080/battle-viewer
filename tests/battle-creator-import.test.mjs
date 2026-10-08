@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { loadTs } from "./helpers/load-ts.mjs";
 
 const {
@@ -153,4 +155,43 @@ test("force sync plan is case-insensitive and detects unresolved references", ()
     ["Red"]
   );
   assert.deepEqual(plan.unresolvedForces, ["Green"]);
+});
+
+
+test("Creator page saves resume state and commits imported editor state only after force sync", () => {
+  const source = fs.readFileSync(
+    path.join(process.cwd(), "app/create/page.tsx"),
+    "utf8"
+  );
+
+  assert.match(source, /creatorState:\s*\{/);
+  assert.match(source, /version:\s*1/);
+  assert.match(source, /duration,/);
+  assert.match(source, /items:\s*validItems\.map/);
+  assert.match(source, /id="creator-json-import"/);
+  assert.match(source, /creator\.importJson/);
+
+  const parseIndex = source.indexOf("importCreatorBattleJson(parsed)");
+  const forceIndex = source.indexOf("planCreatorForceSync(imported, registered)");
+  const createIndex = source.indexOf("createBattleHubForce(definition)");
+  const commitIndex = source.indexOf("setTitle(imported.title)");
+
+  assert.ok(parseIndex >= 0);
+  assert.ok(forceIndex > parseIndex);
+  assert.ok(createIndex > forceIndex);
+  assert.ok(commitIndex > createIndex);
+});
+
+test("Creator import refreshes force catalog after a successful sync", () => {
+  const source = fs.readFileSync(
+    path.join(process.cwd(), "app/create/page.tsx"),
+    "utf8"
+  );
+  const commitIndex = source.indexOf("setForces(synced)");
+  const refreshIndex = source.indexOf(
+    "setForceLoadVersion((version) => version + 1)"
+  );
+
+  assert.ok(commitIndex >= 0);
+  assert.ok(refreshIndex > commitIndex);
 });
