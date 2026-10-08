@@ -1,5 +1,5 @@
-import { consumeDistributedJson } from "@/utils/battleHub/pendingTransfer";
 "use client";
+import { consumeDistributedJson } from "@/utils/battleHub/pendingTransfer";
 
 import Link from "next/link";
 import { ChangeEvent, useEffect, useState } from "react";
