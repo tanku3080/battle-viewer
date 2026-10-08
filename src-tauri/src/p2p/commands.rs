@@ -315,8 +315,6 @@ async fn fetch_remote(
   let work_id = work_id.to_string();
 
   // Fresh Hub discovery/grant is mandatory for remote transfer.
-  let _ = &hash;
-
   let providers: Vec<Provider> = hub(&auth, Method::GET,
     &format!("/api/v2/works/{work_id}/peers"), None)
     .await?.json().await.map_err(|error| error.to_string())?;
@@ -361,7 +359,10 @@ async fn fetch_remote(
               .read_raw(&hash).map_err(|error| error.to_string())
           }).await.map_err(|error| error.to_string())??
         };
-        let text = String::from_utf8(result).map_err(|error| error.to_string())?;
+        let text = tauri::async_runtime::spawn_blocking(move || {
+          validate_render_assets(&result)?;
+          String::from_utf8(result).map_err(|error| error.to_string())
+        }).await.map_err(|error| error.to_string())??;
         persist_reference(ready, WorkRef {
           work_id: work_id.clone(), content_hash: hash.clone(), replica: true,
         }).await?;
