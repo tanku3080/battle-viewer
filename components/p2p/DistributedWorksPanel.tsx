@@ -1,3 +1,4 @@
+import { stageDistributedJson } from "@/utils/battleHub/pendingTransfer";
 "use client";
 
 import { ChangeEvent, useEffect, useState } from "react";
@@ -73,7 +74,7 @@ export function DistributedWorksPanel() {
       // The desktop returns exactly the verified original UTF-8 bytes.
       const raw = await fetchDistributedWork(work);
       // Keep the original string; do not serialize derived Viewer data.
-      sessionStorage.setItem("battle-viewer:incoming-json", raw);
+      stageDistributedJson(raw);
       router.push(destination === "battle" ? "/battle" : "/create");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
