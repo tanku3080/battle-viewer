@@ -10,6 +10,7 @@ import type {
 export type HierarchySourceNode = {
   id: string;
   name?: string;
+  description?: string;
   icon?: string | null;
   pos?: { x: number; y: number };
   groupMove?: boolean;
@@ -63,6 +64,7 @@ export function buildHierarchyNodesFromJson(
     const node: HierarchyNode = {
       id: src.id,
       name: src.name ?? src.id,
+      description: typeof src.description === "string" ? src.description : undefined,
       icon: src.icon ?? null,
       level,
       parentId,
