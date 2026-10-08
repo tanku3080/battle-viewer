@@ -25,6 +25,7 @@ impl Default for P2pSettings {
   fn default() -> Self {
     Self {
       version: SETTINGS_VERSION,
+      participation_enabled: false,
       downloads_enabled: false,
       redistribution_enabled: false,
       cache_quota_bytes: DEFAULT_QUOTA_BYTES,
@@ -140,6 +141,7 @@ mod tests {
   #[test]
   fn defaults_are_opt_in_off() {
     let settings = P2pSettings::default();
+    assert!(!settings.participation_enabled);
     assert!(!settings.downloads_enabled);
     assert!(!settings.redistribution_enabled);
     assert_eq!(settings.cache_quota_bytes, DEFAULT_QUOTA_BYTES);
@@ -154,6 +156,7 @@ mod tests {
   fn persists_and_reloads_settings() {
     let dir = tempfile::tempdir().unwrap();
     let settings = P2pSettings {
+      participation_enabled: true,
       downloads_enabled: true,
       redistribution_enabled: false,
       cache_quota_bytes: 512 * 1024 * 1024,
