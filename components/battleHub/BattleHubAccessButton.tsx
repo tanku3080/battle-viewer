@@ -27,7 +27,7 @@ export function BattleHubAccessButton({ className = "" }: { className?: string }
       type="button"
       disabled={!enabled}
       onClick={() => router.push("/hub")}
-      className={"px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed " + className}
+      className={"min-h-11 px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed " + className}
       title={health === "checking" ? t("hubAccess.checkingTitle") : enabled ? t("hubAccess.openTitle") : t("hubAccess.offlineTitle")}
     >
       {health === "checking" ? t("hubAccess.checking") : t("hubAccess.access")}
