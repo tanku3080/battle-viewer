@@ -1,6 +1,11 @@
 # Phase 2b: Tauri P2P settings, identity and cache IPC
 
-Status: implemented in FE PR #46 on `feat/p2p-phase2b-tauri-settings`.
+Status: merged in FE PR #46.
+
+- PR head: `2a87e7f4b14c6088008a1ea625d17c271f263c40`
+- merge commit: `a83bcb88d2611ca6b43fa829d34f945cbb7987ee`
+- final CI run: `37749964084` — success
+- merged: 2026-10-08
 
 ## Baseline
 
@@ -139,7 +144,7 @@ Phase 2b extends CI with:
 - FE lint/unit/Web/static-Tauri builds
 - source regression tests for consent separation, private identity boundary, app-owned paths, Web fallback and blocking inventory
 
-The final successful CI run and PR head SHA must be recorded in the handoff before merge.
+Final verification was completed before merge: PR head `2a87e7f4b14c6088008a1ea625d17c271f263c40`, CI run `37749964084` succeeded, and the merge commit is `a83bcb88d2611ca6b43fa829d34f945cbb7987ee`.
 
 ## Explicit non-goals / next gates
 
