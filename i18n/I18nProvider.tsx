@@ -36,7 +36,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       : navigator.language.toLowerCase().startsWith("ja")
         ? "ja"
         : "en";
-    setLocaleState(detected);
+    const timer = window.setTimeout(() => setLocaleState(detected), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
