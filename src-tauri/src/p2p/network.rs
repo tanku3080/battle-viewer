@@ -543,10 +543,12 @@ mod tests {
       serve_request(&source_cache, true, request, "receipt".into()),
       FetchResponse::Denied
     ));
+    let expected_content_hash = manifest.content_hash.clone();
+    let expected_compressed_hash = manifest.compressed_hash.clone();
     let result = accept_response(
       &dest_cache,
-      &manifest.content_hash,
-      &manifest.compressed_hash,
+      &expected_content_hash,
+      &expected_compressed_hash,
       FetchResponse::Found { manifest, gzip, receipt: "receipt".into() },
     );
     assert!(result.is_err());
