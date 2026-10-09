@@ -77,7 +77,7 @@ export function DistributedWorksPanel() {
   };
 
   const download = async (work: DistributedWork) => {
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setNotice("");
     try {
       const raw = await fetchDistributedWork(work);
       const blob = new Blob([raw], { type: "application/json" });
@@ -89,6 +89,7 @@ export function DistributedWorksPanel() {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNotice(t("p2p.downloadStarted", { title: work.title }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally { setBusy(false); }
