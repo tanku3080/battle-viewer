@@ -124,9 +124,9 @@ export async function desktopP2pStop(): Promise<void> {
 }
 
 export async function desktopP2pPublish(
-  raw: string, description: string
+  raw: string, description: string, authorName = ""
 ): Promise<import("@/utils/battleHub/works").DistributedWork> {
-  return invoke("p2p_publish", { raw, description });
+  return invoke("p2p_publish", { raw, description, authorName });
 }
 
 export async function desktopP2pFetch(workId: string): Promise<string> {
