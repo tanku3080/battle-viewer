@@ -267,5 +267,9 @@
   "hub.networkWarning": "Could not start P2P. Check your address in Settings",
   "hub.preview": "Work preview",
   "p2p.autoAddress": "Automatic (leave blank)",
-  "p2p.manualAddress": "Connection IPv4 (manual override if required)"
+  "p2p.manualAddress": "Connection IPv4 (manual override if required)",
+  "p2p.pasteSearch": "Paste",
+  "p2p.clipboardUnavailable": "Cannot read clipboard. Try Ctrl+V.",
+  "hub.readyToPublish": "Publish your work in Battle Hub",
+  "hub.publishFromHub": "Use Publish in Battle Hub to share a work."
 }
