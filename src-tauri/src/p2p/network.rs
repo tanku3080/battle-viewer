@@ -2,7 +2,6 @@ use battle_p2p_core::cache::Cache;
 use battle_p2p_core::content::{Manifest, MAX_COMPRESSED_SIZE};
 use futures::io::{AsyncRead, AsyncWrite};
 use futures::StreamExt;
-use libp2p::request_response::Codec as _;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
