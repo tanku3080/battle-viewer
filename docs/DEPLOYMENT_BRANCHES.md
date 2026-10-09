@@ -8,8 +8,14 @@
 
 ## Render/Neon integration
 
-Backend is hosted separately. Backend implementation resides in `tanku3080/battle-hub`. The packaged desktop contacts the URL from `BATTLE_HUB_API_BASE_URL`; without it, default remains `http://localhost:8080`. A deployment URL cannot be embedded until Render service creation.
+Backend is hosted separately. Backend implementation resides in `tanku3080/battle-hub`. The packaged desktop contacts the URL from `BATTLE_HUB_API_BASE_URL`; the default is `http://localhost:8080` in debug builds and `https://battle-hub.onrender.com` in packaged release builds. An explicit environment override takes precedence.
 
-The FE retries selected idempotent API GET requests and authentication login/refresh during Render Free cold starts. It does not replay publish, transfer-grant or other side-effecting application POST requests.
+The FE retries selected idempotent API GET requests and probes `/api/health` during Render Free cold starts before sending login/refresh exactly once. Replaying single-use refresh tokens after an ambiguous response risks invalidating login. It does not replay publish, transfer-grant or other side-effecting application POST requests.
 
 Backend process restart preserves PostgreSQL metadata and hashed access/refresh token records, but ephemeral P2P addresses/grants/receipts disappear. Peers renew leases while running. Starting the Hub does not open TCP ports on remote peer computers or provide NAT relay. The app currently keeps tokens in memory; a client process restart may still require login.
+
+## Branch ownership
+
+- FE develop → staging → main. Release packages are made only from staging or main, not all feature/develop branches.
+- BE develop → main. Render Oregon's development Web Service tracks BE develop; Neon is in Singapore, introducing inter-region DB latency. The database name must be verified independently of the Neon project name.
+- Do not check Windows/Linux installer workflow results during ordinary development unless expressly requested. The release build jobs remain configured for staging/main.

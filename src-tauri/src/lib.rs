@@ -5,7 +5,11 @@ use serde_json::Value;
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
 
+// Development uses localhost; release packages use the deployed Hub.
+#[cfg(debug_assertions)]
 const DEFAULT_HUB_URL: &str = "http://localhost:8080";
+#[cfg(not(debug_assertions))]
+const DEFAULT_HUB_URL: &str = "https://battle-hub.onrender.com";
 
 #[derive(Clone, Default)]
 pub(crate) struct AuthState {
@@ -105,24 +109,25 @@ async fn send_hub_get_with_retry(
 }
 
 
-async fn send_hub_auth_with_retry(
-  client: &reqwest::Client,
-  path: &str,
-  payload: &serde_json::Value,
-) -> Result<reqwest::Response, reqwest::Error> {
+/// Probe readiness before a one-shot authentication POST. In particular, a
+/// refresh POST must never be automatically replayed when its response is lost:
+/// the server could already have rotated the single-use refresh token.
+async fn wait_for_hub_ready(client: &reqwest::Client) -> Result<(), String> {
   for attempt in 0..=HUB_COLD_START_RETRIES {
-    let result = client.post(format!("{}{}", hub_base_url(), path))
-      .json(payload).timeout(std::time::Duration::from_secs(12)).send().await;
+    let result = client.get(format!("{}/api/health", hub_base_url()))
+      .timeout(std::time::Duration::from_secs(12)).send().await;
     match result {
+      Ok(response) if response.status().is_success() => return Ok(()),
       Ok(response) if [502, 503, 504].contains(&response.status().as_u16())
         && attempt < HUB_COLD_START_RETRIES => {},
-      Ok(response) => return Ok(response),
+      Ok(response) => return Err(format!(
+        "Battle Hub health check returned HTTP {}", response.status())),
       Err(_) if attempt < HUB_COLD_START_RETRIES => {},
-      Err(error) => return Err(error),
+      Err(error) => return Err(format!("Cannot connect to Battle Hub: {error}")),
     }
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
   }
-  unreachable!("last request always returns or errors")
+  Err("Battle Hub did not become available after retry".into())
 }
 
 async fn parse_error(response: reqwest::Response) -> CommandResponse<Value> {
@@ -172,10 +177,11 @@ async fn refresh_access_token(
     .clone()
     .ok_or_else(|| "Refresh token is not available".to_string())?;
 
-  let response = send_hub_auth_with_retry(
-    client, "/api/auth/refresh",
-    &serde_json::json!({ "refreshToken": refresh_token })
-  ).await
+  wait_for_hub_ready(client).await?;
+  let response = client.post(format!("{}/api/auth/refresh", hub_base_url()))
+    .json(&serde_json::json!({ "refreshToken": refresh_token }))
+    .timeout(std::time::Duration::from_secs(12))
+    .send().await
     .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))?;
 
   if !response.status().is_success() {
@@ -260,13 +266,16 @@ async fn auth_login(
 ) -> Result<CommandResponse<SessionView>, String> {
   let client = reqwest::Client::new();
 
-  let response = match send_hub_auth_with_retry(
-    &client, "/api/auth/login",
-    &serde_json::json!({
+  if let Err(error) = wait_for_hub_ready(&client).await {
+    return Ok(CommandResponse::failure(502, error));
+  }
+  let response = match client.post(format!("{}/api/auth/login", hub_base_url()))
+    .json(&serde_json::json!({
       "username": request.username,
       "password": request.password,
-    })
-  ).await
+    }))
+    .timeout(std::time::Duration::from_secs(12))
+    .send().await
   {
     Ok(response) => response,
     Err(error) => {
@@ -334,7 +343,7 @@ async fn auth_session(
   .await
   {
     Ok(response) => response,
-    Err(error) => return Ok(CommandResponse::failure(401, error)),
+    Err(error) => return Ok(CommandResponse::failure(if error == "Not signed in" { 401 } else { 502 }, error)),
   };
 
   if !response.status().is_success() {
@@ -465,7 +474,7 @@ async fn hub_get(
     .await
     {
       Ok(response) => response,
-      Err(error) => return Ok(CommandResponse::failure(401, error)),
+      Err(error) => return Ok(CommandResponse::failure(if error == "Not signed in" { 401 } else { 502 }, error)),
     }
   } else {
     match client
@@ -522,7 +531,7 @@ async fn hub_post(
   .await
   {
     Ok(response) => response,
-    Err(error) => return Ok(CommandResponse::failure(401, error)),
+    Err(error) => return Ok(CommandResponse::failure(if error == "Not signed in" { 401 } else { 502 }, error)),
   };
 
   if !response.status().is_success() {
