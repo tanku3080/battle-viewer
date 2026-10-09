@@ -354,6 +354,35 @@ async fn auth_logout(
   Ok(CommandResponse::success(204, Value::Null))
 }
 
+#[tauri::command]
+async fn hub_battle_json(id: String, state: State<'_, AuthState>) -> Result<CommandResponse<Value>, String> {
+  let valid = id.len() == 36 && id.chars().enumerate().all(|(index, character)| {
+    if [8, 13, 18, 23].contains(&index) {
+      character == '-'
+    } else {
+      character.is_ascii_hexdigit()
+    }
+  });
+  if !valid {
+    return Ok(CommandResponse::failure(400, "Invalid battle ID"));
+  }
+  let response = match authenticated_request(
+    &reqwest::Client::new(), &state, reqwest::Method::GET,
+    &format!("/api/battles/{id}"), None,
+  ).await {
+    Ok(response) => response,
+    Err(error) => return Ok(CommandResponse::failure(502, error)),
+  };
+  if !response.status().is_success() {
+    return Ok(parse_error(response).await);
+  }
+  let value = response.json::<Value>().await.map_err(|error| error.to_string())?;
+  match value.get("battleJson") {
+    Some(json) if json.is_object() => Ok(CommandResponse::success(200, json.clone())),
+    _ => Ok(CommandResponse::failure(502, "Battle Hub returned invalid JSON")),
+  }
+}
+
 fn resource_path(resource: &str) -> Option<(&'static str, bool)> {
   match resource {
     "health" => Some(("/api/health", false)),
@@ -471,6 +500,7 @@ pub fn run() {
       auth_logout,
       hub_get,
       hub_post,
+      hub_battle_json,
       p2p::p2p_get_status,
       p2p::p2p_update_settings,
       p2p::p2p_get_inventory,
