@@ -23,7 +23,7 @@ async function exists(target) {
 
 async function runNextBuild() {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [nextBin, "build"], {
+    const child = spawn(process.execPath, [nextBin, "build", "--webpack"], {
       cwd: root,
       stdio: "inherit",
       env: {
