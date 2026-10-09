@@ -1,6 +1,7 @@
 import {
   desktopLogin,
   desktopRegister,
+  desktopRequestPasswordReset,
   desktopLogout,
   desktopSession,
   isTauriRuntime,
@@ -82,4 +83,16 @@ export async function logout() {
   }
 
   await fetch("/api/auth/logout", { method: "POST" });
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  if (isTauriRuntime()) {
+    const response = await desktopRequestPasswordReset(email);
+    if (!response.ok) throw new Error(response.error ?? "Password reset request failed");
+    return;
+  }
+  const response = await fetch("/api/auth/request-password-reset", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }),
+  });
+  if (!response.ok) throw new Error(await errorMessage(response, "Password reset request failed"));
 }
