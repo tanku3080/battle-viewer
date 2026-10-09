@@ -253,5 +253,7 @@
   "hubPublish.valid": "Basic JSON structure validated.",
   "hubPublish.duplicate": "This JSON has already been published.",
   "hubPublish.dismiss": "Dismiss notification",
-  "hubPublish.download": "Download JSON"
+  "hubPublish.download": "Download JSON",
+  "hubPublish.legacyTitle": "Previously uploaded battles",
+  "hubPublish.legacyHint": "These battles were stored in the Hub using the previous API and can be exported as JSON. New uploads use distributed P2P sharing."
 }
