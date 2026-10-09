@@ -26,6 +26,7 @@ export default function BattleHubPage() {
       if (!cancelled && state.settings?.participationEnabled && !state.networkActive) {
         try {
           await desktopP2pStart();
+          if (!cancelled) setRefreshKey((value) => value + 1);
         } catch (reason) {
           if (!cancelled) setNetworkError(reason instanceof Error ? reason.message : String(reason));
         }
