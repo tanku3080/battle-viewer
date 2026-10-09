@@ -104,6 +104,27 @@ async fn send_hub_get_with_retry(
   Err("Battle Hub did not become available after retry".into())
 }
 
+
+async fn send_hub_auth_with_retry(
+  client: &reqwest::Client,
+  path: &str,
+  payload: &serde_json::Value,
+) -> Result<reqwest::Response, reqwest::Error> {
+  for attempt in 0..=HUB_COLD_START_RETRIES {
+    let result = client.post(format!("{}{}", hub_base_url(), path))
+      .json(payload).timeout(std::time::Duration::from_secs(12)).send().await;
+    match result {
+      Ok(response) if [502, 503, 504].contains(&response.status().as_u16())
+        && attempt < HUB_COLD_START_RETRIES => {},
+      Ok(response) => return Ok(response),
+      Err(_) if attempt < HUB_COLD_START_RETRIES => {},
+      Err(error) => return Err(error),
+    }
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+  }
+  unreachable!("last request always returns or errors")
+}
+
 async fn parse_error(response: reqwest::Response) -> CommandResponse<Value> {
   let status = response.status().as_u16();
   let body = response.text().await.unwrap_or_default();
@@ -151,11 +172,10 @@ async fn refresh_access_token(
     .clone()
     .ok_or_else(|| "Refresh token is not available".to_string())?;
 
-  let response = client
-    .post(format!("{}/api/auth/refresh", hub_base_url()))
-    .json(&serde_json::json!({ "refreshToken": refresh_token }))
-    .send()
-    .await
+  let response = send_hub_auth_with_retry(
+    client, "/api/auth/refresh",
+    &serde_json::json!({ "refreshToken": refresh_token })
+  ).await
     .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))?;
 
   if !response.status().is_success() {
@@ -240,14 +260,13 @@ async fn auth_login(
 ) -> Result<CommandResponse<SessionView>, String> {
   let client = reqwest::Client::new();
 
-  let response = match client
-    .post(format!("{}/api/auth/login", hub_base_url()))
-    .json(&serde_json::json!({
+  let response = match send_hub_auth_with_retry(
+    &client, "/api/auth/login",
+    &serde_json::json!({
       "username": request.username,
       "password": request.password,
-    }))
-    .send()
-    .await
+    })
+  ).await
   {
     Ok(response) => response,
     Err(error) => {
