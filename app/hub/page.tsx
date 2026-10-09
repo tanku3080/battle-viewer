@@ -57,6 +57,8 @@ export default function BattleHubPage() {
       </header>
 
       <section className="mx-auto max-w-5xl">
+        <h2 className="mb-2 text-lg font-semibold">{t("hubPublish.legacyTitle")}</h2>
+        <p className="mb-4 text-sm text-gray-400">{t("hubPublish.legacyHint")}</p>
         {loading && <p role="status" aria-live="polite" className="text-gray-300">{t("common.loading")}</p>}
         {error && <div role="alert" className="rounded border border-red-800 bg-red-950 p-4 text-red-200">{error}</div>}
         {!loading && !error && battles.length === 0 && <div className="rounded border border-gray-700 bg-[#111827] p-6 text-gray-400">{t("hub.empty")}</div>}
