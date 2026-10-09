@@ -1,5 +1,6 @@
 import {
   desktopHubGet,
+  desktopSearchWorks,
   desktopP2pPublish,
   desktopP2pFetch,
   isTauriRuntime,
@@ -33,7 +34,9 @@ export type WorkCatalogPage = {
 
 export async function listDistributedWorks(query = ""): Promise<WorkCatalogPage> {
   if (isTauriRuntime()) {
-    const result = await desktopHubGet<WorkCatalogPage>("works");
+    const result = query.trim()
+      ? await desktopSearchWorks(query.trim())
+      : await desktopHubGet<WorkCatalogPage>("works");
     if (!result.ok || !result.data) throw new Error(result.error ?? "Work list unavailable");
     return result.data;
   }

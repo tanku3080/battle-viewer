@@ -46,7 +46,7 @@ export function P2pSettingsPanel() {
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [advertisedIp, setAdvertisedIp] = useState("127.0.0.1");
+  const [advertisedIp, setAdvertisedIp] = useState("");
   const [networkBusy, setNetworkBusy] = useState(false);
   const [networkAddress, setNetworkAddress] = useState("");
 
@@ -311,12 +311,12 @@ export function P2pSettingsPanel() {
 
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <label className="min-w-0 flex-1 text-sm">
-              {t("p2p.advertisedIp")}
+              {t("p2p.manualAddress")}
               <input type="text" value={advertisedIp}
                 onChange={(event) => setAdvertisedIp(event.target.value)}
                 disabled={status.networkActive || networkBusy}
                 className="mt-1 min-h-11 w-full rounded border border-gray-600 bg-[#0b1020] px-3"
-                placeholder="192.168.1.10" />
+                placeholder={t("p2p.autoAddress")} />
             </label>
             <button type="button" onClick={() => void toggleNetwork()}
               disabled={networkBusy || (!status.networkActive && !status.settings?.participationEnabled)}

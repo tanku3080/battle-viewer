@@ -8,7 +8,7 @@ use battle_p2p_core::content;
 use libp2p::{Multiaddr, PeerId};
 use reqwest::{Client, Method};
 use serde::{Deserialize, Serialize};
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, UdpSocket, IpAddr};
 use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
 use tauri::State;
@@ -79,6 +79,22 @@ async fn hub(
   Ok(response)
 }
 
+/// Select the outbound IPv4 of the OS-selected network route without
+/// sending any packets. The selected interface can still be behind a NAT or
+/// filtered by a firewall; a manual override remains available.
+fn detect_local_ipv4() -> Result<Ipv4Addr, String> {
+  let socket = UdpSocket::bind("0.0.0.0:0")
+    .map_err(|error| format!("Cannot inspect network interfaces: {error}"))?;
+  // UDP connect chooses a route but does not transmit any datagram.
+  socket.connect("192.0.2.1:80")
+    .map_err(|error| format!("Cannot detect a default IPv4 route: {error}"))?;
+  match socket.local_addr().map_err(|error| format!("Cannot read local IPv4: {error}"))?.ip() {
+    IpAddr::V4(ip) if !ip.is_loopback() && !ip.is_unspecified() && !ip.is_link_local()
+      && !ip.is_multicast() => Ok(ip),
+    _ => Err("No usable local IPv4 address was found; specify one in P2P settings".into()),
+  }
+}
+
 fn address_for(ip: &str, listener: &Multiaddr) -> Result<String, String> {
   let ip: Ipv4Addr = ip.parse().map_err(|_| "Invalid advertised IPv4 address".to_string())?;
   if ip.is_unspecified() || ip.is_multicast() || ip.is_broadcast() {
@@ -129,8 +145,12 @@ pub async fn p2p_start(
   enabled(ready, false, false)?;
   let _: serde_json::Value = hub(&auth, Method::GET, "/api/auth/session", None)
     .await?.json().await.map_err(|error| error.to_string())?;
-  let ip: Ipv4Addr = request.advertised_ip.parse()
-    .map_err(|_| "Invalid advertised IPv4 address".to_string())?;
+  let ip: Ipv4Addr = if request.advertised_ip.trim().is_empty() {
+    detect_local_ipv4()?
+  } else {
+    request.advertised_ip.parse()
+      .map_err(|_| "Invalid advertised IPv4 address".to_string())?
+  };
   if ip.is_unspecified() || ip.is_multicast() || ip.is_broadcast() {
     return Err("Invalid advertised IPv4 address".into());
   }
@@ -145,7 +165,7 @@ pub async fn p2p_start(
     HubTransferAuthorizer::new(auth.inner().clone()),
     Arc::clone(&ready.settings),
   ).await?;
-  let address = address_for(&request.advertised_ip, transport.listen_addr())?;
+  let address = address_for(&ip.to_string(), transport.listen_addr())?;
   let peer_id = transport.peer_id().to_string();
   *ready.advertised_address.lock().map_err(|_| "P2P address unavailable".to_string())? = Some(address.clone());
   *network = Some(transport);

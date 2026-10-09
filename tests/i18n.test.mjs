@@ -139,8 +139,9 @@ test("viewer keeps native file chooser and modal dialogs available in maximized 
     path.join(root, "components/battle/controls/BattleHubControls.tsx"),
     "utf8"
   );
-  assert.match(hubControls, /<dialog/);
-  assert.match(hubControls, /showModal\(\)/);
+  const preview = fs.readFileSync(path.join(root, "components/p2p/BattlePreviewDialog.tsx"), "utf8");
+  assert.match(preview, /<dialog/);
+  assert.match(preview, /showModal\(\)/);
 
   const imagePicker = fs.readFileSync(
     path.join(root, "components/battle/ImageAssetPicker.tsx"),
@@ -206,7 +207,7 @@ test("Battle Hub navigation is hidden below desktop while JSON publish remains a
   );
   assert.match(hubControls, /relative hidden lg:block/);
   assert.match(hubControls, /aria-expanded=\{desktopPanelOpen\}/);
-  assert.match(hubControls, /publish\.open/);
+  assert.match(hubControls, /hub\.publishFromHub/);
   assert.match(hubControls, /className="sr-only"/);
 
   const home = fs.readFileSync(path.join(root, "app/home/page.tsx"), "utf8");

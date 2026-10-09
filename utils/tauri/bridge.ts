@@ -115,7 +115,7 @@ export async function desktopP2pUpdateSettings(
 
 export type DesktopP2pNetwork = { peerId: string; address: string };
 
-export async function desktopP2pStart(advertisedIp: string): Promise<DesktopP2pNetwork> {
+export async function desktopP2pStart(advertisedIp = ""): Promise<DesktopP2pNetwork> {
   return invoke("p2p_start", { request: { advertisedIp } });
 }
 
@@ -137,4 +137,8 @@ export async function desktopBattleDownload(id: string): Promise<import("@/utils
   const response = await invoke<DesktopResponse<import("@/utils/battle/loadBattleJson").RawBattleJson>>("hub_battle_json", { id });
   if (!response.ok || !response.data) throw new Error(response.error ?? `Battle Hub HTTP ${response.status}`);
   return response.data;
+}
+
+export async function desktopSearchWorks(query: string): Promise<DesktopResponse<import("@/utils/battleHub/works").WorkCatalogPage>> {
+  return invoke("hub_search_works", { query });
 }
