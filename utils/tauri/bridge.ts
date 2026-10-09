@@ -27,6 +27,10 @@ export async function desktopRegister(request: { username: string; email: string
   return invoke("auth_register", { request });
 }
 
+export async function desktopRequestPasswordReset(email: string): Promise<DesktopResponse<Record<string, never>>> {
+  return invoke("auth_request_password_reset", { request: { email } });
+}
+
 export async function desktopVersion(): Promise<DesktopResponse<{
   currentVersion: string;
   platform: string;
