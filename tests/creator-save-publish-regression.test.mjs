@@ -46,5 +46,5 @@ test("Creator save and publish present localized feedback", () => {
   assert.match(creator, /validatePublishBattle\(battleJson\)/);
   assert.match(creator, /creator\.saveStarted/);
   assert.match(dialog, /explainPublishError/);
-  assert.equal((controls.match(/BattleHubAccessButton/g) ?? []).length, 2); // import + one element
+  assert.equal((controls.match(/<BattleHubAccessButton\b/g) ?? []).length, 1); // only one rendered button
 });
