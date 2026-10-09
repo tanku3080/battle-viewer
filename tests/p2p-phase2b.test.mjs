@@ -76,11 +76,11 @@ test("P2P data uses app-owned Tauri app data and private cache path", () => {
 
 test("web UI clearly reports that P2P sharing requires Desktop", () => {
   const panel = read("components/p2p/P2pSettingsPanel.tsx");
-  const home = read("app/home/page.tsx");
+  const hub = read("app/hub/page.tsx");
 
   assert.match(panel, /isTauriRuntime/);
   assert.match(panel, /p2p\.webOnly/);
-  assert.match(home, /<P2pSettingsPanel/);
+  assert.match(hub, /<P2pSettingsPanel/);
   assert.match(panel, /aria-labelledby="p2p-settings-title"/);
   assert.match(panel, /<fieldset/);
   assert.match(panel, /aria-live="polite"/);

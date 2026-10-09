@@ -255,5 +255,14 @@
   "hubPublish.dismiss": "通知を閉じる",
   "hubPublish.download": "JSONをダウンロード",
   "hubPublish.legacyTitle": "旧方式で投稿された作品",
-  "hubPublish.legacyHint": "以前の方式でHubに保存された作品です。JSONをダウンロードできます。新規投稿は下のP2P共有へ登録します。"
+  "hubPublish.legacyHint": "以前の方式でHubに保存された作品です。JSONをダウンロードできます。新規投稿は下のP2P共有へ登録します。",
+  "hubTerms.title": "Battle Hub 利用条件と通信への同意",
+  "hubTerms.intro": "Battle Hubに初めてアクセスする前に、以下の通信・共有条件を確認してください。同意するまで作品一覧などを取得しません。",
+  "hubTerms.metadata": "Battle Hubは作品名、説明、投稿者名などのメタデータを管理します。従来方式で投稿されたJSONは引き続きHubに保存されています。",
+  "hubTerms.p2p": "新しい分散共有作品のJSON本体は、配布に参加するBattle Viewer端末に保存・転送されます。利用可能な配布元がない場合は取得できません。",
+  "hubTerms.privacy": "P2P通信時は相手の端末からIPアドレスを確認できる場合があります。キャッシュ保存や再配布には端末のディスク容量・通信帯域を使用します。",
+  "hubTerms.optional": "P2Pへの参加、ダウンロード、再配布は任意で、利用規約への同意とは別に設定します。条件の内容が改定された場合は再度確認を求めることがあります。",
+  "hubTerms.checkbox": "上記の利用条件を確認し、同意します",
+  "hubTerms.no": "NO（ホームに戻る）",
+  "hubTerms.ok": "OK（同意してアクセス）"
 }

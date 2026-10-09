@@ -4,7 +4,6 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { BattleHubAccessButton } from "@/components/battleHub/BattleHubAccessButton";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
-import { P2pSettingsPanel } from "@/components/p2p/P2pSettingsPanel";
 import { useI18n } from "@/i18n/I18nProvider";
 
 export default function HomePage() {
@@ -28,9 +27,6 @@ export default function HomePage() {
         <div className="hidden lg:block"><BattleHubAccessButton className="w-full px-8 py-3 font-semibold" /></div>
       </section>
 
-      <div className="mt-8 w-full">
-        <P2pSettingsPanel />
-      </div>
 
       <footer className="mt-8 text-center text-xs opacity-60">© {new Date().getFullYear()} {t("home.footer")}</footer></div>
     </main>

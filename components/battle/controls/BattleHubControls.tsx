@@ -5,6 +5,7 @@ import type { RawBattleJson } from "@/utils/battle/loadBattleJson";
 import { getBattleHubHealth, publishBattleToHub } from "@/utils/battleHub/client";
 import { BattleHubAccessButton } from "@/components/battleHub/BattleHubAccessButton";
 import { useI18n } from "@/i18n/I18nProvider";
+import { hasAcceptedHubTerms } from "@/utils/battleHub/terms";
 
 type Props = { battleJson: RawBattleJson | null };
 type HealthState = "checking" | "online" | "offline";
@@ -23,6 +24,7 @@ export function BattleHubControls({ battleJson }: Props) {
 
   useEffect(() => {
     const controller = new AbortController();
+    if (!hasAcceptedHubTerms()) { setHealth("offline"); return () => controller.abort(); }
     getBattleHubHealth(controller.signal)
       .then((result) => setHealth(result.status === "ok" ? "online" : "offline"))
       .catch(() => {
@@ -44,7 +46,7 @@ export function BattleHubControls({ battleJson }: Props) {
 
   const handlePublish = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!battleJson || !authorName.trim()) return;
+    if (!battleJson || !authorName.trim() || !hasAcceptedHubTerms()) return;
 
     setIsPublishing(true);
     setMessage(null);

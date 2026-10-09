@@ -255,5 +255,14 @@
   "hubPublish.dismiss": "Dismiss notification",
   "hubPublish.download": "Download JSON",
   "hubPublish.legacyTitle": "Previously uploaded battles",
-  "hubPublish.legacyHint": "These battles were stored in the Hub using the previous API and can be exported as JSON. New uploads use distributed P2P sharing."
+  "hubPublish.legacyHint": "These battles were stored in the Hub using the previous API and can be exported as JSON. New uploads use distributed P2P sharing.",
+  "hubTerms.title": "Battle Hub terms and network consent",
+  "hubTerms.intro": "Review these network and sharing terms before your first visit to Battle Hub. No work catalog requests will be sent until you agree.",
+  "hubTerms.metadata": "Battle Hub handles metadata including work titles, descriptions, and display author names. JSON submitted through the legacy API continues to be stored on the Hub.",
+  "hubTerms.p2p": "JSON for new distributed works is stored and transferred by participating Battle Viewer peers. A work cannot be fetched if no provider is reachable.",
+  "hubTerms.privacy": "P2P connections may reveal your IP address to the other peer. Caching and redistribution may use local disk space and upload bandwidth.",
+  "hubTerms.optional": "Joining P2P, downloading and redistribution are optional and have separate controls. If these terms are updated, you may be asked to consent again.",
+  "hubTerms.checkbox": "I have read and agree to these terms",
+  "hubTerms.no": "NO (Back to home)",
+  "hubTerms.ok": "OK (Agree and enter)"
 }

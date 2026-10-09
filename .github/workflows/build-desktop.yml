@@ -1,0 +1,62 @@
+name: Build Desktop Packages
+
+# Builds native artifacts on each develop update.
+# workflow_dispatch is also available when this file is on the default branch.
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows NSIS
+            os: windows-latest
+            bundle: nsis
+            artifact: battle-viewer-windows-nsis
+          - label: Linux Debian
+            os: ubuntu-latest
+            bundle: deb
+            artifact: battle-viewer-linux-deb
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+            crates/battle-p2p-core -> target
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - run: npm ci
+      - name: Build production installer
+        run: npm run tauri build -- --bundles ${{ matrix.bundle }}
+      - name: Upload installer packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: src-tauri/target/release/bundle/${{ matrix.bundle }}/*
+          if-no-files-found: error
+          retention-days: 14
