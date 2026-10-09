@@ -44,9 +44,9 @@ export async function listDistributedWorks(query = ""): Promise<WorkCatalogPage>
   return response.json() as Promise<WorkCatalogPage>;
 }
 
-export async function publishDistributedWork(raw: string, description = ""): Promise<DistributedWork> {
+export async function publishDistributedWork(raw: string, description = "", authorName = ""): Promise<DistributedWork> {
   if (!isTauriRuntime()) throw new Error("Desktop application required");
-  return desktopP2pPublish(raw, description);
+  return desktopP2pPublish(raw, description, authorName);
 }
 
 export async function fetchDistributedWork(work: DistributedWork): Promise<string> {

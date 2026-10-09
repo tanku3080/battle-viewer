@@ -243,5 +243,17 @@
   "p2p.replicaCount": "Online replicas: {count}/{target}",
   "p2p.openViewer": "Open in Viewer",
   "p2p.openCreator": "Continue in Creator",
-  "p2p.startFirst": "To download or publish distributed works, enable participation and start networking on Home."
+  "p2p.startFirst": "To download or publish distributed works, enable participation and start networking on Home.",
+  "hubPublish.title": "Publish a work",
+  "hubPublish.drop": "Drag and drop a Battle JSON file",
+  "hubPublish.select": "Choose file",
+  "hubPublish.jsonOnly": "Please select a JSON file.",
+  "hubPublish.invalid": "The Battle JSON structure is invalid.",
+  "hubPublish.titleRequired": "A work title of 1–200 characters is required.",
+  "hubPublish.valid": "Basic JSON structure validated.",
+  "hubPublish.duplicate": "This JSON has already been published.",
+  "hubPublish.dismiss": "Dismiss notification",
+  "hubPublish.download": "Download JSON",
+  "hubPublish.legacyTitle": "Previously uploaded battles",
+  "hubPublish.legacyHint": "These battles were stored in the Hub using the previous API and can be exported as JSON. New uploads use distributed P2P sharing."
 }

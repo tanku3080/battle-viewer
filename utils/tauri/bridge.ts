@@ -124,11 +124,17 @@ export async function desktopP2pStop(): Promise<void> {
 }
 
 export async function desktopP2pPublish(
-  raw: string, description: string
+  raw: string, description: string, authorName = ""
 ): Promise<import("@/utils/battleHub/works").DistributedWork> {
-  return invoke("p2p_publish", { raw, description });
+  return invoke("p2p_publish", { raw, description, authorName });
 }
 
 export async function desktopP2pFetch(workId: string): Promise<string> {
   return invoke("p2p_fetch", { workId });
+}
+
+export async function desktopBattleDownload(id: string): Promise<import("@/utils/battle/loadBattleJson").RawBattleJson> {
+  const response = await invoke<DesktopResponse<import("@/utils/battle/loadBattleJson").RawBattleJson>>("hub_battle_json", { id });
+  if (!response.ok || !response.data) throw new Error(response.error ?? `Battle Hub HTTP ${response.status}`);
+  return response.data;
 }

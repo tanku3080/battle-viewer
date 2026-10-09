@@ -2,15 +2,40 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getBattleHubBattles, type BattleHubBattleSummary } from "@/utils/battleHub/client";
+import { getBattleHubBattles, downloadLegacyBattle, type BattleHubBattleSummary } from "@/utils/battleHub/client";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DistributedWorksPanel } from "@/components/p2p/DistributedWorksPanel";
+import { PublishWorkDialog } from "@/components/p2p/PublishWorkDialog";
+import { isTauriRuntime } from "@/utils/tauri/bridge";
 
 export default function BattleHubPage() {
   const { locale, t } = useI18n();
   const [battles, setBattles] = useState<BattleHubBattleSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  async function downloadLegacy(id: string, title: string) {
+    setDownloading(id);
+    setError(null);
+    try {
+      const json = await downloadLegacyBattle(id);
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = (title.replace(/[\\/:*?"<>|]/g, "_").slice(0, 80) || "battle") + ".json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally { setDownloading(null); }
+  }
 
   useEffect(() => {
     getBattleHubBattles()
@@ -27,9 +52,13 @@ export default function BattleHubPage() {
           <h1 className="text-2xl font-semibold">{t("hub.title")}</h1>
           <p className="text-sm text-gray-400">{t("hub.description")}</p>
         </div>
+        {isTauriRuntime() && <button type="button" onClick={() => setPublishOpen(true)}
+          className="ml-auto min-h-11 rounded-md bg-blue-600 px-5 py-2 font-semibold hover:bg-blue-700">{t("publish.submit")}</button>}
       </header>
 
       <section className="mx-auto max-w-5xl">
+        <h2 className="mb-2 text-lg font-semibold">{t("hubPublish.legacyTitle")}</h2>
+        <p className="mb-4 text-sm text-gray-400">{t("hubPublish.legacyHint")}</p>
         {loading && <p role="status" aria-live="polite" className="text-gray-300">{t("common.loading")}</p>}
         {error && <div role="alert" className="rounded border border-red-800 bg-red-950 p-4 text-red-200">{error}</div>}
         {!loading && !error && battles.length === 0 && <div className="rounded border border-gray-700 bg-[#111827] p-6 text-gray-400">{t("hub.empty")}</div>}
@@ -41,10 +70,19 @@ export default function BattleHubPage() {
               <div className="mt-1 text-sm text-gray-400">{t("hub.author", { name: battle.authorName })}</div>
               {battle.description && <p className="mt-3 text-sm text-gray-300">{battle.description}</p>}
               <div className="mt-3 text-xs text-gray-500">{new Date(battle.createdAt).toLocaleString(locale === "ja" ? "ja-JP" : "en-US")}</div>
+              <button type="button" disabled={downloading === battle.id} onClick={() => void downloadLegacy(battle.id, battle.title)}
+                className="mt-3 min-h-11 rounded bg-gray-700 px-4 hover:bg-gray-600 disabled:opacity-40">{t("hubPublish.download")}</button>
             </article>
           ))}
         </div>
-        <DistributedWorksPanel />
+        <DistributedWorksPanel key={refreshKey} />
+        <PublishWorkDialog open={publishOpen} onClose={() => setPublishOpen(false)}
+          onPublished={(work) => {
+            setNotice(t("p2p.published", { title: work.title }));
+            setRefreshKey((n) => n + 1);
+          }} />
+        {notice && <div role="status" aria-live="polite"
+          className="fixed bottom-5 right-5 z-50 max-w-sm rounded-lg border border-emerald-700 bg-[#0b1020] p-4 text-emerald-200 shadow-xl">{notice}<button type="button" className="ml-3 rounded px-2" onClick={() => setNotice("")} aria-label={t("hubPublish.dismiss")}>×</button></div>}
       </section>
     </main>
   );

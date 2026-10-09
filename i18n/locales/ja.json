@@ -243,5 +243,17 @@
   "p2p.replicaCount": "オンライン複製 {count}/{target}",
   "p2p.openViewer": "閲覧する",
   "p2p.openCreator": "編集する",
-  "p2p.startFirst": "共有作品を取得または投稿するには、ホーム画面で参加を同意してP2P通信を開始してほしい。"
+  "p2p.startFirst": "共有作品を取得または投稿するには、ホーム画面で参加を同意してP2P通信を開始してほしい。",
+  "hubPublish.title": "作品を投稿",
+  "hubPublish.drop": "JSONファイルをドラッグ＆ドロップ",
+  "hubPublish.select": "ファイルを選択",
+  "hubPublish.jsonOnly": "JSONファイルを選択してください。",
+  "hubPublish.invalid": "Battle JSONの構造が正しくありません。",
+  "hubPublish.titleRequired": "作品タイトルは1～200文字で入力してください。",
+  "hubPublish.valid": "JSONの基本構造を確認しました。",
+  "hubPublish.duplicate": "同じJSONはすでに投稿されています。",
+  "hubPublish.dismiss": "通知を閉じる",
+  "hubPublish.download": "JSONをダウンロード",
+  "hubPublish.legacyTitle": "旧方式で投稿された作品",
+  "hubPublish.legacyHint": "以前の方式でHubに保存された作品です。JSONをダウンロードできます。新規投稿は下のP2P共有へ登録します。"
 }
