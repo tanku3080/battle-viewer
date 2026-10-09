@@ -135,10 +135,6 @@ test("viewer keeps native file chooser and modal dialogs available in maximized 
   );
   assert.match(battlePage, /type="file"/);
 
-  const hubControls = fs.readFileSync(
-    path.join(root, "components/battle/controls/BattleHubControls.tsx"),
-    "utf8"
-  );
   const preview = fs.readFileSync(path.join(root, "components/p2p/BattlePreviewDialog.tsx"), "utf8");
   assert.match(preview, /<dialog/);
   assert.match(preview, /showModal\(\)/);
