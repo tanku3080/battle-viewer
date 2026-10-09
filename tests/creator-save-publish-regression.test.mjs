@@ -6,9 +6,9 @@ import ts from "typescript";
 function loadTs(relative) {
   const source = fs.readFileSync(relative, "utf8");
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }}).outputText;
-  const module = { exports: {} };
-  new Function("exports", "module", output)(module.exports, module);
-  return module.exports;
+  const compiled = { exports: {} };
+  new Function("exports", "module", output)(compiled.exports, compiled);
+  return compiled.exports;
 }
 const { exportCreatorCoordinate } = loadTs("utils/battleCreator/export.ts");
 const { validatePublishBattle } = loadTs("utils/battleHub/validatePublish.ts");
