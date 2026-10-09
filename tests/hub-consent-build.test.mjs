@@ -19,7 +19,7 @@ test("Battle Hub data component stays unmounted before first-visit agreement", (
   const gate = read("components/battleHub/HubConsentGate.tsx");
   const hub = read("app/hub/layout.tsx");
   assert.match(gate, /useSyncExternalStore\(subscribeConsent, hasAcceptedHubTerms/);
-  assert.match(gate, /disabled=\{!checked\}/);
+  assert.match(gate, /disabled=\{!checked \|\| busy\}/);
   assert.match(gate, /router\.replace\("\/home"\)/);
   assert.match(gate, /acceptHubTerms\(\)/);
   assert.match(gate, /if \(accepted\) return/);
@@ -36,7 +36,8 @@ test("home navigation no longer pings Hub or presents P2P consent", () => {
 
 test("P2P background and Viewer requests are gated on first-visit agreement", () => {
   assert.match(read("components/p2p/P2pReplicationWorker.tsx"), /!hasAcceptedHubTerms\(\)/);
-  assert.match(read("components/battle/controls/BattleHubControls.tsx"), /!hasAcceptedHubTerms\(\)/);
+  assert.doesNotMatch(read("components/battle/controls/BattleHubControls.tsx"), /publishBattleToHub/);
+  assert.match(read("app/hub/layout.tsx"), /HubConsentGate/);
   const terms = read("utils/battleHub/terms.ts");
   assert.match(terms, /localStorage\.getItem/);
   assert.match(terms, /localStorage\.setItem/);
