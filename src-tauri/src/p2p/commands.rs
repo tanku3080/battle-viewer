@@ -204,12 +204,15 @@ pub async fn p2p_stop(
 pub async fn p2p_publish(
   raw: String,
   description: String,
+  author_name: String,
   state: State<'_, P2pState>,
   auth: State<'_, AuthState>,
 ) -> Result<serde_json::Value, String> {
   let ready = ready(&state)?;
   enabled(ready, false, true)?;
-  if description.len() > 2000 { return Err("Description too long".into()); }
+  if description.chars().count() > 2000 { return Err("Description too long".into()); }
+  if author_name.chars().count() > 60 { return Err("Author name too long".into()); }
+  if !author_name.is_empty() && author_name.trim().is_empty() { return Err("Author name required".into()); }
   let network = ready.network.lock().await;
   let transport = network.as_ref().ok_or_else(|| "Start P2P before publishing".to_string())?;
   let peer_id = transport.peer_id().to_string();
@@ -236,6 +239,7 @@ pub async fn p2p_publish(
 
   let body = serde_json::json!({
     "title": title,
+    "authorName": if author_name.is_empty() { None } else { Some(author_name.trim()) },
     "description": description,
     "protocolVersion": manifest.protocol_version,
     "encoding": manifest.encoding,
