@@ -19,6 +19,14 @@ pub(crate) struct AuthState {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct RegisterRequest {
+  username: String,
+  email: String,
+  password: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LoginRequest {
   username: String,
   password: String,
@@ -257,6 +265,39 @@ pub(crate) async fn authenticated_request(
     build(&refreshed).send().await
       .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))
   }
+}
+
+#[tauri::command]
+async fn auth_register(request: RegisterRequest) -> Result<CommandResponse<Value>, String> {
+  let client = reqwest::Client::new();
+  if let Err(error) = wait_for_hub_ready(&client).await {
+    return Ok(CommandResponse::failure(502, error));
+  }
+  let response = match client.post(format!("{}/api/auth/register", hub_base_url()))
+    .json(&serde_json::json!({"email":request.email,"username":request.username,"password":request.password}))
+    .timeout(std::time::Duration::from_secs(20)).send().await {
+      Ok(response) => response,
+      Err(_) => return Ok(CommandResponse::failure(502, "Registration service unavailable")),
+    };
+  if !response.status().is_success() { return Ok(parse_error(response).await); }
+  let status = response.status().as_u16();
+  let data = response.json::<Value>().await.map_err(|e| e.to_string())?;
+  Ok(CommandResponse::success(status, data))
+}
+
+#[tauri::command]
+async fn client_version() -> Result<CommandResponse<Value>, String> {
+  let client = reqwest::Client::new();
+  let response = match send_hub_get_with_retry(&client, "", "/api/client/version").await {
+    Ok(response) => response,
+    Err(error) => return Ok(CommandResponse::failure(502, error)),
+  };
+  if !response.status().is_success() { return Ok(parse_error(response).await); }
+  let data = response.json::<Value>().await.map_err(|e| e.to_string())?;
+  let platform = if cfg!(target_os="windows") { "windows-x64" } else if cfg!(target_os="linux") { "linux-x64-deb" } else { "unknown" };
+  Ok(CommandResponse::success(200, serde_json::json!({
+    "currentVersion": env!("CARGO_PKG_VERSION"), "platform": platform, "version": data
+  })))
 }
 
 #[tauri::command]
@@ -574,6 +615,8 @@ pub fn run() {
     .manage(AuthState::default())
     .invoke_handler(tauri::generate_handler![
       auth_login,
+      auth_register,
+      client_version,
       auth_session,
       auth_logout,
       hub_get,

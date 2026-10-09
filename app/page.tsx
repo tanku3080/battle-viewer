@@ -4,10 +4,12 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/utils/auth/client";
 import { useI18n } from "@/i18n/I18nProvider";
+import { RegisterDialog } from "@/components/auth/RegisterDialog";
 
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const [showRegistration, setShowRegistration] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,7 +56,9 @@ export default function LoginPage() {
         <button type="submit" disabled={isSubmitting} className="w-full rounded-md bg-blue-600 py-2 font-semibold hover:bg-blue-700 disabled:opacity-50">
           {isSubmitting ? t("login.submitting") : t("login.submit")}
         </button>
+        <button type="button" onClick={() => setShowRegistration(true)} className="mt-4 w-full rounded border border-gray-500 px-3 py-2 hover:bg-gray-700">{t("register.open")}</button>
       </form>
+      {showRegistration && <RegisterDialog onClose={() => setShowRegistration(false)} />}
     </main>
   );
 }
