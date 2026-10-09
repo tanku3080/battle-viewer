@@ -4,9 +4,9 @@ name: Build Desktop Packages
 # workflow_dispatch is also available when this file is on the default branch.
 on:
   push:
-    branches: [develop]
+    branches: [staging, main]
   pull_request:
-    branches: [develop]
+    branches: [staging, main]
   workflow_dispatch:
 
 permissions:
