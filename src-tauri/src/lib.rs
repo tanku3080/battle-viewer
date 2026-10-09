@@ -490,6 +490,25 @@ async fn hub_post(
   }
 }
 
+#[tauri::command]
+async fn hub_search_works(query: String, state: State<'_, AuthState>) -> Result<CommandResponse<Value>, String> {
+  if query.chars().count() > 200 {
+    return Ok(CommandResponse::failure(400, "Search query is too long"));
+  }
+  let mut url = reqwest::Url::parse("http://localhost/api/v2/works")
+    .map_err(|error| error.to_string())?;
+  url.query_pairs_mut().append_pair("query", &query);
+  let path = format!("/api/v2/works?{}", url.query().unwrap_or(""));
+  let client = reqwest::Client::new();
+  let response = match authenticated_request(&client, &state, reqwest::Method::GET, &path, None).await {
+    Ok(response) => response,
+    Err(error) => return Ok(CommandResponse::failure(502, error)),
+  };
+  if !response.status().is_success() { return Ok(parse_error(response).await); }
+  let data = response.json::<Value>().await.map_err(|error| error.to_string())?;
+  Ok(CommandResponse::success(200, data))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -501,6 +520,7 @@ pub fn run() {
       hub_get,
       hub_post,
       hub_battle_json,
+      hub_search_works,
       p2p::p2p_get_status,
       p2p::p2p_update_settings,
       p2p::p2p_get_inventory,
