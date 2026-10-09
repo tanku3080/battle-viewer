@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { HubConsentGate } from "@/components/battleHub/HubConsentGate";
 import { AuthActivityGuard } from "@/components/auth/AuthActivityGuard";
 
 export const metadata: Metadata = {
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function HubLayout({ children }: { children: React.ReactNode }) {
-  return <AuthActivityGuard>{children}</AuthActivityGuard>;
+  return <AuthActivityGuard><HubConsentGate>{children}</HubConsentGate></AuthActivityGuard>;
 }
