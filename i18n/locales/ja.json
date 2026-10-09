@@ -258,6 +258,7 @@
   "p2p.publishWork": "JSON作品を投稿",
   "p2p.fileTooLarge": "JSONは32MiBを超えられない。",
   "p2p.published": "作品を投稿した: {title}",
+  "p2p.downloadStarted": "「{title}」のJSONダウンロードを開始しました。保存先を確認してください。",
   "p2p.replicaCount": "オンライン複製 {count}/{target}",
   "p2p.openViewer": "閲覧する",
   "p2p.openCreator": "編集する",

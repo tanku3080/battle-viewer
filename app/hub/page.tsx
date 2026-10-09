@@ -3,16 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { DistributedWorksPanel } from "@/components/p2p/DistributedWorksPanel";
-import { PublishWorkDialog } from "@/components/p2p/PublishWorkDialog";
 import { P2pSettingsPanel } from "@/components/p2p/P2pSettingsPanel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isTauriRuntime, desktopP2pStart, desktopP2pStatus } from "@/utils/tauri/bridge";
 
 export default function BattleHubPage() {
   const { t } = useI18n();
-  const [publishOpen, setPublishOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [notice, setNotice] = useState("");
   const [networkError, setNetworkError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const settingsDialog = useRef<HTMLDialogElement>(null);
@@ -52,8 +49,6 @@ export default function BattleHubPage() {
           <p className="text-sm text-gray-400">{t("hub.description")}</p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
-          {isTauriRuntime() && <button type="button" onClick={() => setPublishOpen(true)}
-            className="min-h-11 rounded-md bg-blue-600 px-5 py-2 font-semibold hover:bg-blue-700">{t("publish.submit")}</button>}
           <button type="button" onClick={() => setSettingsOpen(true)}
             className="min-h-11 rounded-md border border-gray-600 bg-gray-800 px-5 py-2 font-semibold hover:bg-gray-700">
             {t("hub.settings")}
@@ -65,11 +60,6 @@ export default function BattleHubPage() {
           {t("hub.networkWarning")}: {networkError}
         </p>}
         <DistributedWorksPanel key={refreshKey} />
-        <PublishWorkDialog open={publishOpen} onClose={() => setPublishOpen(false)}
-          onPublished={(work) => {
-            setNotice(t("p2p.published", { title: work.title }));
-            setRefreshKey((n) => n + 1);
-          }} />
         <dialog ref={settingsDialog} aria-labelledby="hub-settings-title"
           onCancel={(event) => { event.preventDefault(); setSettingsOpen(false); }}
           className="m-auto max-h-[calc(100dvh-2rem)] w-[min(95vw,55rem)] overflow-y-auto rounded-xl border border-gray-700 bg-[#0b1020] p-5 text-gray-100 shadow-2xl backdrop:bg-black/80">
@@ -80,10 +70,6 @@ export default function BattleHubPage() {
           </header>
           {settingsOpen && <P2pSettingsPanel />}
         </dialog>
-        {notice && <div role="status" aria-live="polite"
-          className="fixed bottom-5 right-5 z-50 max-w-sm rounded-lg border border-emerald-700 bg-[#0b1020] p-4 text-emerald-200 shadow-xl">
-          {notice}<button type="button" onClick={() => setNotice("")} className="ml-3 rounded px-2" aria-label={t("hubPublish.dismiss")}>×</button>
-        </div>}
       </section>
     </main>
   );

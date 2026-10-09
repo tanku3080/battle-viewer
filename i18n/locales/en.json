@@ -258,6 +258,7 @@
   "p2p.publishWork": "Publish JSON work",
   "p2p.fileTooLarge": "JSON may not exceed 32 MiB.",
   "p2p.published": "Published work: {title}",
+  "p2p.downloadStarted": "Started downloading JSON for “{title}”. Check your download destination.",
   "p2p.replicaCount": "Online replicas: {count}/{target}",
   "p2p.openViewer": "Open in Viewer",
   "p2p.openCreator": "Continue in Creator",
