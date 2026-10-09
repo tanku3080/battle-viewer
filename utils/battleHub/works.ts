@@ -1,5 +1,6 @@
 import {
   desktopHubGet,
+  desktopSearchWorks,
   desktopP2pPublish,
   desktopP2pFetch,
   isTauriRuntime,
@@ -33,14 +34,11 @@ export type WorkCatalogPage = {
 
 export async function listDistributedWorks(query = ""): Promise<WorkCatalogPage> {
   if (isTauriRuntime()) {
-    const result = await desktopHubGet<WorkCatalogPage>("works");
+    const result = query.trim()
+      ? await desktopSearchWorks(query.trim())
+      : await desktopHubGet<WorkCatalogPage>("works");
     if (!result.ok || !result.data) throw new Error(result.error ?? "Work list unavailable");
-    const data = result.data;
-    const needle = query.trim().toLocaleLowerCase();
-    if (!needle) return data;
-    return { ...data, items: data.items.filter((work) =>
-      [work.title, work.authorName, work.description].some((value) => value.toLocaleLowerCase().includes(needle))
-    ) };
+    return result.data;
   }
   const response = await fetch(`/api/battle-hub/works?query=${encodeURIComponent(query)}`, {
     cache: "no-store",
