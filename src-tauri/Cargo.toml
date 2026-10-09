@@ -18,6 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.7.1", features = [] }
 
 [dependencies]
+async-trait = "0.1"
 base64 = "0.22"
 image = { version = "=0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 battle-p2p-core = { path = "../crates/battle-p2p-core" }
