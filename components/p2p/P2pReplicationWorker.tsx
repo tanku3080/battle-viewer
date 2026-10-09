@@ -12,12 +12,12 @@ import { listDistributedWorks } from "@/utils/battleHub/works";
  */
 export function P2pReplicationWorker() {
   useEffect(() => {
-    if (!isTauriRuntime() || !hasAcceptedHubTerms()) return;
+    if (!isTauriRuntime()) return;
     let disposed = false;
     let busy = false;
 
     const replicate = async () => {
-      if (disposed || busy) return;
+      if (disposed || busy || !hasAcceptedHubTerms()) return;
       busy = true;
       try {
         const state = await desktopP2pStatus();
