@@ -77,6 +77,33 @@ pub(crate) fn hub_base_url() -> String {
     .to_string()
 }
 
+
+const HUB_COLD_START_RETRIES: usize = 7;
+/// Render Free may take tens of seconds to wake. Retry only requests that
+/// have no side effects, or explicit login/refresh calls handled separately.
+/// Never replay publication, grant consumption, or other unsafe POST operations.
+async fn send_hub_get_with_retry(
+  client: &reqwest::Client,
+  token: &str,
+  path: &str,
+) -> Result<reqwest::Response, String> {
+  for attempt in 0..=HUB_COLD_START_RETRIES {
+    let result = client.get(format!("{}{}", hub_base_url(), path))
+      .bearer_auth(token)
+      .timeout(std::time::Duration::from_secs(12))
+      .send().await;
+    match result {
+      Ok(response) if [502, 503, 504].contains(&response.status().as_u16())
+        && attempt < HUB_COLD_START_RETRIES => {},
+      Ok(response) => return Ok(response),
+      Err(_) if attempt < HUB_COLD_START_RETRIES => {},
+      Err(error) => return Err(format!("Cannot connect to Battle Hub: {error}")),
+    }
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+  }
+  Err("Battle Hub did not become available after retry".into())
+}
+
 async fn parse_error(response: reqwest::Response) -> CommandResponse<Value> {
   let status = response.status().as_u16();
   let body = response.text().await.unwrap_or_default();
@@ -186,20 +213,24 @@ pub(crate) async fn authenticated_request(
     request
   };
 
-  let response = build(&token)
-    .send()
-    .await
-    .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))?;
+  let response = if method == reqwest::Method::GET && body.is_none() {
+    send_hub_get_with_retry(client, &token, path).await?
+  } else {
+    build(&token).send().await
+      .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))?
+  };
 
   if response.status() != reqwest::StatusCode::UNAUTHORIZED {
     return Ok(response);
   }
 
   let refreshed = refresh_access_token(client, state).await?;
-  build(&refreshed)
-    .send()
-    .await
-    .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))
+  if method == reqwest::Method::GET && body.is_none() {
+    send_hub_get_with_retry(client, &refreshed, path).await
+  } else {
+    build(&refreshed).send().await
+      .map_err(|error| format!("Cannot connect to Battle Hub: {error}"))
+  }
 }
 
 #[tauri::command]
