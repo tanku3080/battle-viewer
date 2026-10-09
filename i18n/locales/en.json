@@ -271,5 +271,11 @@
   "p2p.pasteSearch": "Paste",
   "p2p.clipboardUnavailable": "Cannot read clipboard. Try Ctrl+V.",
   "hub.readyToPublish": "Publish your work in Battle Hub",
-  "hub.publishFromHub": "Use Publish in Battle Hub to share a work."
+  "hub.publishFromHub": "Use Publish in Battle Hub to share a work.",
+  "creator.saveStarted": "Started downloading “{name}”. Check your download destination.",
+  "hubPublish.invalidCoordinates": "Invalid coordinates or timeline data. Reposition the element in Creator before saving.",
+  "hubPublish.invalidImage": "Invalid image or icon. Please choose a supported image.",
+  "hubPublish.invalidCreator": "Duplicate element IDs or invalid hierarchy references. Check the Creator document.",
+  "hubPublish.loginRequired": "Please sign in to Battle Hub.",
+  "hubPublish.networkFailed": "Could not connect. Check your P2P settings and network connection."
 }
