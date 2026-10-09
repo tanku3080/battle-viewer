@@ -27,6 +27,7 @@ export function DistributedWorksPanel() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [preview, setPreview] = useState<{ title: string; raw: string } | null>(null);
   const [composing, setComposing] = useState(false);
+  const [imeError, setImeError] = useState("");
 
   const refresh = async (q = query) => {
     setLoading(true);
@@ -118,6 +119,16 @@ export function DistributedWorksPanel() {
           </button>
         </form>
         {desktop && (
+          <button type="button" onClick={() => {
+            void navigator.clipboard.readText().then((value) => {
+              setQuery(value.slice(0, 200));
+              setImeError("");
+            }).catch(() => setImeError(t("p2p.clipboardUnavailable")));
+          }} className="min-h-11 self-end rounded bg-gray-700 px-4">
+            {t("p2p.pasteSearch")}
+          </button>
+        )}
+        {desktop && (
           <button type="button" disabled={!canPublish || busy} onClick={() => setPublishOpen(true)}
             className="min-h-11 rounded bg-blue-600 px-4 disabled:bg-gray-700 disabled:text-gray-400">
             {t("p2p.publishWork")}
@@ -127,6 +138,7 @@ export function DistributedWorksPanel() {
       {!desktop && <p className="mt-3 text-sm text-amber-200">{t("p2p.webOnly")}</p>}
       {desktop && !status?.networkActive &&
         <p className="mt-3 text-sm text-amber-200">{t("p2p.startFirst")}</p>}
+      {imeError && <p className="mt-3 text-amber-200" role="alert">{imeError}</p>}
       {error && <p className="mt-3 text-red-300" role="alert">{error}</p>}
       {notice && <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 max-w-sm rounded-lg border border-emerald-700 bg-[#0b1020] p-4 text-emerald-200 shadow-xl">{notice}<button type="button" onClick={() => setNotice("")} className="ml-3 rounded px-2" aria-label={t("hubPublish.dismiss")}>×</button></div>}
       {loading && <p role="status" className="mt-4">{t("common.loading")}</p>}
