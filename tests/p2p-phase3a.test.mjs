@@ -63,3 +63,18 @@ test("Phase 3a validates received content through the native cache before accept
   assert.match(network, /cache\s*\.store\(&manifest, &gzip\)/);
   assert.match(network, /validate_hash\(&request\.content_hash\)/);
 });
+
+test("Phase 6 paces outgoing CBOR response bytes with a shared native upload limiter", () => {
+  const network = read("src-tauri/src/p2p/network.rs");
+  const cargo = read("src-tauri/Cargo.toml");
+
+  assert.match(cargo, /async-trait = "0\.1"/);
+  assert.match(network, /struct UploadLimiter/);
+  assert.match(network, /struct PacedCodec/);
+  assert.match(network, /struct PacedWriter/);
+  assert.match(network, /UPLOAD_CHUNK_BYTES: usize = 4 \* 1024/);
+  assert.match(network, /PacedWriter::new\(io, Arc::clone\(&self\.limiter\)\)/);
+  assert.match(network, /PacedCodec \{ inner: codec, limiter \}/);
+  assert.match(network, /settings\.upload_limit_bytes_per_second/);
+  assert.match(network, /configured_upload_limit_shares_bandwidth_across_streams/);
+});

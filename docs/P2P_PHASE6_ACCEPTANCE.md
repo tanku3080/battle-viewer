@@ -1,7 +1,8 @@
 # Phase 6 – P2P integration, security and release acceptance
 
-Source of truth: current FE/BE `develop` plus **unmerged** Phase6 branches.
-Coordinated PRs: FE #50, BE #9. This document is not a claim of a full real-NAT test.
+Source of truth: current FE/BE `develop` (Phase6 FE #50 and BE #9 merged)
+plus the later FE upload-shaping branch. This is not a claim of full real-NAT
+acceptance.
 
 ## Automated checks and evidence
 
@@ -19,6 +20,7 @@ Coordinated PRs: FE #50, BE #9. This document is not a claim of a full real-NAT 
 | Grant and receipt TTL | `P2pCoordinationExpiryTest` with controllable clock | Transfer grant 20s; receipt 15min; neither replayable |
 | Missing/null grant fields | `malformedMissingOrUnregisteredTokensNeverRaiseServerErrors` | No 500 or authorization bypass |
 | Metadata-only Hub | Work API tests, migration schema | JSON body and bearer token not persisted in provider table |
+| Outbound payload bandwidth | Native `configured_upload_limit_shares_bandwidth_across_streams`, `PacedCodec` shared limiter, and Node source guards | Aggregate CBOR response payload writes paced in 4 KiB chunks at configured rate; encrypted TCP framing overhead excluded |
 | Creator imported state | Existing Creator and P2P content tests | `creatorState` extensions remain exact |
 | FE app build | Consolidated `.github/workflows/ci.yml` | Node lint/test/build/static build; Windows Tauri Rust; Linux Debian |
 | BE persistence | BE CI | H2 restarts and PostgreSQL migrations/API |
@@ -58,13 +60,21 @@ participate. Record actual logs/screenshots without bearer grants, local JSON co
 - The work distribution service limits active grants and receipts to 4096 each, grants to 60
   per account per minute, removes expired entries opportunistically, and separates grant 20s
   from post-transfer receipt 15min.
-- Proven limitations: native upload rate is **configured but not yet strictly shaped on the
-  libp2p wire**; the design currently uses a single CBOR response, not streaming chunks.
-  The new rate-limited grant issuance is an API-abuse limit, not an upload throughput limiter.
+- The response codec now paces all outbound CBOR *application payload writes* on a
+  shared 4 KiB reservation clock across concurrent libp2p responses. It reads the
+  current configured upload limit (default 256 KiB/s; minimum 16 KiB/s) and no
+  longer sends the entire response in one unbounded socket write. Its request
+  timeout is 75 minutes to accommodate a fully-shared minimum-rate transfer of
+  eight 8 MiB streams. CBOR remains one logical response and is not streamed as
+  independent verified chunks. The limiter does **not** measure or strictly cap
+  encrypted Noise/Yamux/TCP framing and retransmission overhead at the NIC.
+  Bandwidth needs on-device measurement before the release is called wire-rate
+  compliant. The Hub's separate rate limit on grant issuance is API-abuse
+  prevention, not upload throughput limiting.
 - Direct peer addresses are supplied by authenticated users and are **not proof of public
   reachability or verified ownership of an advertised socket**. Provider listings are lease-based.
 - The Hub currently has a single configured auth user, in-memory sessions, direct IPv4 peer
   addresses and no general NAT relay. The Hub must not be represented as a content host.
-- Full release acceptance remains **BLOCKED** until strict upload shaping and physical NAT /
-  three-device trials are completed, if these are mandatory requirements. Do not mark a phase
-  as accepted merely because CI passes.
+- Full release acceptance remains **BLOCKED** until physical NAT / three-device
+  trials and encrypted-wire throughput measurements are completed if those are
+  mandatory requirements. Do not mark a phase as accepted merely because CI passes.
