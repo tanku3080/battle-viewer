@@ -75,6 +75,16 @@ impl UploadLimiter {
     }).unwrap_or(DEFAULT_UPLOAD_LIMIT_BYTES_PER_SECOND)
   }
 
+  // Revoking redistribution permission must stop an already-authorized
+  // response at the next write, not only affect future FetchRequests.
+  fn may_serve(&self) -> bool {
+    self.settings.as_ref().map(|settings| {
+      settings.lock().map(|value| {
+        value.participation_enabled && value.redistribution_enabled
+      }).unwrap_or(false)
+    }).unwrap_or(true)
+  }
+
   async fn reserve(&self, size: usize) {
     let rate = self.bytes_per_second();
     let delay = Duration::from_secs_f64(size as f64 / rate as f64);
@@ -104,6 +114,10 @@ impl<'a, W: AsyncWrite + Unpin> PacedWriter<'a, W> {
 impl<W: AsyncWrite + Unpin> AsyncWrite for PacedWriter<'_, W> {
   fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, bytes: &[u8]) -> Poll<io::Result<usize>> {
     let this = self.get_mut();
+    if !this.limiter.may_serve() {
+      return Poll::Ready(Err(io::Error::new(io::ErrorKind::PermissionDenied,
+        "P2P redistribution permission was revoked")));
+    }
     if bytes.is_empty() { return Poll::Ready(Ok(0)); }
     if this.available == 0 {
       if this.reservation.is_none() {
@@ -650,6 +664,8 @@ mod tests {
     use futures::io::{AsyncWriteExt, Cursor};
 
     let settings = Arc::new(Mutex::new(P2pSettings {
+      participation_enabled: true,
+      redistribution_enabled: true,
       upload_limit_bytes_per_second: 16 * 1024,
       ..P2pSettings::default()
     }));
@@ -679,6 +695,11 @@ mod tests {
 
     settings.lock().unwrap().upload_limit_bytes_per_second = 512 * 1024;
     assert_eq!(limiter.bytes_per_second(), 512 * 1024);
+    settings.lock().unwrap().redistribution_enabled = false;
+    let mut rejected = Cursor::new(Vec::new());
+    let error = PacedWriter::new(&mut rejected, Arc::clone(&limiter))
+      .write_all(&[1, 2, 3]).await.unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
   }
 
   fn test_cache(quota: u64) -> (tempfile::TempDir, Arc<Mutex<Cache>>) {
