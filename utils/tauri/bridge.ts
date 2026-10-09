@@ -115,7 +115,7 @@ export async function desktopP2pUpdateSettings(
 
 export type DesktopP2pNetwork = { peerId: string; address: string };
 
-export async function desktopP2pStart(advertisedIp: string): Promise<DesktopP2pNetwork> {
+export async function desktopP2pStart(advertisedIp = ""): Promise<DesktopP2pNetwork> {
   return invoke("p2p_start", { request: { advertisedIp } });
 }
 
