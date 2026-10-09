@@ -32,6 +32,7 @@
   "account.resetSubmit": "Send reset link",
   "account.resetRequested": "If the address is registered, a password reset email will arrive.",
   "account.resetFailed": "Could not request a password reset.",
+  "account.resetInvalidEmail": "Enter a valid email address.",
   "update.required": "Update required",
   "update.available": "Update available",
   "update.failed": "Version check failed",
