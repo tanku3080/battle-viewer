@@ -120,6 +120,7 @@ export function DistributedWorksPanel() {
         </form>
         {desktop && (
           <button type="button" onClick={() => {
+            if (!navigator.clipboard?.readText) { setImeError(t("p2p.clipboardUnavailable")); return; }
             void navigator.clipboard.readText().then((value) => {
               setQuery(value.slice(0, 200));
               setImeError("");
