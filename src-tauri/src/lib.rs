@@ -285,6 +285,25 @@ async fn auth_register(request: RegisterRequest) -> Result<CommandResponse<Value
   Ok(CommandResponse::success(status, data))
 }
 
+#[derive(Deserialize)]
+struct PasswordResetRequest { email: String }
+
+#[tauri::command]
+async fn auth_request_password_reset(request: PasswordResetRequest) -> Result<CommandResponse<Value>, String> {
+  let client = reqwest::Client::new();
+  if let Err(error) = wait_for_hub_ready(&client).await {
+    return Ok(CommandResponse::failure(502, error));
+  }
+  let response = match client.post(format!("{}/api/auth/request-password-reset", hub_base_url()))
+    .json(&serde_json::json!({"email": request.email}))
+    .timeout(std::time::Duration::from_secs(20)).send().await {
+      Ok(response) => response,
+      Err(_) => return Ok(CommandResponse::failure(502, "Password reset request failed")),
+    };
+  if !response.status().is_success() { return Ok(parse_error(response).await); }
+  Ok(CommandResponse::success(response.status().as_u16(), serde_json::json!({})))
+}
+
 #[tauri::command]
 async fn client_version() -> Result<CommandResponse<Value>, String> {
   let client = reqwest::Client::new();
@@ -616,6 +635,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       auth_login,
       auth_register,
+      auth_request_password_reset,
       client_version,
       auth_session,
       auth_logout,
