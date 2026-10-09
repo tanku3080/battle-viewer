@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadBattleJson, type RawBattleJson } from "@/utils/battle/loadBattleJson";
 import { validatePublishBattle } from "@/utils/battleHub/validatePublish";
+import { explainPublishError } from "@/utils/battleHub/errorMessages";
 import { publishDistributedWork, type DistributedWork } from "@/utils/battleHub/works";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -54,7 +55,7 @@ export function PublishWorkDialog({ open, onClose, onPublished }: Props) {
       loadBattleJson(parsed as RawBattleJson);
       setSelected({ name: file.name, raw, title });
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : t("hubPublish.invalid"));
+      setProblem(explainPublishError(error, t));
     }
   }
 
@@ -68,8 +69,7 @@ export function PublishWorkDialog({ open, onClose, onPublished }: Props) {
       closeAfterSuccess();
       onPublished(work);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setProblem(message.includes("409") ? t("hubPublish.duplicate") : message);
+      setProblem(explainPublishError(error, t));
     } finally {
       setPending(false);
     }
