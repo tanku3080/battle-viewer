@@ -1,5 +1,6 @@
 "use client";
 
+import { hasAcceptedHubTerms } from "@/utils/battleHub/terms";
 import { useEffect } from "react";
 import { isTauriRuntime, desktopP2pFetch, desktopP2pStatus } from "@/utils/tauri/bridge";
 import { listDistributedWorks } from "@/utils/battleHub/works";
@@ -11,7 +12,7 @@ import { listDistributedWorks } from "@/utils/battleHub/works";
  */
 export function P2pReplicationWorker() {
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!isTauriRuntime() || !hasAcceptedHubTerms()) return;
     let disposed = false;
     let busy = false;
 
@@ -43,9 +44,11 @@ export function P2pReplicationWorker() {
       }
     };
 
+    const onConsent = () => { void replicate(); };
+    window.addEventListener("battle-viewer:hub-terms-accepted", onConsent);
     void replicate();
     const timer = setInterval(() => { void replicate(); }, 60_000);
-    return () => { disposed = true; clearInterval(timer); };
+    return () => { disposed = true; clearInterval(timer); window.removeEventListener("battle-viewer:hub-terms-accepted", onConsent); };
   }, []);
 
   return null;
