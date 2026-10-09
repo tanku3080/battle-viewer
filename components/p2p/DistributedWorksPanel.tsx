@@ -1,13 +1,14 @@
 "use client";
 import { stageDistributedJson } from "@/utils/battleHub/pendingTransfer";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { PublishWorkDialog } from "@/components/p2p/PublishWorkDialog";
 import { useRouter } from "next/navigation";
 import {
   isTauriRuntime, desktopP2pStatus, type P2pStatus
 } from "@/utils/tauri/bridge";
 import {
-  listDistributedWorks, publishDistributedWork, fetchDistributedWork,
+  listDistributedWorks, fetchDistributedWork,
   type DistributedWork,
 } from "@/utils/battleHub/works";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -22,6 +23,7 @@ export function DistributedWorksPanel() {
   const [status, setStatus] = useState<P2pStatus | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [publishOpen, setPublishOpen] = useState(false);
 
   const refresh = async (q = query) => {
     setLoading(true);
@@ -52,21 +54,6 @@ export function DistributedWorksPanel() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
-
-  const publish = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setBusy(true); setError(""); setNotice("");
-    try {
-      if (file.size > 32 * 1024 * 1024) throw new Error(t("p2p.fileTooLarge"));
-      const work = await publishDistributedWork(await file.text());
-      setNotice(t("p2p.published", { title: work.title }));
-      await refresh();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally { setBusy(false); }
-  };
 
   const open = async (work: DistributedWork, destination: "battle" | "create") => {
     setBusy(true); setError(""); setNotice("");
@@ -106,19 +93,17 @@ export function DistributedWorksPanel() {
           </button>
         </form>
         {desktop && (
-          <label className={"inline-flex min-h-11 cursor-pointer items-center rounded px-4 " +
-            (canPublish ? "bg-blue-600" : "bg-gray-700 text-gray-400")}>
+          <button type="button" disabled={!canPublish || busy} onClick={() => setPublishOpen(true)}
+            className="min-h-11 rounded bg-blue-600 px-4 disabled:bg-gray-700 disabled:text-gray-400">
             {t("p2p.publishWork")}
-            <input type="file" accept="application/json,.json" className="sr-only"
-              disabled={!canPublish || busy} onChange={publish} />
-          </label>
+          </button>
         )}
       </div>
       {!desktop && <p className="mt-3 text-sm text-amber-200">{t("p2p.webOnly")}</p>}
       {desktop && !status?.networkActive &&
         <p className="mt-3 text-sm text-amber-200">{t("p2p.startFirst")}</p>}
       {error && <p className="mt-3 text-red-300" role="alert">{error}</p>}
-      {notice && <p className="mt-3 text-green-300" role="status">{notice}</p>}
+      {notice && <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 max-w-sm rounded-lg border border-emerald-700 bg-[#0b1020] p-4 text-emerald-200 shadow-xl">{notice}<button type="button" onClick={() => setNotice("")} className="ml-3 rounded px-2" aria-label={t("hubPublish.dismiss")}>×</button></div>}
       {loading && <p role="status" className="mt-4">{t("common.loading")}</p>}
       {!loading && works.length === 0 && <p className="mt-4 text-gray-400">{t("hub.empty")}</p>}
       <div className="mt-4 grid gap-3">
@@ -147,6 +132,11 @@ export function DistributedWorksPanel() {
           </article>
         ))}
       </div>
+      <PublishWorkDialog open={publishOpen} onClose={() => setPublishOpen(false)}
+        onPublished={(work) => {
+          setNotice(t("p2p.published", { title: work.title }));
+          void refresh();
+        }} />
     </section>
   );
 }
