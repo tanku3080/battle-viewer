@@ -6,6 +6,7 @@ import { getBattleHubBattles, downloadLegacyBattle, type BattleHubBattleSummary 
 import { useI18n } from "@/i18n/I18nProvider";
 import { DistributedWorksPanel } from "@/components/p2p/DistributedWorksPanel";
 import { PublishWorkDialog } from "@/components/p2p/PublishWorkDialog";
+import { P2pSettingsPanel } from "@/components/p2p/P2pSettingsPanel";
 import { isTauriRuntime } from "@/utils/tauri/bridge";
 
 export default function BattleHubPage() {
@@ -75,6 +76,7 @@ export default function BattleHubPage() {
             </article>
           ))}
         </div>
+        <P2pSettingsPanel />
         <DistributedWorksPanel key={refreshKey} />
         <PublishWorkDialog open={publishOpen} onClose={() => setPublishOpen(false)}
           onPublished={(work) => {
