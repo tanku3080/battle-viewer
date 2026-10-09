@@ -31,6 +31,9 @@ import {
   getCreatorPositionAt,
 } from "@/utils/battleCreator/timeline";
 import { hasMissingRequiredFields } from "@/utils/battleCreator/validation";
+import { exportCreatorCoordinate } from "@/utils/battleCreator/export";
+import { validatePublishBattle } from "@/utils/battleHub/validatePublish";
+import { explainPublishError } from "@/utils/battleHub/errorMessages";
 import {
   canCreatorHaveManualParent,
   canCreatorParent,
@@ -215,6 +218,8 @@ export default function BattleCreator() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [draftItem, setDraftItem] = useState<EditorItem | null>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [saveNotice, setSaveNotice] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [validationDialog, setValidationDialog] = useState<
     "preview" | "save" | null
   >(null);
@@ -797,6 +802,8 @@ export default function BattleCreator() {
         duration,
         items: validItems.map((item) => ({
           ...item,
+          x: exportCreatorCoordinate(item.x, item.timeline, "x"),
+          y: exportCreatorCoordinate(item.y, item.timeline, "y"),
           timeline: item.timeline.map((point) => ({ ...point })),
           ...(item.groupMoveTimeline
             ? {
@@ -831,7 +838,8 @@ export default function BattleCreator() {
     a.href = url;
     a.download = (title.trim() || "battle") + ".json";
     a.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setSaveNotice(t("creator.saveStarted", { name: a.download }));
   };
 
   const requestJsonPreview = () => {
@@ -848,7 +856,15 @@ export default function BattleCreator() {
       setValidationDialog("save");
       return;
     }
-    saveJson();
+    try {
+      validatePublishBattle(battleJson);
+      const source = JSON.stringify(battleJson);
+      if (source.length > 32 * 1024 * 1024) throw new Error("File too large");
+      setSaveError("");
+      saveJson();
+    } catch (reason) {
+      setSaveError(explainPublishError(reason, t));
+    }
   };
 
   const confirmValidationDialog = () => {
@@ -951,6 +967,8 @@ export default function BattleCreator() {
         </div>
       </header>
 
+      {saveNotice && <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-[70] rounded-lg border border-emerald-700 bg-[#0b1020] p-4 text-emerald-200 shadow-xl">{saveNotice}<button type="button" onClick={() => setSaveNotice("")} className="ml-3 rounded px-2" aria-label={t("hubPublish.dismiss")}>×</button></div>}
+      {saveError && <p role="alert" className="border-b border-red-800 bg-red-950 px-4 py-3 text-red-200">{saveError}</p>}
       {importNotice && (
         <div
           role={importNotice.kind === "error" ? "alert" : "status"}
