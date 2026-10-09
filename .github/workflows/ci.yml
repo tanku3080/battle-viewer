@@ -63,6 +63,7 @@ jobs:
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
 
   desktop-linux:
+    if: github.ref_name == 'staging' || github.ref_name == 'main' || github.base_ref == 'staging' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
