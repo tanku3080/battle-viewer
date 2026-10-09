@@ -138,3 +138,7 @@ export async function desktopBattleDownload(id: string): Promise<import("@/utils
   if (!response.ok || !response.data) throw new Error(response.error ?? `Battle Hub HTTP ${response.status}`);
   return response.data;
 }
+
+export async function desktopSearchWorks(query: string): Promise<DesktopResponse<import("@/utils/battleHub/works").WorkCatalogPage>> {
+  return invoke("hub_search_works", { query });
+}
