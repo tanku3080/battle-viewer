@@ -1,30 +1,32 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";
 import { acceptHubTerms, hasAcceptedHubTerms } from "@/utils/battleHub/terms";
+
+function subscribeConsent(callback: () => void) {
+  window.addEventListener("battle-viewer:hub-terms-accepted", callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    window.removeEventListener("battle-viewer:hub-terms-accepted", callback);
+    window.removeEventListener("storage", callback);
+  };
+}
 
 export function HubConsentGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { t } = useI18n();
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [accepted, setAccepted] = useState(false);
-  const [ready, setReady] = useState(false);
+  const accepted = useSyncExternalStore(subscribeConsent, hasAcceptedHubTerms, () => false);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    const consent = hasAcceptedHubTerms();
-    setAccepted(consent);
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!ready || accepted) return;
+    if (accepted) return;
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
     return () => { if (dialog?.open) dialog.close(); };
-  }, [ready, accepted]);
+  }, [accepted]);
 
   const decline = () => {
     setChecked(false);
@@ -34,13 +36,11 @@ export function HubConsentGate({ children }: { children: React.ReactNode }) {
     if (!checked) return;
     try {
       acceptHubTerms();
-      setAccepted(true);
     } catch {
       // Storage unavailable: do not allow network access without persisted consent.
     }
   };
 
-  if (!ready) return <main className="min-h-dvh bg-[#050816]" />;
   if (accepted) return <>{children}</>;
 
   return (
