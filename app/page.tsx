@@ -72,7 +72,7 @@ export default function LoginPage() {
             </label>
             <button type="button" onClick={async () => {
             if (resetSubmitting) return;
-            if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(resetEmail)) {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) {
               setResetNotice(t("account.resetInvalidEmail"));
               return;
             }
