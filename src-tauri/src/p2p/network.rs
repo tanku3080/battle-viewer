@@ -1,23 +1,34 @@
 use battle_p2p_core::cache::Cache;
 use battle_p2p_core::content::{Manifest, MAX_COMPRESSED_SIZE};
+use futures::io::{AsyncRead, AsyncWrite};
 use futures::StreamExt;
+use libp2p::request_response::Codec as _;
+use std::future::Future;
+use std::io;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::SwarmEvent;
 use libp2p::{Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder, identity, noise, tcp, yamux};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tokio::time::Instant;
 use super::network_auth::HubTransferAuthorizer;
-use super::settings::P2pSettings;
+use super::settings::{P2pSettings, DEFAULT_UPLOAD_LIMIT_BYTES_PER_SECOND};
 use super::image_guard::validate_render_assets;
 use battle_p2p_core::content::decode;
 use tokio::sync::{mpsc, oneshot};
 
 const PROTOCOL: &str = "/battle-viewer/content/1";
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+// A maximum-sized upload at the minimum setting (16 KiB/s) can take 512 s.
+// Eight simultaneously authorized streams share the same limiter, so allow
+// the full bounded worst-case duration instead of timing out slow peers.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(75 * 60);
 const MAX_CONCURRENT_STREAMS: usize = 8;
 const MAX_REQUEST_BYTES: u64 = 256;
 const MAX_RESPONSE_BYTES: u64 = MAX_COMPRESSED_SIZE + 16 * 1024;
+const UPLOAD_CHUNK_BYTES: usize = 4 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -45,7 +56,123 @@ enum FetchResponse {
   Unavailable,
 }
 
-type Behaviour = request_response::cbor::Behaviour<FetchRequest, FetchResponse>;
+// One shared limiter shapes the aggregate amount of CBOR data handed to
+// libp2p/Noise/Yamux, even when distinct peer streams upload concurrently.
+// Socket framing/encryption overhead is outside this application-byte budget.
+struct UploadLimiter {
+  next_send: tokio::sync::Mutex<Option<Instant>>,
+  settings: Option<Arc<Mutex<P2pSettings>>>,
+}
+
+impl UploadLimiter {
+  fn new(settings: Option<Arc<Mutex<P2pSettings>>>) -> Self {
+    Self { next_send: tokio::sync::Mutex::new(None), settings }
+  }
+
+  fn bytes_per_second(&self) -> u64 {
+    self.settings.as_ref().and_then(|value| {
+      value.lock().ok().map(|settings| settings.upload_limit_bytes_per_second)
+    }).unwrap_or(DEFAULT_UPLOAD_LIMIT_BYTES_PER_SECOND)
+  }
+
+  async fn reserve(&self, size: usize) {
+    let rate = self.bytes_per_second();
+    let delay = Duration::from_secs_f64(size as f64 / rate as f64);
+    let mut next_send = self.next_send.lock().await;
+    let at = next_send.unwrap_or_else(Instant::now).max(Instant::now());
+    *next_send = Some(at + delay);
+    drop(next_send);
+    tokio::time::sleep_until(at).await;
+  }
+}
+
+// Limit each poll_write to a 4KiB reservation before the built-in CBOR
+// codec writes to the underlying stream. No CBOR re-encoding or gzip changes.
+struct PacedWriter<'a, W: AsyncWrite + Unpin> {
+  inner: &'a mut W,
+  limiter: Arc<UploadLimiter>,
+  reservation: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
+  available: usize,
+}
+
+impl<'a, W: AsyncWrite + Unpin> PacedWriter<'a, W> {
+  fn new(inner: &'a mut W, limiter: Arc<UploadLimiter>) -> Self {
+    Self { inner, limiter, reservation: None, available: 0 }
+  }
+}
+
+impl<W: AsyncWrite + Unpin> AsyncWrite for PacedWriter<'_, W> {
+  fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, bytes: &[u8]) -> Poll<io::Result<usize>> {
+    let this = self.get_mut();
+    if bytes.is_empty() { return Poll::Ready(Ok(0)); }
+    if this.available == 0 {
+      if this.reservation.is_none() {
+        let limiter = Arc::clone(&this.limiter);
+        let size = bytes.len().min(UPLOAD_CHUNK_BYTES);
+        this.reservation = Some(Box::pin(async move { limiter.reserve(size).await }));
+      }
+      match this.reservation.as_mut().expect("reservation exists").as_mut().poll(cx) {
+        Poll::Pending => return Poll::Pending,
+        Poll::Ready(()) => {
+          this.available = bytes.len().min(UPLOAD_CHUNK_BYTES);
+          this.reservation = None;
+        }
+      }
+    }
+    match Pin::new(&mut *this.inner).poll_write(cx, &bytes[..bytes.len().min(this.available)]) {
+      Poll::Ready(Ok(sent)) => {
+        this.available -= sent;
+        Poll::Ready(Ok(sent))
+      }
+      Poll::Ready(Err(error)) => Poll::Ready(Err(error)),
+      Poll::Pending => Poll::Pending,
+    }
+  }
+
+  fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    Pin::new(&mut *self.get_mut().inner).poll_flush(cx)
+  }
+
+  fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    Pin::new(&mut *self.get_mut().inner).poll_close(cx)
+  }
+}
+
+#[derive(Clone)]
+struct PacedCodec {
+  inner: request_response::cbor::codec::Codec<FetchRequest, FetchResponse>,
+  limiter: Arc<UploadLimiter>,
+}
+
+#[async_trait::async_trait]
+impl request_response::Codec for PacedCodec {
+  type Protocol = StreamProtocol;
+  type Request = FetchRequest;
+  type Response = FetchResponse;
+
+  async fn read_request<T>(&mut self, protocol: &Self::Protocol, io: &mut T) -> io::Result<Self::Request>
+  where T: AsyncRead + Unpin + Send {
+    self.inner.read_request(protocol, io).await
+  }
+
+  async fn read_response<T>(&mut self, protocol: &Self::Protocol, io: &mut T) -> io::Result<Self::Response>
+  where T: AsyncRead + Unpin + Send {
+    self.inner.read_response(protocol, io).await
+  }
+
+  async fn write_request<T>(&mut self, protocol: &Self::Protocol, io: &mut T, req: Self::Request) -> io::Result<()>
+  where T: AsyncWrite + Unpin + Send {
+    self.inner.write_request(protocol, io, req).await
+  }
+
+  async fn write_response<T>(&mut self, protocol: &Self::Protocol, io: &mut T, response: Self::Response) -> io::Result<()>
+  where T: AsyncWrite + Unpin + Send {
+    let mut paced = PacedWriter::new(io, Arc::clone(&self.limiter));
+    self.inner.write_response(protocol, &mut paced, response).await
+  }
+}
+
+type Behaviour = request_response::Behaviour<PacedCodec>;
 
 #[derive(Debug, Clone)]
 pub(crate) struct PeerRoute {
@@ -158,7 +285,7 @@ pub(crate) fn keypair_from_seed(seed: &[u8; 32]) -> Result<identity::Keypair, St
     .map_err(|error| format!("failed to derive libp2p identity: {error}"))
 }
 
-fn behaviour() -> Behaviour {
+fn behaviour(limiter: Arc<UploadLimiter>) -> Behaviour {
   let codec = request_response::cbor::codec::Codec::<FetchRequest, FetchResponse>::default()
     .set_request_size_maximum(MAX_REQUEST_BYTES)
     .set_response_size_maximum(MAX_RESPONSE_BYTES);
@@ -167,13 +294,13 @@ fn behaviour() -> Behaviour {
     .with_max_concurrent_streams(MAX_CONCURRENT_STREAMS);
 
   request_response::Behaviour::with_codec(
-    codec,
+    PacedCodec { inner: codec, limiter },
     [(StreamProtocol::new(PROTOCOL), ProtocolSupport::Full)],
     config,
   )
 }
 
-fn swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>, String> {
+fn swarm(keypair: identity::Keypair, limiter: Arc<UploadLimiter>) -> Result<Swarm<Behaviour>, String> {
   SwarmBuilder::with_existing_identity(keypair)
     .with_tokio()
     .with_tcp(
@@ -182,7 +309,7 @@ fn swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>, String> {
       yamux::Config::default,
     )
     .map_err(|error| format!("failed to configure P2P TCP transport: {error}"))?
-    .with_behaviour(|_| behaviour())
+    .with_behaviour(move |_| behaviour(limiter))
     .map_err(|error| format!("failed to configure P2P behaviour: {error}"))
     .map(|builder| {
       builder
@@ -219,7 +346,8 @@ async fn spawn_transport(
   authorizer: Option<HubTransferAuthorizer>,
   settings: Option<Arc<Mutex<P2pSettings>>>,
 ) -> Result<DirectTransport, String> {
-  let mut swarm = swarm(keypair_from_seed(identity_seed)?)?;
+  let limiter = Arc::new(UploadLimiter::new(settings.clone()));
+  let mut swarm = swarm(keypair_from_seed(identity_seed)?, limiter)?;
   swarm
     .listen_on(listen_addr)
     .map_err(|error| format!("failed to start P2P listener: {error}"))?;
@@ -515,6 +643,42 @@ mod tests {
       r#"{{"title":"{title}","map":{{"width":100,"height":100,"coordinateOrigin":"center"}},"units":[],"timeline":{{"units":{{}}}}}}"#
     )
     .into_bytes()
+  }
+
+  #[tokio::test]
+  async fn configured_upload_limit_shares_bandwidth_across_streams() {
+    use futures::io::{AsyncWriteExt, Cursor};
+
+    let settings = Arc::new(Mutex::new(P2pSettings {
+      upload_limit_bytes_per_second: 16 * 1024,
+      ..P2pSettings::default()
+    }));
+    let limiter = Arc::new(UploadLimiter::new(Some(Arc::clone(&settings))));
+    assert_eq!(limiter.bytes_per_second(), 16 * 1024);
+
+    let start = Instant::now();
+    let (a, b) = tokio::join!(
+      async {
+        let mut output = Cursor::new(Vec::new());
+        PacedWriter::new(&mut output, Arc::clone(&limiter))
+          .write_all(&vec![b'a'; 8 * 1024]).await.unwrap();
+        output.into_inner()
+      },
+      async {
+        let mut output = Cursor::new(Vec::new());
+        PacedWriter::new(&mut output, Arc::clone(&limiter))
+          .write_all(&vec![b'b'; 8 * 1024]).await.unwrap();
+        output.into_inner()
+      }
+    );
+    assert_eq!(a, vec![b'a'; 8 * 1024]);
+    assert_eq!(b, vec![b'b'; 8 * 1024]);
+    // Four aggregate 4KiB chunks at 16KiB/s begin at 0, .25, .5, .75s.
+    assert!(start.elapsed() >= Duration::from_millis(650),
+      "concurrent uploads bypassed the shared limiter");
+
+    settings.lock().unwrap().upload_limit_bytes_per_second = 512 * 1024;
+    assert_eq!(limiter.bytes_per_second(), 512 * 1024);
   }
 
   fn test_cache(quota: u64) -> (tempfile::TempDir, Arc<Mutex<Cache>>) {
