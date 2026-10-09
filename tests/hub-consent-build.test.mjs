@@ -18,7 +18,7 @@ test("desktop release workflow targets both native installers", () => {
 test("Battle Hub data component stays unmounted before first-visit agreement", () => {
   const gate = read("components/battleHub/HubConsentGate.tsx");
   const hub = read("app/hub/layout.tsx");
-  assert.match(gate, /hasAcceptedHubTerms\(\)/);
+  assert.match(gate, /useSyncExternalStore\(subscribeConsent, hasAcceptedHubTerms/);
   assert.match(gate, /disabled=\{!checked\}/);
   assert.match(gate, /router\.replace\("\/home"\)/);
   assert.match(gate, /acceptHubTerms\(\)/);
