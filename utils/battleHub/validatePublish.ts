@@ -95,5 +95,38 @@ export function validatePublishBattle(document: unknown): { title: string } {
       names.add(name);
     }
   }
+  if (root.creatorState !== undefined) {
+    const creator = object(root.creatorState, "creatorState");
+    if (creator.version !== 1 && creator.version !== 2) throw new Error("Invalid creatorState version");
+    if (!Array.isArray(creator.items)) throw new Error("creatorState.items must be an array");
+    const keys = new Set<string>();
+    const names = new Set<string>();
+    for (const [index, item] of creator.items.entries()) {
+      const node = object(item, "creatorState.items[" + index + "]");
+      const kind = node.type;
+      if (!["unit", "character", "camera", "legion", "corps", "division", "regiment"].includes(String(kind))) {
+        throw new Error("Invalid Creator item type");
+      }
+      if (kind !== "camera") {
+        const id = validId(node.id, "Creator item");
+        const identity = kind + ":" + id;
+        if (names.has(identity)) throw new Error("Duplicate Creator identity");
+        names.add(identity);
+      }
+      if (node.key !== undefined) {
+        const key = validId(node.key, "Creator key");
+        if (keys.has(key)) throw new Error("Duplicate Creator key");
+        keys.add(key);
+      }
+      for (const axis of ["x", "y"]) {
+        // Native admission treats an omitted position as optional, but null
+        // is not a finite number. Match that contract before saving.
+        if (node[axis] !== undefined && (typeof node[axis] !== "number" || !Number.isFinite(node[axis]))) {
+          throw new Error("creatorState.items[" + index + "]." + axis + " must be finite");
+        }
+      }
+      if (node.timeline !== undefined) points(node.timeline, "creatorState.items[" + index + "].timeline");
+    }
+  }
   return { title: root.title.trim() };
 }
