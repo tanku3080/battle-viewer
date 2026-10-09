@@ -1,5 +1,6 @@
 import {
   desktopLogin,
+  desktopRegister,
   desktopLogout,
   desktopSession,
   isTauriRuntime,
@@ -14,6 +15,18 @@ type AuthErrorBody = {
 async function errorMessage(response: Response, fallback: string) {
   const body = (await response.json().catch(() => null)) as AuthErrorBody | null;
   return body?.details?.join(", ") ?? body?.error ?? fallback;
+}
+
+export async function register(request: { username: string; email: string; password: string }): Promise<void> {
+  if (isTauriRuntime()) {
+    const result = await desktopRegister(request);
+    if (!result.ok) throw new Error(result.error ?? "Registration failed");
+    return;
+  }
+  const response = await fetch("/api/auth/register", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error(await errorMessage(response, "Registration failed"));
 }
 
 export async function login(

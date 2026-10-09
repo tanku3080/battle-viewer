@@ -23,6 +23,18 @@ export function isTauriRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+export async function desktopRegister(request: { username: string; email: string; password: string }): Promise<DesktopResponse<{ username: string }>> {
+  return invoke("auth_register", { request });
+}
+
+export async function desktopVersion(): Promise<DesktopResponse<{
+  currentVersion: string;
+  platform: string;
+  version: import("@/utils/version/check").ClientVersion;
+}>> {
+  return invoke("client_version");
+}
+
 export async function desktopLogin(
   request: DesktopLoginRequest
 ): Promise<DesktopResponse<DesktopSession>> {
