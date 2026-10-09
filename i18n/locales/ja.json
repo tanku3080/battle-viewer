@@ -267,5 +267,9 @@
   "hub.networkWarning": "P2P接続を開始できませんでした。設定を開いてアドレスを確認してください",
   "hub.preview": "作品プレビュー",
   "p2p.autoAddress": "自動検出（通常は空欄でOK）",
-  "p2p.manualAddress": "接続IPアドレス（必要な場合のみ手動指定）"
+  "p2p.manualAddress": "接続IPアドレス（必要な場合のみ手動指定）",
+  "p2p.pasteSearch": "貼り付け",
+  "p2p.clipboardUnavailable": "クリップボードから読み取れません。Ctrl+Vで貼り付けてください。",
+  "hub.readyToPublish": "作品の投稿はBattle Hubから行えます",
+  "hub.publishFromHub": "投稿はBattle Hubの「投稿する」から行ってください。"
 }
