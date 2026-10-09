@@ -253,5 +253,7 @@
   "hubPublish.valid": "JSONの基本構造を確認しました。",
   "hubPublish.duplicate": "同じJSONはすでに投稿されています。",
   "hubPublish.dismiss": "通知を閉じる",
-  "hubPublish.download": "JSONをダウンロード"
+  "hubPublish.download": "JSONをダウンロード",
+  "hubPublish.legacyTitle": "旧方式で投稿された作品",
+  "hubPublish.legacyHint": "以前の方式でHubに保存された作品です。JSONをダウンロードできます。新規投稿は下のP2P共有へ登録します。"
 }
