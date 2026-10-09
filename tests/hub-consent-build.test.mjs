@@ -6,7 +6,7 @@ const read = (file) => fs.readFileSync(file, "utf8");
 
 test("desktop release workflow targets both native installers", () => {
   const workflow = read(".github/workflows/build-desktop.yml");
-  assert.match(workflow, /branches: \[develop\]/);
+  assert.match(workflow, /branches: \[staging, main\]/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /windows-latest/);
   assert.match(workflow, /ubuntu-latest/);

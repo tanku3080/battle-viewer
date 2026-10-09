@@ -70,7 +70,8 @@ async fn hub(
   path: &str,
   body: Option<&str>,
 ) -> Result<reqwest::Response, String> {
-  let response = tokio::time::timeout(Duration::from_secs(6),
+  let deadline = if method == Method::GET { Duration::from_secs(95) } else { Duration::from_secs(6) };
+  let response = tokio::time::timeout(deadline,
     authenticated_request(&Client::new(), auth, method, path, body))
       .await.map_err(|_| "Battle Hub request timed out".to_string())??;
   if !response.status().is_success() {
