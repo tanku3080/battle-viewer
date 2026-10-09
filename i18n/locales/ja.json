@@ -271,5 +271,11 @@
   "p2p.pasteSearch": "貼り付け",
   "p2p.clipboardUnavailable": "クリップボードから読み取れません。Ctrl+Vで貼り付けてください。",
   "hub.readyToPublish": "作品の投稿はBattle Hubから行えます",
-  "hub.publishFromHub": "投稿はBattle Hubの「投稿する」から行ってください。"
+  "hub.publishFromHub": "投稿はBattle Hubの「投稿する」から行ってください。",
+  "creator.saveStarted": "JSONファイル「{name}」のダウンロードを開始しました。保存先をご確認ください。",
+  "hubPublish.invalidCoordinates": "座標またはタイムラインに不正な値があります。編集画面で要素を配置し直してから保存してください。",
+  "hubPublish.invalidImage": "画像・アイコンの形式が正しくありません。画像を再設定してください。",
+  "hubPublish.invalidCreator": "要素IDの重複または階層の参照に問題があります。編集内容をご確認ください。",
+  "hubPublish.loginRequired": "Battle Hubへのログインが必要です。",
+  "hubPublish.networkFailed": "通信できませんでした。P2P設定とネットワーク接続を確認してください。"
 }
