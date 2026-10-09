@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";
+import { desktopP2pStatus, desktopP2pUpdateSettings, isTauriRuntime } from "@/utils/tauri/bridge";
 import { acceptHubTerms, hasAcceptedHubTerms } from "@/utils/battleHub/terms";
 
 function subscribeConsent(callback: () => void) {
@@ -20,6 +21,8 @@ export function HubConsentGate({ children }: { children: React.ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const accepted = useSyncExternalStore(subscribeConsent, hasAcceptedHubTerms, () => false);
   const [checked, setChecked] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (accepted) return;
@@ -32,12 +35,30 @@ export function HubConsentGate({ children }: { children: React.ReactNode }) {
     setChecked(false);
     router.replace("/home");
   };
-  const agree = () => {
-    if (!checked) return;
+  const agree = async () => {
+    if (!checked || busy) return;
+    setBusy(true);
+    setError("");
     try {
+      // Opt-in is explicit. Existing independent user choices are not overwritten.
+      if (isTauriRuntime()) {
+        const state = await desktopP2pStatus();
+        if (state.settings && !localStorage.getItem("battle-viewer:p2p-terms-initialized")) {
+          await desktopP2pUpdateSettings({
+            participationEnabled: true,
+            downloadsEnabled: true,
+            redistributionEnabled: true,
+            cacheQuotaBytes: state.settings.cacheQuotaBytes,
+            uploadLimitBytesPerSecond: state.settings.uploadLimitBytesPerSecond,
+          });
+          localStorage.setItem("battle-viewer:p2p-terms-initialized", "yes");
+        }
+      }
       acceptHubTerms();
-    } catch {
-      // Storage unavailable: do not allow network access without persisted consent.
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -62,11 +83,12 @@ export function HubConsentGate({ children }: { children: React.ReactNode }) {
               className="h-5 w-5 shrink-0" />
             <span>{t("hubTerms.checkbox")}</span>
           </label>
+          {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
           <div className="flex justify-end gap-3">
             <button type="button" onClick={decline} className="min-h-11 rounded-md bg-gray-700 px-5">
               {t("hubTerms.no")}
             </button>
-            <button type="button" disabled={!checked} onClick={agree}
+            <button type="button" disabled={!checked || busy} onClick={() => void agree()}
               className="min-h-11 rounded-md bg-emerald-700 px-5 disabled:cursor-not-allowed disabled:opacity-40">
               {t("hubTerms.ok")}
             </button>
