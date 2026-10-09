@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadBattleJson, type RawBattleJson } from "@/utils/battle/loadBattleJson";
+import { validatePublishBattle } from "@/utils/battleHub/validatePublish";
 import { publishDistributedWork, type DistributedWork } from "@/utils/battleHub/works";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -49,18 +50,9 @@ export function PublishWorkDialog({ open, onClose, onPublished }: Props) {
       if (file.size < 1 || file.size > MAX_BYTES) throw new Error(t("p2p.fileTooLarge"));
       const raw = await file.text();
       const parsed: unknown = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(t("hubPublish.invalid"));
-      const value = parsed as Record<string, unknown>;
-      if (typeof value.title !== "string" || !value.title.trim() || value.title.length > 200) {
-        throw new Error(t("hubPublish.titleRequired"));
-      }
-      if (!value.map || !Array.isArray(value.units) || !value.timeline ||
-          typeof value.timeline !== "object" || Array.isArray(value.timeline) ||
-          !("units" in value.timeline) || typeof (value.timeline as Record<string, unknown>).units !== "object") {
-        throw new Error(t("hubPublish.invalid"));
-      }
+      const { title } = validatePublishBattle(parsed);
       loadBattleJson(parsed as RawBattleJson);
-      setSelected({ name: file.name, raw, title: value.title.trim() });
+      setSelected({ name: file.name, raw, title });
     } catch (error) {
       setProblem(error instanceof Error ? error.message : t("hubPublish.invalid"));
     }
