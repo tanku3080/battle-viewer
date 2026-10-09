@@ -1,5 +1,6 @@
 "use client";
 import { stageDistributedJson } from "@/utils/battleHub/pendingTransfer";
+import { BattlePreviewDialog } from "@/components/p2p/BattlePreviewDialog";
 
 import { useEffect, useState } from "react";
 import { PublishWorkDialog } from "@/components/p2p/PublishWorkDialog";
@@ -24,6 +25,8 @@ export function DistributedWorksPanel() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [publishOpen, setPublishOpen] = useState(false);
+  const [preview, setPreview] = useState<{ title: string; raw: string } | null>(null);
+  const [composing, setComposing] = useState(false);
 
   const refresh = async (q = query) => {
     setLoading(true);
@@ -55,14 +58,18 @@ export function DistributedWorksPanel() {
     return () => { cancelled = true; };
   }, []);
 
-  const open = async (work: DistributedWork, destination: "battle" | "create") => {
+  const open = async (work: DistributedWork, destination: "battle" | "create" | "preview") => {
     setBusy(true); setError(""); setNotice("");
     try {
       // The desktop returns exactly the verified original UTF-8 bytes.
       const raw = await fetchDistributedWork(work);
       // Keep the original string; do not serialize derived Viewer data.
-      stageDistributedJson(raw);
-      router.push(destination === "battle" ? "/battle" : "/create");
+      if (destination === "preview") {
+        setPreview({ title: work.title, raw });
+      } else {
+        stageDistributedJson(raw);
+        router.push(destination === "battle" ? "/battle" : "/create");
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally { setBusy(false); }
@@ -98,11 +105,11 @@ export function DistributedWorksPanel() {
       <p className="mt-2 text-sm text-gray-400">{t("p2p.catalogDescription")}</p>
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <form className="flex min-w-0 flex-1 gap-2" onSubmit={(event) => {
-          event.preventDefault(); void refresh(query);
+          event.preventDefault(); if (!composing) void refresh(query);
         }}>
           <label className="min-w-0 flex-1 text-sm">
             {t("p2p.searchWorks")}
-            <input value={query} onChange={(event) => setQuery(event.target.value.slice(0, 200))}
+            <input value={query} onCompositionStart={() => setComposing(true)} onCompositionEnd={(event) => { setComposing(false); setQuery(event.currentTarget.value.slice(0, 200)); }} onChange={(event) => setQuery(event.target.value.slice(0, 200))}
               className="mt-1 min-h-11 w-full rounded-md border border-gray-600 bg-[#0b1020] px-3"
               maxLength={200} />
           </label>
@@ -141,7 +148,7 @@ export function DistributedWorksPanel() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" disabled={!canDownload || busy || !work.downloadable}
                   className="min-h-11 rounded bg-blue-700 px-4 py-2 disabled:opacity-40"
-                  onClick={() => void open(work, "battle")}>{t("p2p.openViewer")}</button>
+                  onClick={() => void open(work, "preview")}>{t("p2p.openViewer")}</button>
                 <button type="button" disabled={!canDownload || busy || !work.downloadable}
                   className="min-h-11 rounded bg-gray-700 px-4 py-2 disabled:opacity-40"
                   onClick={() => void open(work, "create")}>{t("p2p.openCreator")}</button>
@@ -153,6 +160,7 @@ export function DistributedWorksPanel() {
           </article>
         ))}
       </div>
+      <BattlePreviewDialog preview={preview} onClose={() => setPreview(null)} />
       <PublishWorkDialog open={publishOpen} onClose={() => setPublishOpen(false)}
         onPublished={(work) => {
           setNotice(t("p2p.published", { title: work.title }));
