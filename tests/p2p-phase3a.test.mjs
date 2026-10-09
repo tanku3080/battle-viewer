@@ -68,7 +68,7 @@ test("Phase 6 paces outgoing CBOR response bytes with a shared native upload lim
   const network = read("src-tauri/src/p2p/network.rs");
   const cargo = read("src-tauri/Cargo.toml");
 
-  assert.match(cargo, /async-trait = "0\\.1"/);
+  assert.match(cargo, /async-trait = "0\.1"/);
   assert.match(network, /struct UploadLimiter/);
   assert.match(network, /struct PacedCodec/);
   assert.match(network, /struct PacedWriter/);
