@@ -68,6 +68,24 @@ export function DistributedWorksPanel() {
     } finally { setBusy(false); }
   };
 
+  const download = async (work: DistributedWork) => {
+    setBusy(true); setError("");
+    try {
+      const raw = await fetchDistributedWork(work);
+      const blob = new Blob([raw], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = (work.title.replace(/[\\/:*?"<>|]/g, "_").slice(0, 80) || "battle") + ".json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally { setBusy(false); }
+  };
+
   const desktop = isTauriRuntime();
   const canPublish = desktop && status?.networkActive &&
     status.settings?.participationEnabled && status.settings.redistributionEnabled;
@@ -127,6 +145,9 @@ export function DistributedWorksPanel() {
                 <button type="button" disabled={!canDownload || busy || !work.downloadable}
                   className="min-h-11 rounded bg-gray-700 px-4 py-2 disabled:opacity-40"
                   onClick={() => void open(work, "create")}>{t("p2p.openCreator")}</button>
+                <button type="button" disabled={!canDownload || busy || !work.downloadable}
+                  className="min-h-11 rounded bg-gray-700 px-4 py-2 disabled:opacity-40"
+                  onClick={() => void download(work)}>{t("hubPublish.download")}</button>
               </div>
             )}
           </article>
