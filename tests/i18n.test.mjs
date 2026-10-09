@@ -135,10 +135,6 @@ test("viewer keeps native file chooser and modal dialogs available in maximized 
   );
   assert.match(battlePage, /type="file"/);
 
-  const hubControls = fs.readFileSync(
-    path.join(root, "components/battle/controls/BattleHubControls.tsx"),
-    "utf8"
-  );
   const preview = fs.readFileSync(path.join(root, "components/p2p/BattlePreviewDialog.tsx"), "utf8");
   assert.match(preview, /<dialog/);
   assert.match(preview, /showModal\(\)/);
@@ -200,16 +196,10 @@ test("mobile viewer uses touch gestures instead of an on-screen dpad", () => {
   assert.doesNotMatch(player, /bottom-3 left-3 grid grid-cols-3/);
 });
 
-test("Battle Hub navigation is hidden below desktop while JSON publish remains available", () => {
-  const hubControls = fs.readFileSync(
-    path.join(root, "components/battle/controls/BattleHubControls.tsx"),
-    "utf8"
-  );
-  assert.match(hubControls, /relative hidden lg:block/);
-  assert.match(hubControls, /aria-expanded=\{desktopPanelOpen\}/);
-  assert.match(hubControls, /hub\.publishFromHub/);
-  assert.match(hubControls, /className="sr-only"/);
-
+test("Viewer displays one accessible Battle Hub entry", () => {
+  const controls = fs.readFileSync(path.join(root, "components/battle/controls/BattleHubControls.tsx"), "utf8");
+  assert.match(controls, /<BattleHubAccessButton/);
+  assert.doesNotMatch(controls, /desktopPanelOpen/);
   const home = fs.readFileSync(path.join(root, "app/home/page.tsx"), "utf8");
   assert.match(home, /hidden lg:block/);
 });
