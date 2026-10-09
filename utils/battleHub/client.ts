@@ -3,6 +3,7 @@ import type { ForceDefinition } from "@/utils/battle/forces";
 import {
   desktopHubGet,
   desktopHubPost,
+  desktopBattleDownload,
   isTauriRuntime,
 } from "@/utils/tauri/bridge";
 
@@ -141,4 +142,12 @@ export async function getBattleHubBattles(): Promise<
   });
   if (!response.ok) throw new Error(await parseError(response));
   return response.json() as Promise<BattleHubBattleSummary[]>;
+}
+
+export async function downloadLegacyBattle(id: string): Promise<RawBattleJson> {
+  if (isTauriRuntime()) return desktopBattleDownload(id);
+  const response = await fetch(`/api/battle-hub/battles/${encodeURIComponent(id)}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await parseError(response));
+  const payload = await response.json() as BattleHubBattleResponse;
+  return payload.battleJson;
 }
