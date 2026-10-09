@@ -18,6 +18,7 @@ export function BattleHubControls({ battleJson }: Props) {
   const [description, setDescription] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   useEffect(() => {
@@ -55,10 +56,12 @@ export function BattleHubControls({ battleJson }: Props) {
         battleJson,
       });
       setHealth("online");
-      setMessage(t("publish.success", { title: result.title, id: result.id }));
+      setIsOpen(false);
+      setToast(t("publish.success", { title: result.title, id: result.id }));
     } catch (error) {
-      setHealth("offline");
-      setMessage(error instanceof Error ? error.message : t("publish.failed"));
+      const failure = error instanceof Error ? error.message : t("publish.failed");
+      setMessage(failure.includes("Duplicate battle") || failure.includes("409")
+        ? t("hubPublish.duplicate") : failure);
     } finally {
       setIsPublishing(false);
     }
@@ -125,6 +128,10 @@ export function BattleHubControls({ battleJson }: Props) {
         </div>
       </div>
 
+      {toast && <div role="status" aria-live="polite"
+        className="fixed bottom-5 right-5 z-50 max-w-sm rounded-lg border border-emerald-700 bg-[#0b1020] p-4 text-emerald-200 shadow-xl">
+        {toast}<button type="button" aria-label={t("hubPublish.dismiss")} onClick={() => setToast(null)} className="ml-3 rounded px-2">×</button>
+      </div>}
       {isOpen && (
         <dialog
           ref={dialogRef}
